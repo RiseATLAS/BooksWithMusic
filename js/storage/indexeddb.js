@@ -44,6 +44,14 @@ export class DatabaseManager {
     return this._performTransaction('books', 'readwrite', (store) => store.put(book));
   }
 
+  async saveBook(book) {
+    book.id = book.id || Date.now();
+    await this._performTransaction('books', 'readwrite', (store) => {
+      return store.put(book);
+    });
+    return book.id;
+  }
+
   async getBook(id) {
     return this._performTransaction('books', 'readonly', (store) => store.get(id));
   }
@@ -56,7 +64,10 @@ export class DatabaseManager {
     return this._performTransaction('books', 'readwrite', (store) => store.delete(id));
   }
 
-  async updateBook(book) {
+  async updateBook(id, updates) {
+    const book = await this.getBook(id);
+    if (!book) throw new Error('Book not found');
+    Object.assign(book, updates);
     return this._performTransaction('books', 'readwrite', (store) => store.put(book));
   }
 

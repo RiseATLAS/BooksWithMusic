@@ -51,6 +51,18 @@ export class MusicManager {
         tags: ['nature', 'ambient', 'relaxing'],
       },
     ];
+    this.currentBookId = null;
+    this.chapters = [];
+  }
+
+  async initialize(bookId, chapters) {
+    this.currentBookId = bookId;
+    this.chapters = chapters;
+  }
+
+  onChapterChange(chapterIndex) {
+    // Called when chapter changes - can be used to update music selection
+    console.log('Chapter changed to:', chapterIndex);
   }
 
   async getTracksForChapter(book, chapter) {

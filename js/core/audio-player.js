@@ -11,6 +11,7 @@ export class AudioPlayer {
     this.currentGain.connect(this.audioContext.destination);
     this.nextGain.connect(this.audioContext.destination);
     this.cacheManager = new CacheManager();
+    this.eventHandlers = {};
     this.state = {
       playing: false,
       trackIndex: 0,
@@ -120,5 +121,28 @@ export class AudioPlayer {
     this.currentGain = this.nextGain;
     this.nextGain = tempGain;
     this.nextGain.gain.value = 0;
+  }
+
+  async play(url) {
+    const track = { url, id: url };
+    await this.playTrack(track);
+    this.emit('playing');
+  }
+
+  isPlaying() {
+    return this.state.playing && this.audioContext.state === 'running';
+  }
+
+  on(event, handler) {
+    if (!this.eventHandlers[event]) {
+      this.eventHandlers[event] = [];
+    }
+    this.eventHandlers[event].push(handler);
+  }
+
+  emit(event, data) {
+    if (this.eventHandlers[event]) {
+      this.eventHandlers[event].forEach(handler => handler(data));
+    }
   }
 }

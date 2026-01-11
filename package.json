@@ -1,0 +1,25 @@
+{
+  "name": "books-with-music",
+  "version": "1.0.0",
+  "description": "A web-based EPUB reader that automatically pairs instrumental music with your reading experience",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "keywords": [
+    "epub",
+    "reader",
+    "music",
+    "ebook"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "vite": "^5.0.0"
+  },
+  "dependencies": {
+    "jszip": "^3.10.1"
+  }
+}

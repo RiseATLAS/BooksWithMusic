@@ -16,7 +16,9 @@ class BooksWithMusicApp {
   async initialize() {
     await this.db.initialize();
     await this.library.initialize();
+    this.reader.setupEventListeners();
     this.settings.initialize();
+    this.musicPanel.initialize();
     this.setupEventListeners();
     this.registerServiceWorker();
   }
@@ -26,22 +28,22 @@ class BooksWithMusicApp {
       this.showReader(bookId);
     });
 
-    document.getElementById('back-to-library')?.addEventListener('click', () => {
-      this.showLibrary();
+    // Use event delegation for back button since it's created dynamically
+    document.body.addEventListener('click', (e) => {
+      if (e.target.closest('#back-to-library')) {
+        e.preventDefault();
+        this.showLibrary();
+      }
     });
   }
 
   async showReader(bookId) {
-    document.getElementById('library-view')?.classList.remove('active');
-    document.getElementById('reader-view')?.classList.add('active');
-    await this.reader.loadBook(bookId);
-    await this.musicPanel.loadBookMusic(bookId);
+    await this.reader.openBook(bookId);
   }
 
   showLibrary() {
-    document.getElementById('reader-view')?.classList.remove('active');
+    this.reader.destroyReaderView();
     document.getElementById('library-view')?.classList.add('active');
-    this.reader.cleanup();
   }
 
   async registerServiceWorker() {

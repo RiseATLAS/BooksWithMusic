@@ -1,6 +1,10 @@
 import JSZip from 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm';
 
 export class EPUBParser {
+  async parse(file) {
+    return this.parseEPUB(file);
+  }
+
   async parseEPUB(file) {
     const zip = await JSZip.loadAsync(file);
     const container = await this._getContainerXML(zip);
