@@ -24,6 +24,9 @@ class BooksWithMusicApp {
       if (window.location.pathname.includes('reader.html')) {
         console.log('📖 Loading reader page...');
         await this.reader.initializeReader();
+
+        // Apply settings ASAP (music init happens in the background now)
+        this.settings.initialize();
         
         // Initialize music panel with reader's music manager
         this.musicPanel = new MusicPanelUI(this.db, this.reader.musicManager);
@@ -32,9 +35,11 @@ class BooksWithMusicApp {
         
         // NOW trigger initial chapter music (after listener is registered)
         console.log('🎵 Triggering initial chapter music...');
+        // Ensure async music init has finished before starting playback.
+        if (this.reader._musicInitPromise) {
+          await this.reader._musicInitPromise;
+        }
         this.reader.musicManager.onChapterChange(this.reader.currentChapterIndex);
-        
-        this.settings.initialize();
         console.log('✓ Reader initialized');
       } else {
         // Home page - no music panel needed
@@ -64,13 +69,20 @@ class BooksWithMusicApp {
     // Book selection (on home page)
     if (this.library && this.library.on) {
       this.library.on('bookSelected', (bookId) => {
+        console.log('📚 Book selected event received:', bookId);
         this.showReader(bookId);
       });
     }
   }
 
   async showReader(bookId) {
-    await this.reader.openBook(bookId);
+    console.log('📖 Opening book with ID:', bookId);
+    try {
+      await this.reader.openBook(bookId);
+    } catch (error) {
+      console.error('Error opening book:', error);
+      alert('Failed to open book: ' + error.message);
+    }
   }
 
   showLibrary() {
@@ -78,6 +90,30 @@ class BooksWithMusicApp {
   }
 
   async registerServiceWorker() {
+    // Service workers frequently cause "crash on load" during development by
+    // serving stale cached assets (especially styles/scripts) after code changes.
+    // Vite already provides its own dev caching/reload pipeline.
+    if (import.meta?.env?.DEV) {
+      try {
+        if ('serviceWorker' in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map(r => r.unregister()));
+        }
+        if (window.caches?.keys) {
+          const keys = await window.caches.keys();
+          await Promise.all(
+            keys
+              .filter((k) => k.startsWith('booksWithMusic-'))
+              .map((k) => window.caches.delete(k))
+          );
+        }
+        console.log('Dev mode: service worker disabled and caches cleared');
+      } catch (error) {
+        console.warn('Dev mode: failed to clear service worker/caches:', error);
+      }
+      return;
+    }
+
     if ('serviceWorker' in navigator) {
       try {
         await navigator.serviceWorker.register('/service-worker.js');

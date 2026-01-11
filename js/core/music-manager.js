@@ -23,6 +23,9 @@ export class MusicManager {
     // Load available tracks from API
     await this.loadTracksFromAPI();
     
+    // Check and report caching status
+    await this.verifyCaching();
+    
     // Analyze book with AI to determine chapter-specific music
     console.log('🤖 AI analyzing book for mood-based music selection...');
     const book = { id: bookId, title: 'Current Book', chapters };
@@ -64,7 +67,7 @@ export class MusicManager {
     
     if (analysis && mapping) {
       console.log(`🎵 Chapter ${chapterIndex + 1}: ${analysis.primaryMood} mood detected`);
-      console.log(`   Playing: ${mapping.trackTitle || 'Default track'}`);
+      console.log(`   ${mapping.trackCount} tracks queued: ${mapping.tracks?.map(t => t.trackTitle).join(', ') || 'None'}`);
       console.log(`   Energy: ${analysis.energy}/5 | Tags: ${analysis.musicTags.join(', ')}`);
       
       // Emit event that music panel can listen to
@@ -73,7 +76,7 @@ export class MusicManager {
       this.emit('chapterMusicChanged', {
         chapterIndex,
         analysis,
-        recommendedTrack: mapping.trackId
+        recommendedTracks: mapping.tracks || [] // Now sends multiple tracks
       });
       console.log('✓ Event emitted');
     } else {
@@ -102,23 +105,57 @@ export class MusicManager {
 
   async cacheTrack(track) {
     try {
+      console.log(`💾 Caching track: ${track.title} (${track.id})`);
       const response = await fetch(track.url);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
       const blob = await response.blob();
       await this.cache.cacheTrack(track.id, blob);
       track.cached = true;
       await this.db.addTrack(track);
+      console.log(`✅ Track cached successfully: ${track.title}`);
     } catch (error) {
-      console.error('Failed to cache track:', error);
+      console.error(`❌ Failed to cache track ${track.title}:`, error);
+      track.cached = false;
     }
   }
 
+  async verifyCaching() {
+    console.log('🔍 Verifying track caching status...');
+    let cachedCount = 0;
+    let totalTracks = this.availableTracks.length;
+    
+    for (const track of this.availableTracks) {
+      const isCached = await this.cache.isTrackCached(track.id);
+      if (isCached) {
+        cachedCount++;
+        track.cached = true;
+      } else {
+        track.cached = false;
+        // Optionally pre-cache popular tracks
+        if (track.popularity > 80) {
+          console.log(`📥 Pre-caching popular track: ${track.title}`);
+          await this.cacheTrack(track);
+          cachedCount++;
+        }
+      }
+    }
+    
+    console.log(`💾 Cache Status: ${cachedCount}/${totalTracks} tracks cached (${Math.round(cachedCount/totalTracks*100)}%)`);
+    
+    if (cachedCount < totalTracks * 0.5) {
+      console.warn('⚠️ Less than 50% of tracks are cached. Consider pre-caching for better performance.');
+    } else {
+      console.log('✅ Good caching coverage for smooth playback!');
+    }
+  }
   async getAllAvailableTracks() {
     if (this.availableTracks.length === 0) {
       await this.loadTracksFromAPI();
     }
     return this.availableTracks;
   }
-
   async loadTracksFromAPI() {
     console.log('🎼 MusicManager: Starting track loading...');
     try {
@@ -134,14 +171,14 @@ export class MusicManager {
       
       console.log('✓ Using Freesound API');
       
-      // Try to load tracks from API
-      const moods = ['calm', 'epic', 'romantic', 'mysterious', 'adventure'];
-      console.log('🎵 Fetching tracks for moods:', moods.join(', '));
+      // Try to load tracks from API - fetch more for variety
+      const moods = ['calm', 'epic', 'romantic', 'mysterious', 'adventure', 'dark', 'tense', 'joyful', 'peaceful', 'magical'];
+      console.log('🎵 Fetching tracks for', moods.length, 'moods:', moods.join(', '));
       
       for (const mood of moods) {
         try {
           console.log(`   Fetching ${mood} tracks...`);
-          const tracks = await this.musicAPI.getTracksForMood(mood, 2);
+          const tracks = await this.musicAPI.getTracksForMood(mood, 15);
           console.log(`   ✓ Got ${tracks.length} ${mood} tracks`);
           this.availableTracks.push(...tracks);
         } catch (error) {

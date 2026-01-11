@@ -1,16 +1,16 @@
 export class AIProcessor {
   constructor() {
     this.moodKeywords = {
-      dark: ['dark', 'shadow', 'night', 'death', 'fear', 'terror', 'horror', 'nightmare', 'evil', 'sinister'],
-      mysterious: ['mystery', 'secret', 'hidden', 'unknown', 'enigma', 'puzzle', 'strange', 'curious'],
-      romantic: ['love', 'heart', 'kiss', 'romance', 'passion', 'desire', 'affection', 'tender'],
-      sad: ['sad', 'tear', 'cry', 'grief', 'sorrow', 'loss', 'melancholy', 'lonely', 'despair'],
-      epic: ['battle', 'war', 'fight', 'hero', 'victory', 'triumph', 'glory', 'legend'],
-      peaceful: ['peace', 'calm', 'quiet', 'gentle', 'soft', 'serene', 'tranquil', 'rest'],
-      tense: ['danger', 'threat', 'tension', 'suspense', 'anxiety', 'worry', 'nervous'],
-      joyful: ['happy', 'joy', 'laugh', 'smile', 'cheer', 'delight', 'merry', 'celebration'],
-      adventure: ['journey', 'quest', 'explore', 'discover', 'travel', 'adventure', 'expedition'],
-      magical: ['magic', 'spell', 'wizard', 'witch', 'enchant', 'mystical', 'supernatural']
+      dark: ['dark', 'shadow', 'night', 'death', 'fear', 'terror', 'horror', 'nightmare', 'evil', 'sinister', 'grim', 'haunted', 'ominous', 'doom', 'dread', 'foreboding', 'ghastly', 'macabre', 'menace', 'sinister', 'bleak', 'murky', 'obscure', 'dim', 'gloomy', 'dismal', 'black', 'twilight', 'abyss', 'void', 'cursed', 'wicked', 'malevolent', 'diabolical'],
+      mysterious: ['mystery', 'secret', 'hidden', 'unknown', 'enigma', 'puzzle', 'strange', 'curious', 'cryptic', 'obscure', 'arcane', 'esoteric', 'riddle', 'cipher', 'veiled', 'shadowy', 'elusive', 'ambiguous', 'perplexing', 'baffling', 'mystifying', 'intrigue', 'conspiracy', 'covert', 'clandestine', 'whisper', 'clue', 'investigate', 'probe'],
+      romantic: ['love', 'heart', 'kiss', 'romance', 'passion', 'desire', 'affection', 'tender', 'embrace', 'caress', 'intimate', 'adore', 'cherish', 'devoted', 'sweetheart', 'beloved', 'longing', 'yearning', 'amorous', 'enchanted', 'smitten', 'enamored', 'infatuated', 'crush', 'flutter', 'blush', 'gentle touch', 'gaze', 'whisper'],
+      sad: ['sad', 'tear', 'cry', 'grief', 'sorrow', 'loss', 'melancholy', 'lonely', 'despair', 'mourn', 'weep', 'anguish', 'heartbreak', 'misery', 'woe', 'lament', 'regret', 'remorse', 'bitter', 'forlorn', 'desolate', 'empty', 'hopeless', 'depressed', 'downcast', 'crestfallen', 'dejected', 'somber', 'mournful', 'wistful'],
+      epic: ['battle', 'war', 'fight', 'hero', 'victory', 'triumph', 'glory', 'legend', 'conquest', 'valor', 'courage', 'brave', 'warrior', 'champion', 'clash', 'siege', 'army', 'combat', 'duel', 'sword', 'shield', 'charge', 'assault', 'defend', 'fortress', 'kingdom', 'empire', 'destiny', 'fate', 'prophecy', 'epic', 'grand', 'mighty', 'powerful'],
+      peaceful: ['peace', 'calm', 'quiet', 'gentle', 'soft', 'serene', 'tranquil', 'rest', 'still', 'placid', 'soothing', 'harmonious', 'relaxed', 'content', 'ease', 'comfort', 'silence', 'hush', 'meditation', 'contemplation', 'breeze', 'meadow', 'garden', 'stream', 'dawn', 'sunset', 'twilight', 'lullaby', 'whisper'],
+      tense: ['danger', 'threat', 'tension', 'suspense', 'anxiety', 'worry', 'nervous', 'alert', 'urgent', 'panic', 'alarm', 'warning', 'crisis', 'peril', 'risk', 'hazard', 'jeopardy', 'precarious', 'uncertain', 'edge', 'brink', 'pressure', 'strain', 'stress', 'chase', 'pursue', 'flee', 'escape', 'trap', 'cornered'],
+      joyful: ['happy', 'joy', 'laugh', 'smile', 'cheer', 'delight', 'merry', 'celebration', 'jubilant', 'ecstatic', 'elated', 'gleeful', 'festive', 'exuberant', 'radiant', 'blissful', 'thrilled', 'excited', 'euphoric', 'jovial', 'cheerful', 'bright', 'sunny', 'playful', 'grin', 'giggle', 'dance', 'sing', 'rejoice'],
+      adventure: ['journey', 'quest', 'explore', 'discover', 'travel', 'adventure', 'expedition', 'voyage', 'trek', 'wander', 'roam', 'pioneer', 'frontier', 'horizon', 'path', 'trail', 'map', 'compass', 'uncharted', 'wild', 'wilderness', 'mountain', 'sea', 'forest', 'cave', 'treasure', 'seek', 'search', 'brave', 'bold'],
+      magical: ['magic', 'spell', 'wizard', 'witch', 'enchant', 'mystical', 'supernatural', 'sorcery', 'conjure', 'incantation', 'potion', 'wand', 'charm', 'hex', 'rune', 'ritual', 'ethereal', 'otherworldly', 'fairy', 'dragon', 'phoenix', 'unicorn', 'mythical', 'legendary', 'arcane', 'divine', 'celestial', 'enchanted', 'bewitched', 'spellbound']
     };
 
     this.moodToMusicMapping = {
@@ -195,20 +195,94 @@ export class AIProcessor {
   }
 
   /**
+   * Select multiple tracks (1-5) for a chapter based on its length
+   * Tracks are ordered sequentially for page progression
+   */
+  selectTracksForChapter(chapterAnalysis, availableTracks, chapter) {
+    if (!availableTracks || availableTracks.length === 0) {
+      return [];
+    }
+
+    // Estimate chapter length (rough word count)
+    const wordCount = chapter.content?.split(/\s+/).length || 1000;
+    
+    // Determine number of tracks based on chapter length
+    // Short: 1 track, Medium: 2-3 tracks, Long: 4-5 tracks
+    let trackCount;
+    if (wordCount < 2000) {
+      trackCount = 1;
+    } else if (wordCount < 5000) {
+      trackCount = 2;
+    } else if (wordCount < 8000) {
+      trackCount = 3;
+    } else if (wordCount < 12000) {
+      trackCount = 4;
+    } else {
+      trackCount = 5;
+    }
+
+    console.log(`   Chapter "${chapter.title}": ${wordCount} words → ${trackCount} tracks`);
+
+    // Score all tracks
+    const scoredTracks = availableTracks.map(track => {
+      let score = 0;
+      const trackTags = track.tags || [];
+      const chapterTags = chapterAnalysis.musicTags || [];
+
+      // Check tag overlap
+      chapterTags.forEach(tag => {
+        if (trackTags.some(trackTag => trackTag.includes(tag) || tag.includes(trackTag))) {
+          score += 3;
+        }
+      });
+
+      // Match energy level
+      if (track.energy) {
+        const energyDiff = Math.abs(track.energy - chapterAnalysis.energy);
+        score += (5 - energyDiff);
+      }
+
+      // Match tempo
+      if (track.tempo && track.tempo === chapterAnalysis.tempo) {
+        score += 2;
+      }
+
+      return { track, score };
+    });
+
+    // Sort by score and take top N tracks
+    scoredTracks.sort((a, b) => b.score - a.score);
+    
+    // Ensure we don't request more tracks than available
+    const actualCount = Math.min(trackCount, scoredTracks.length);
+    const selectedTracks = scoredTracks.slice(0, actualCount).map(st => st.track);
+    
+    return selectedTracks;
+  }
+
+  /**
    * Generate chapter-to-track mappings for entire book
+   * Now returns multiple tracks per chapter (1-5 based on length)
    */
   generateChapterMappings(book, chapterAnalyses, availableTracks) {
-    return chapterAnalyses.map(analysis => {
-      const recommendedTrack = this.selectTrackForChapter(analysis, availableTracks);
+    return chapterAnalyses.map((analysis, index) => {
+      const chapter = book.chapters[index];
+      const selectedTracks = this.selectTracksForChapter(analysis, availableTracks, chapter);
       
       return {
         bookId: book.id,
         chapterId: analysis.chapterId,
         chapterTitle: analysis.chapterTitle,
         primaryMood: analysis.primaryMood,
-        trackId: recommendedTrack?.id,
-        trackTitle: recommendedTrack?.title,
-        reasoning: `${analysis.primaryMood} mood detected, energy: ${analysis.energy}/5`
+        tracks: selectedTracks.map(track => ({
+          trackId: track.id,
+          trackTitle: track.title,
+          trackUrl: track.url,
+          trackArtist: track.artist,
+          trackDuration: track.duration
+        })),
+        trackCount: selectedTracks.length,
+        reasoning: `${analysis.primaryMood} mood detected, energy: ${analysis.energy}/5, ${selectedTracks.length} tracks selected`
       };
     });
   }

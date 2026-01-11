@@ -31,8 +31,8 @@ export class MusicPanelUI {
     this.musicManager.on('chapterMusicChanged', async (data) => {
       console.log('🎵 Chapter music changed event received:', data);
       
-      // Load playlist with recommended track
-      await this.loadPlaylistForChapter(data.chapterIndex, data.recommendedTrack);
+      // Load playlist with recommended tracks (1-5 tracks in order)
+      await this.loadPlaylistForChapter(data.chapterIndex, data.recommendedTracks);
       
       // Check if auto-play enabled (default FALSE - requires API key)
       const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
@@ -62,35 +62,45 @@ export class MusicPanelUI {
     });
   }
 
-  async loadPlaylistForChapter(chapterIndex, recommendedTrackId) {
+  async loadPlaylistForChapter(chapterIndex, recommendedTracks) {
     try {
       console.log('🎼 Loading playlist for chapter:', chapterIndex);
-      console.log('   Recommended track ID:', recommendedTrackId);
+      console.log('   Recommended tracks:', recommendedTracks?.length || 0);
       
       // Get available tracks from music manager
       console.log('   Fetching tracks from music manager...');
       const allTracks = await this.musicManager.getAllAvailableTracks();
       
       console.log('✓ Available tracks:', allTracks.length);
-      if (allTracks.length > 0) {
-        console.log('   Track titles:', allTracks.map(t => t.title).slice(0, 5).join(', ') + '...');
-      }
-      
       if (allTracks.length === 0) {
         console.warn('No tracks available');
         return;
       }
       
-      // Find recommended track and put it first
-      const recommendedTrack = allTracks.find(t => t.id === recommendedTrackId);
-      
-      if (recommendedTrack) {
-        console.log('Found recommended track:', recommendedTrack.title);
-        // Put recommended track first, then others
-        this.playlist = [recommendedTrack, ...allTracks.filter(t => t.id !== recommendedTrackId)];
+      // Build ordered playlist from recommended tracks
+      if (recommendedTracks && recommendedTracks.length > 0) {
+        console.log(`Found ${recommendedTracks.length} recommended tracks for this chapter`);
+        
+        // Find full track objects for recommended track IDs (in order)
+        const orderedPlaylist = [];
+        const usedIds = new Set();
+        
+        for (const recTrack of recommendedTracks) {
+          const fullTrack = allTracks.find(t => t.id === recTrack.trackId);
+          if (fullTrack) {
+            orderedPlaylist.push(fullTrack);
+            usedIds.add(fullTrack.id);
+            console.log(`   ${orderedPlaylist.length}. ${fullTrack.title}`);
+          }
+        }
+        
+        // Add remaining tracks as fallback
+        const remainingTracks = allTracks.filter(t => !usedIds.has(t.id));
+        this.playlist = [...orderedPlaylist, ...remainingTracks];
+        
+        console.log(`✓ Playlist: ${orderedPlaylist.length} chapter tracks + ${remainingTracks.length} fallback tracks`);
       } else {
-        console.log('Recommended track not found, using all tracks');
-        // No specific recommendation, use all tracks
+        console.log('No specific recommendations, using all tracks');
         this.playlist = allTracks;
       }
       

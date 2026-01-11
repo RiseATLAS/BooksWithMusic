@@ -1,3 +1,5 @@
+@import url('https://fonts.cdnfonts.com/css/opendyslexic');
+
 :root {
   --bg-primary: #f0f2f5;
   --bg-secondary: #ffffff;
@@ -11,6 +13,28 @@
   --reader-text: #1c1e21;
   --glass-bg: rgba(255, 255, 255, 0.7);
   --glass-border: rgba(255, 255, 255, 0.3);
+  --reader-text-align: justify;
+  --reader-font-size: 18px;
+  --reader-line-height: 1.8;
+  --reader-font-family: Georgia, "Times New Roman", serif;
+}
+
+/* Respect system dark mode preference */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-primary: #0a0a0a;
+    --bg-secondary: #1a1a1a;
+    --text-primary: #e4e6eb;
+    --text-secondary: #b0b3b8;
+    --accent: #818cf8;
+    --accent-hover: #a5b4fc;
+    --border: #3a3b3c;
+    --shadow: rgba(0, 0, 0, 0.4);
+    --reader-bg: #18191a;
+    --reader-text: #e4e6eb;
+    --glass-bg: rgba(26, 26, 26, 0.7);
+    --glass-border: rgba(58, 59, 60, 0.3);
+  }
 }
 
 [data-theme="sepia"] {
@@ -61,16 +85,20 @@ body {
 }
 
 .app-header h1 {
-  font-size: 3.5rem;
-  font-weight: 800;
+  font-size: clamp(2.4rem, 6vw, 3.6rem);
+  font-weight: 750;
+  letter-spacing: -0.03em;
+  font-family: ui-serif, Georgia, "Times New Roman", serif;
   color: white;
   margin-bottom: 0.5rem;
   text-shadow: 0 2px 20px rgba(0, 0, 0, 0.2);
 }
 
 .subtitle {
-  font-size: 1.2rem;
-  color: rgba(255, 255, 255, 0.9);
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.88);
+  text-transform: uppercase;
 }
 
 .library-container {
@@ -160,8 +188,34 @@ body {
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
 }
 
-.book-cover { font-size: 4rem; text-align: center; margin-bottom: 1rem; opacity: 0.8; }
-.book-title { 
+.book-cover { 
+  font-size: 4rem; 
+  text-align: center; 
+  margin-bottom: 1rem; 
+  opacity: 0.8;
+  width: 100%;
+  height: 160px;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--glass-bg);
+  position: relative;
+}
+
+.book-cover-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.book-cover-placeholder {
+  font-size: 4rem;
+  opacity: 0.8;
+}
+.book-card .book-title { 
   font-size: 1.1rem; 
   font-weight: 600; 
   margin-bottom: 0.5rem; 
@@ -213,24 +267,29 @@ body {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: var(--bg-primary);
+  background: var(--page-paper-bg, var(--reader-bg));
+  color: var(--page-paper-text, var(--reader-text));
 }
 
 .reader-header {
   display: flex;
   align-items: center;
   gap: 1.5rem;
-  padding: 1.25rem 2rem;
+  padding: 1rem 1.5rem;
   background: var(--glass-bg);
   backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.06);
 }
 
-.book-title {
+.reader-header .book-title {
   flex: 1;
-  font-size: 1.25rem;
-  font-weight: 600;
+  font-size: 1.1rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .header-actions { display: flex; gap: 0.5rem; }
@@ -326,28 +385,125 @@ body {
 
 .reader-content {
   flex: 1;
-  overflow-y: auto;
+  overflow: hidden !important; /* Force hide all scrollbars */
   padding: 3rem;
-  background: var(--reader-bg);
-  color: var(--reader-text);
+  background: var(--page-paper-bg, var(--reader-bg));
+  color: var(--page-paper-text, var(--reader-text));
+  display: flex;
+  justify-content: center;
+  position: relative;
+}
+
+/* Note: scrollbars are allowed (page viewport can show one) */
+
+/* Page flip container */
+.page-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden !important;
+  display: flex;
+  justify-content: center;
+}
+
+.page-viewport {
+  position: relative;
+  width: var(--page-width, 650px);
+  max-width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+  perspective: 1400px;
+  background: var(--page-paper-bg, var(--reader-bg));
+  color: var(--page-paper-text, var(--reader-text));
+  border-radius: 16px;
+  box-shadow: none;
+  scrollbar-width: auto;
+  -ms-overflow-style: auto;
+}
+
+.page-viewport::-webkit-scrollbar {
+  width: 12px;
+}
+
+.page-viewport::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.25);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+.page-viewport::-webkit-scrollbar-thumb:hover {
+  background: rgba(0,0,0,0.35);
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+
+/* Current page indicator */
+.page-indicator {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  z-index: 1000;
 }
 
 .chapter-heading {
   font-size: 2rem;
   font-weight: 700;
   margin-bottom: 2rem;
-  color: var(--text-primary);
+  color: inherit;
+  text-align: center;
+  width: 100%;
 }
 
 .chapter-text {
-  max-width: 700px;
-  margin: 0 auto;
-  font-size: 1.125rem;
-  line-height: 1.8;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 32px 28px 56px;
+  font-size: var(--reader-font-size, 18px);
+  line-height: var(--reader-line-height, 1.8);
+  font-family: var(--reader-font-family, Georgia, "Times New Roman", serif);
+  color: inherit;
+  background: transparent;
+  /* IMPORTANT: must not clip its own columns; the viewport clips instead */
+  overflow: visible;
+  height: auto;
 }
 
-.chapter-text p { margin-bottom: 1.5em; text-align: justify; }
+/* Many EPUBs embed their own white backgrounds; force transparency so paper tint shows */
+.chapter-text * {
+  background-color: transparent !important;
+}
+
+
+
+.chapter-text p { margin-bottom: 1.5em; text-align: var(--reader-text-align, justify); }
 .chapter-text h1, .chapter-text h2, .chapter-text h3 { margin: 2.5rem 0 1rem; font-weight: 600; }
+
+.chapter-text img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 1rem auto;
+  break-inside: avoid;
+}
+
+.chapter-text pre,
+.chapter-text blockquote,
+.chapter-text table {
+  break-inside: avoid;
+}
 
 .reader-controls {
   display: flex;
@@ -529,8 +685,15 @@ body {
 }
 
 /* Settings */
-.settings-content { padding: 1.5rem; }
+.settings-content { padding: 1.5rem; max-height: 70vh; overflow-y: auto; }
 .setting-group { margin-bottom: 1.5rem; }
+
+.setting-group h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 1.5rem 0 1rem 0;
+}
 
 .setting-group label {
   display: block;
@@ -540,7 +703,8 @@ body {
 }
 
 .setting-group select,
-.setting-group input[type="range"] {
+.setting-group input[type="range"],
+.setting-group input[type="text"] {
   width: 100%;
   padding: 0.75rem;
   border: 1px solid var(--border);
@@ -550,11 +714,61 @@ body {
   font-size: 0.95rem;
 }
 
+.setting-group input[type="range"] {
+  padding: 0;
+  height: 6px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--border);
+  outline: none;
+  border-radius: 3px;
+}
+
+.setting-group input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.setting-group input[type="range"]::-webkit-slider-thumb:hover {
+  background: var(--accent-hover);
+  transform: scale(1.1);
+}
+
+.setting-group input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.setting-group input[type="range"]::-moz-range-thumb:hover {
+  background: var(--accent-hover);
+  transform: scale(1.1);
+}
+
+.setting-group span {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
 .setting-group input[type="checkbox"] {
   margin-right: 0.5rem;
   width: 18px;
   height: 18px;
   cursor: pointer;
+  accent-color: var(--accent);
 }
 
 .setting-group label:has(input[type="checkbox"]) {
@@ -628,24 +842,89 @@ body {
 .toast-error { border-left: 4px solid #ef4444; }
 
 /* Fullscreen mode */
-:fullscreen {
-  background: var(--reader-bg);
+/* Ensure fullscreen uses the same paper color everywhere (no body gradient bleeding through) */
+:fullscreen,
+:fullscreen body,
+:fullscreen #reader-view {
+  background: var(--page-paper-bg, var(--reader-bg));
 }
 
-:-webkit-full-screen {
-  background: var(--reader-bg);
+:-webkit-full-screen,
+:-webkit-full-screen body,
+:-webkit-full-screen #reader-view {
+  background: var(--page-paper-bg, var(--reader-bg));
 }
 
-:fullscreen .reader-header {
-  position: sticky;
+/* Hover zones that reveal the bars */
+.fullscreen-hover-zone {
+  display: none;
+}
+
+:fullscreen #reader-view .fullscreen-hover-zone,
+:-webkit-full-screen #reader-view .fullscreen-hover-zone {
+  display: block;
+  position: fixed;
+  left: 0;
+  right: 0;
+  z-index: 2000;
+  pointer-events: auto;
+  background: transparent;
+}
+
+:fullscreen #reader-view .fullscreen-hover-zone.top,
+:-webkit-full-screen #reader-view .fullscreen-hover-zone.top {
   top: 0;
-  z-index: 1000;
+  height: 24px;
 }
 
+:fullscreen #reader-view .fullscreen-hover-zone.bottom,
+:-webkit-full-screen #reader-view .fullscreen-hover-zone.bottom {
+  bottom: 0;
+  height: 40px;
+}
+
+/* Header/footer are hidden in fullscreen and revealed when hovering their zones */
+:fullscreen .reader-header,
+:fullscreen .reader-controls,
+:-webkit-full-screen .reader-header,
+:-webkit-full-screen .reader-controls {
+  position: fixed;
+  left: 0;
+  right: 0;
+  z-index: 1999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+:fullscreen .reader-header,
 :-webkit-full-screen .reader-header {
-  position: sticky;
   top: 0;
-  z-index: 1000;
+  transform: translateY(-8px);
+}
+
+:fullscreen .reader-controls,
+:-webkit-full-screen .reader-controls {
+  bottom: 0;
+  transform: translateY(8px);
+}
+
+:fullscreen #reader-view .fullscreen-hover-zone.top:hover + .reader-header,
+:fullscreen .reader-header:hover,
+:-webkit-full-screen #reader-view .fullscreen-hover-zone.top:hover + .reader-header,
+:-webkit-full-screen .reader-header:hover {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+:fullscreen #reader-view .fullscreen-hover-zone.bottom:hover + .reader-controls,
+:fullscreen .reader-controls:hover,
+:-webkit-full-screen #reader-view .fullscreen-hover-zone.bottom:hover + .reader-controls,
+:-webkit-full-screen .reader-controls:hover {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
 }
 
 :fullscreen .chapter-sidebar {

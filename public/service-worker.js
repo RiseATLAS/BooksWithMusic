@@ -1,5 +1,5 @@
-const CACHE_NAME = 'booksWithMusic-v1';
-const AUDIO_CACHE = 'booksWithMusic-audio-v1';
+const CACHE_NAME = 'booksWithMusic-v2';
+const AUDIO_CACHE = 'booksWithMusic-audio-v2';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -10,6 +10,18 @@ self.addEventListener('install', (event) => {
         '/styles.css',
       ]);
     })
+  );
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) => {
+      return Promise.all(
+        keys
+          .filter((key) => key.startsWith('booksWithMusic-') && key !== CACHE_NAME && key !== AUDIO_CACHE)
+          .map((key) => caches.delete(key))
+      );
+    }).then(() => self.clients.claim())
   );
 });
 

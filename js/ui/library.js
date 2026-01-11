@@ -52,14 +52,23 @@ export class BookLibrary {
       const arrayBuffer = await file.arrayBuffer();
       const parsed = await this.parser.parse(arrayBuffer);
       
+      // Calculate total word count for page estimation
+      const totalWords = parsed.chapters.reduce((total, chapter) => {
+        const textContent = chapter.content.replace(/<[^>]*>/g, ''); // Strip HTML
+        return total + textContent.split(/\s+/).filter(word => word.length > 0).length;
+      }, 0);
+      
       // Store book data
       const bookData = {
-        title: parsed.metadata?.title || file.name.replace('.epub', ''),
-        author: parsed.metadata?.creator || 'Unknown',
+        title: parsed.metadata?.title || parsed.title || file.name.replace('.epub', ''),
+        author: parsed.author || parsed.metadata?.author || 'Unknown Author',
         data: arrayBuffer,
+        coverImage: parsed.coverImage,
+        images: parsed.images ? Array.from(parsed.images.entries()) : [],
         importDate: new Date(),
         progress: 0,
-        currentChapter: 0
+        currentChapter: 0,
+        totalWords: totalWords
       };
       
       const bookId = await this.db.saveBook(bookData);
@@ -85,6 +94,30 @@ export class BookLibrary {
   async loadBooks() {
     const books = await this.db.getAllBooks();
     this.renderBooks(books);
+    // Background repair for old imports (blob: URLs don't survive reload)
+    this.repairMissingCovers(books).catch((e) => console.warn('Cover repair failed:', e));
+  }
+
+  async repairMissingCovers(books) {
+    const needsFix = (b) => !b?.coverImage || (typeof b.coverImage === 'string' && b.coverImage.startsWith('blob:'));
+    const toFix = (books || []).filter(needsFix);
+    if (!toFix.length) return;
+
+    for (const book of toFix) {
+      try {
+        if (!book?.data) continue;
+        const { coverImage } = await this.parser.extractCoverOnly(book.data);
+        if (coverImage && typeof coverImage === 'string' && coverImage.startsWith('data:')) {
+          await this.db.updateBook(book.id, { coverImage });
+        }
+      } catch (e) {
+        console.warn('Failed to repair cover for book', book?.id, e);
+      }
+    }
+
+    // Reload after repairs so UI updates
+    const refreshed = await this.db.getAllBooks();
+    this.renderBooks(refreshed);
   }
 
   renderBooks(books) {
@@ -101,23 +134,33 @@ export class BookLibrary {
       return;
     }
 
-    bookList.innerHTML = books.map(book => `
-      <div class="book-card" data-book-id="${book.id}">
-        <div class="book-cover">📖</div>
-        <h3 class="book-title">${this.escapeHtml(book.title)}</h3>
-        <p class="book-author">${this.escapeHtml(book.author)}</p>
-        <div class="book-progress">
-          <div class="progress-bar">
-            <div class="progress-fill" style="width: ${book.progress || 0}%"></div>
+    bookList.innerHTML = books.map(book => {
+      const estimatedPages = Math.ceil((book.totalWords || 50000) / 250); // 250 words per page
+      const currentPage = Math.floor((book.progress || 0) / 100 * estimatedPages);
+      
+      // Create cover display
+      const coverDisplay = book.coverImage 
+        ? `<img src="${book.coverImage}" alt="Book cover" class="book-cover-image">` 
+        : '<div class="book-cover-placeholder">📖</div>';
+      
+      return `
+        <div class="book-card" data-book-id="${book.id}">
+          <div class="book-cover">${coverDisplay}</div>
+          <h3 class="book-title">${this.escapeHtml(book.title)}</h3>
+          <p class="book-author">${this.escapeHtml(book.author)}</p>
+          <div class="book-progress">
+            <div class="progress-bar">
+              <div class="progress-fill" style="width: ${book.progress || 0}%"></div>
+            </div>
+            <span class="progress-text">Page ${currentPage} of ${estimatedPages}</span>
           </div>
-          <span class="progress-text">${Math.round(book.progress || 0)}%</span>
+          <div class="book-actions">
+            <button class="btn btn-primary btn-read" data-book-id="${book.id}">Read</button>
+            <button class="btn btn-secondary btn-delete" data-book-id="${book.id}">Delete</button>
+          </div>
         </div>
-        <div class="book-actions">
-          <button class="btn btn-primary btn-read" data-book-id="${book.id}">Read</button>
-          <button class="btn btn-secondary btn-delete" data-book-id="${book.id}">Delete</button>
-        </div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
 
     // Use event delegation on book-list container
     console.log('Setting up book list event delegation');
@@ -139,6 +182,7 @@ export class BookLibrary {
         e.stopPropagation();
         const bookId = parseInt(readBtn.dataset.bookId);
         console.log('✓ Read button clicked for book:', bookId);
+        console.log('   Book ID type:', typeof bookId, 'Value:', bookId);
         this.emit('bookSelected', bookId);
         return;
       }

@@ -8,6 +8,7 @@
 </head>
 <body>
     <div id="reader-view">
+        <div class="fullscreen-hover-zone top" aria-hidden="true"></div>
         <header class="reader-header">
             <button id="back-to-library" class="btn btn-icon">
                 <span class="icon">←</span> Library
@@ -29,6 +30,7 @@
             <main id="reader-content" class="reader-content"></main>
         </div>
 
+        <div class="fullscreen-hover-zone bottom" aria-hidden="true"></div>
         <div class="reader-controls">
             <button id="prev-chapter" class="btn btn-secondary">Previous</button>
             <div class="progress-indicator">
@@ -100,6 +102,72 @@
             </div>
 
             <div class="setting-group">
+                <label for="font-family">Font Family</label>
+                <select id="font-family">
+                    <option value="serif">Serif (Georgia)</option>
+                    <option value="sans-serif">Sans-serif (System)</option>
+                    <option value="monospace">Monospace (Courier)</option>
+                    <option value="open-dyslexic">OpenDyslexic</option>
+                </select>
+            </div>
+
+            <div class="setting-group">
+                <label for="text-align">Text Alignment</label>
+                <select id="text-align">
+                    <option value="left">Left</option>
+                    <option value="justify">Justified</option>
+                </select>
+            </div>
+
+            <div class="setting-group">
+                <label for="page-width">Page Width</label>
+                <input type="range" id="page-width" min="300" max="1200" step="50" value="650">
+                <span id="page-width-value">650px</span>
+            </div>
+
+            <div class="setting-group">
+                <label for="brightness">Brightness</label>
+                <input type="range" id="brightness" min="60" max="120" value="100">
+                <span id="brightness-value">100%</span>
+            </div>
+
+            <div class="setting-group">
+                <label for="page-color">Page Color</label>
+                <select id="page-color">
+                    <option value="white">White</option>
+                    <option value="cream">Cream</option>
+                    <option value="gray">Gray</option>
+                    <option value="black">Black</option>
+                </select>
+            </div>
+
+            <div class="setting-group">
+                <label for="page-warmth">Page Warmth (Yellowness)</label>
+                <input type="range" id="page-warmth" min="0" max="100" value="0">
+                <span id="page-warmth-value">0%</span>
+            </div>
+
+            <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid var(--border);">
+            <h3 style="margin-bottom: 1rem; font-size: 1.1rem;">Display Options</h3>
+
+            <div class="setting-group">
+                <label for="show-progress">
+                    <input type="checkbox" id="show-progress" checked>
+                    Show Reading Progress Bar
+                </label>
+            </div>
+
+            <div class="setting-group">
+                <label for="show-chapter-title">
+                    <input type="checkbox" id="show-chapter-title" checked>
+                    Show Chapter Title
+                </label>
+            </div>
+
+            <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid var(--border);">
+            <h3 style="margin-bottom: 1rem; font-size: 1.1rem;">Music Settings</h3>
+
+            <div class="setting-group">
                 <label for="music-enabled">
                     <input type="checkbox" id="music-enabled" checked>
                     Enable Background Music
@@ -108,12 +176,19 @@
 
             <div class="setting-group">
                 <label for="auto-play">
-                    <input type="checkbox" id="auto-play" checked>
+                    <input type="checkbox" id="auto-play">
                     Auto-play Music
                 </label>
             </div>
 
+            <div class="setting-group">
+                <label for="crossfade-duration">Crossfade Duration</label>
+                <input type="range" id="crossfade-duration" min="1" max="10" value="3">
+                <span id="crossfade-value">3s</span>
+            </div>
+
             <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid var(--border);">
+            <h3 style="margin-bottom: 1rem; font-size: 1.1rem;">API Configuration</h3>
 
             <div class="setting-group">
                 <label for="freesound-key">Freesound API Key (Recommended)</label>
