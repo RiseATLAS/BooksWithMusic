@@ -297,10 +297,31 @@ body {
   font-weight: 600;
 }
 
-.chapter-title {
+.chapter-info {
   flex: 1;
-  font-size: 0.9rem;
-  line-height: 1.4;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.chapter-title {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chapter-mood {
+  font-size: 0.7rem;
+  opacity: 0.8;
+  font-weight: 400;
+  text-transform: capitalize;
+}
+
+.chapter-item:hover .chapter-mood,
+.chapter-item.active .chapter-mood {
+  opacity: 1;
 }
 
 .reader-content {
@@ -605,6 +626,53 @@ body {
 
 .toast-success { border-left: 4px solid #10b981; }
 .toast-error { border-left: 4px solid #ef4444; }
+
+/* Fullscreen mode */
+:fullscreen {
+  background: var(--reader-bg);
+}
+
+:-webkit-full-screen {
+  background: var(--reader-bg);
+}
+
+:fullscreen .reader-header {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+:-webkit-full-screen .reader-header {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+:fullscreen .chapter-sidebar {
+  position: fixed;
+  left: -280px;
+  z-index: 999;
+  transition: left 0.3s;
+  height: 100vh;
+}
+
+:-webkit-full-screen .chapter-sidebar {
+  position: fixed;
+  left: -280px;
+  z-index: 999;
+  transition: left 0.3s;
+  height: 100vh;
+}
+
+:fullscreen .chapter-sidebar:hover,
+:fullscreen .chapter-sidebar.show {
+  left: 0;
+}
+
+:-webkit-full-screen .chapter-sidebar:hover,
+:-webkit-full-screen .chapter-sidebar.show {
+  left: 0;
+}
 
 /* Responsive */
 @media (max-width: 768px) {

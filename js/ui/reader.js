@@ -1,10 +1,12 @@
 import { EPUBParser } from '../core/epub-parser.js';
 import { MusicManager } from '../core/music-manager.js';
+import { AIProcessor } from '../core/ai-processor.js';
 
 export class ReaderUI {
   constructor(db) {
     this.db = db;
     this.parser = new EPUBParser();
+    this.aiProcessor = new AIProcessor();
     this.musicManager = new MusicManager(db);
     this.currentBook = null;
     this.currentChapterIndex = 0;
@@ -22,6 +24,18 @@ export class ReaderUI {
 
       // Parse EPUB
       const parsed = await this.parser.parse(book.data);
+      
+      // Check if book has been analyzed
+      let analysis = await this.db.getAnalysis(bookId);
+      if (!analysis) {
+        console.log('⚠️ Book not analyzed yet. Running AI analysis...');
+        const bookForAnalysis = { id: bookId, title: book.title, chapters: parsed.chapters };
+        analysis = await this.aiProcessor.analyzeBook(bookForAnalysis);
+        await this.db.saveAnalysis(bookId, analysis);
+        console.log('✓ AI analysis complete and saved');
+      } else {
+        console.log('✓ Using cached AI analysis from database');
+      }
       
       // Store book data in sessionStorage for reader page
       sessionStorage.setItem('currentBook', JSON.stringify({
@@ -68,6 +82,9 @@ export class ReaderUI {
       
       // Setup event listeners
       this.setupEventListeners();
+      
+      // Note: Initial chapter music will be triggered from main.js
+      // after music panel listener is registered
     } catch (error) {
       console.error('Error initializing reader:', error);
       window.location.href = '/';
@@ -78,13 +95,22 @@ export class ReaderUI {
     const chapterList = document.getElementById('chapter-list');
     if (!chapterList) return;
 
-    chapterList.innerHTML = this.chapters.map((chapter, index) => `
-      <div class="chapter-item ${index === this.currentChapterIndex ? 'active' : ''}" 
-           data-chapter="${index}">
-        <span class="chapter-number">${index + 1}</span>
-        <span class="chapter-title">${this.escapeHtml(chapter.title)}</span>
-      </div>
-    `).join('');
+    chapterList.innerHTML = this.chapters.map((chapter, index) => {
+      const analysis = this.musicManager.getChapterAnalysis(index);
+      const moodEmoji = this.getMoodEmoji(analysis?.primaryMood);
+      const moodLabel = analysis?.primaryMood ? `${moodEmoji} ${analysis.primaryMood}` : '';
+      
+      return `
+        <div class="chapter-item ${index === this.currentChapterIndex ? 'active' : ''}" 
+             data-chapter="${index}">
+          <span class="chapter-number">${index + 1}</span>
+          <div class="chapter-info">
+            <span class="chapter-title">${this.escapeHtml(chapter.title)}</span>
+            ${moodLabel ? `<span class="chapter-mood">${moodLabel}</span>` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
 
     // Add click listeners
     chapterList.querySelectorAll('.chapter-item').forEach(item => {
@@ -95,6 +121,22 @@ export class ReaderUI {
         this.loadChapter(chapterIndex);
       });
     });
+  }
+
+  getMoodEmoji(mood) {
+    const emojiMap = {
+      dark: '🌑',
+      mysterious: '🔍',
+      romantic: '❤️',
+      sad: '😢',
+      epic: '⚔️',
+      peaceful: '☮️',
+      tense: '⚡',
+      joyful: '😊',
+      adventure: '🏝️',
+      magical: '✨'
+    };
+    return emojiMap[mood] || '🎵';
   }
 
   async loadChapter(index) {
@@ -162,7 +204,9 @@ export class ReaderUI {
     await this.saveProgress();
 
     // Update music for chapter
-    this.musicManager.onChapterChange(index);
+    if (this.musicManager) {
+      this.musicManager.onChapterChange(index);
+    }
   }
 
   findChapterByHref(href) {
@@ -205,6 +249,44 @@ export class ReaderUI {
       e.preventDefault();
       this.loadChapter(this.currentChapterIndex + 1);
     });
+
+    // Fullscreen toggle
+    document.getElementById('fullscreen-btn')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      this.toggleFullscreen();
+    });
+
+    // Listen for fullscreen changes to update button
+    document.addEventListener('fullscreenchange', () => this.updateFullscreenButton());
+    document.addEventListener('webkitfullscreenchange', () => this.updateFullscreenButton());
+  }
+
+  toggleFullscreen() {
+    if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+      // Enter fullscreen
+      const elem = document.documentElement;
+      if (elem.requestFullscreen) {
+        elem.requestFullscreen();
+      } else if (elem.webkitRequestFullscreen) {
+        elem.webkitRequestFullscreen();
+      }
+    } else {
+      // Exit fullscreen
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      }
+    }
+  }
+
+  updateFullscreenButton() {
+    const btn = document.getElementById('fullscreen-btn');
+    if (btn) {
+      const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement;
+      btn.textContent = isFullscreen ? '⛶' : '⛶';
+      btn.title = isFullscreen ? 'Exit Fullscreen (F11)' : 'Fullscreen (F11)';
+    }
   }
 
   escapeHtml(text) {

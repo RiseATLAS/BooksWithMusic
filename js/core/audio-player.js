@@ -21,6 +21,11 @@ export class AudioPlayer {
   }
 
   async playTrack(track) {
+    // Resume audio context if suspended (browser autoplay policy)
+    if (this.audioContext.state === 'suspended') {
+      await this.audioContext.resume();
+    }
+    
     const audioBuffer = await this._loadTrack(track);
     
     if (this.currentSource) {
@@ -32,6 +37,7 @@ export class AudioPlayer {
 
     this.state.playing = true;
     this.state.currentTrack = track;
+    this.emit('playing', track);
   }
 
   async preloadTrack(track) {

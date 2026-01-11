@@ -69,6 +69,28 @@ export class SettingsUI {
       this.settings.autoPlay = e.target.checked;
       this.saveSettings();
     });
+
+    // Freesound API key
+    const freesoundKeyInput = document.getElementById('freesound-key');
+    const saveFreesoundBtn = document.getElementById('save-freesound-key');
+    
+    if (freesoundKeyInput) {
+      const savedKey = localStorage.getItem('freesound_api_key');
+      if (savedKey) {
+        freesoundKeyInput.value = savedKey;
+      }
+    }
+
+    saveFreesoundBtn?.addEventListener('click', (e) => {
+      e.preventDefault();
+      const key = freesoundKeyInput?.value.trim();
+      if (key) {
+        localStorage.setItem('freesound_api_key', key);
+        this.showToast('Freesound API key saved! Reload to fetch music.', 'success');
+      } else {
+        this.showToast('Please enter a valid API key', 'error');
+      }
+    });
   }
 
   showSettings() {
@@ -146,5 +168,21 @@ export class SettingsUI {
 
   getSettings() {
     return { ...this.settings };
+  }
+
+  showToast(message, type = 'success') {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+
+    setTimeout(() => toast.classList.add('show'), 10);
+    setTimeout(() => {
+      toast.classList.remove('show');
+      setTimeout(() => toast.remove(), 300);
+    }, 3000);
   }
 }

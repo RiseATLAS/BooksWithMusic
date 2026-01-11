@@ -1,16 +1,105 @@
 import { AudioPlayer } from '../core/audio-player.js';
 
 export class MusicPanelUI {
-  constructor(db) {
+  constructor(db, musicManager) {
     this.db = db;
+    this.musicManager = musicManager;
     this.audioPlayer = new AudioPlayer();
     this.playlist = [];
     this.currentTrackIndex = 0;
   }
 
   initialize() {
+    console.log('🎵 Initializing music panel...');
+    console.log('   Music manager:', !!this.musicManager);
     this.setupEventListeners();
+    this.setupMusicManagerListeners();
     this.renderPlaylist();
+    console.log('✓ Music panel initialized');
+  }
+
+  setupMusicManagerListeners() {
+    console.log('🎧 Setting up music manager listeners...');
+    if (!this.musicManager) {
+      console.warn('⚠️ No music manager available');
+      return;
+    }
+    
+    console.log('✓ Music manager available, registering listener');
+    
+    // Listen for chapter music changes
+    this.musicManager.on('chapterMusicChanged', async (data) => {
+      console.log('🎵 Chapter music changed event received:', data);
+      
+      // Load playlist with recommended track
+      await this.loadPlaylistForChapter(data.chapterIndex, data.recommendedTrack);
+      
+      // Check if auto-play enabled (default FALSE - requires API key)
+      const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
+      const autoPlay = settings.autoPlay === true; // Must explicitly enable
+      
+      console.log('Auto-play enabled:', autoPlay);
+      console.log('Playlist length:', this.playlist.length);
+      console.log('Currently playing:', this.audioPlayer.state.playing);
+      
+      // Auto-play disabled by default - show message to user
+      if (!autoPlay) {
+        console.log('⏸️ Auto-play disabled. Click play button to start music.');
+        // Show friendly notice on first load
+        if (data.chapterIndex === 0) {
+          setTimeout(() => {
+            this.showToast('🎵 Click the play button to start music! (Requires Freesound API key - see Settings)', 'info');
+          }, 1000);
+        }
+      } else if (autoPlay && this.playlist.length > 0) {
+        console.log('▶️ Auto-playing recommended track...');
+        setTimeout(async () => {
+          await this.playTrack(0);
+        }, 500);
+      } else {
+        console.log('⚠️ No tracks in playlist');
+      }
+    });
+  }
+
+  async loadPlaylistForChapter(chapterIndex, recommendedTrackId) {
+    try {
+      console.log('🎼 Loading playlist for chapter:', chapterIndex);
+      console.log('   Recommended track ID:', recommendedTrackId);
+      
+      // Get available tracks from music manager
+      console.log('   Fetching tracks from music manager...');
+      const allTracks = await this.musicManager.getAllAvailableTracks();
+      
+      console.log('✓ Available tracks:', allTracks.length);
+      if (allTracks.length > 0) {
+        console.log('   Track titles:', allTracks.map(t => t.title).slice(0, 5).join(', ') + '...');
+      }
+      
+      if (allTracks.length === 0) {
+        console.warn('No tracks available');
+        return;
+      }
+      
+      // Find recommended track and put it first
+      const recommendedTrack = allTracks.find(t => t.id === recommendedTrackId);
+      
+      if (recommendedTrack) {
+        console.log('Found recommended track:', recommendedTrack.title);
+        // Put recommended track first, then others
+        this.playlist = [recommendedTrack, ...allTracks.filter(t => t.id !== recommendedTrackId)];
+      } else {
+        console.log('Recommended track not found, using all tracks');
+        // No specific recommendation, use all tracks
+        this.playlist = allTracks;
+      }
+      
+      this.currentTrackIndex = 0;
+      this.renderPlaylist();
+      console.log('Playlist loaded with', this.playlist.length, 'tracks');
+    } catch (error) {
+      console.error('Error loading playlist:', error);
+    }
   }
 
   setupEventListeners() {
@@ -123,8 +212,38 @@ export class MusicPanelUI {
     this.updateCurrentTrackInfo(track);
     this.updatePlaylistSelection();
 
-    // Play audio
-    await this.audioPlayer.play(track.url);
+    // Play audio with AudioPlayer.playTrack()
+    try {
+      await this.audioPlayer.playTrack(track);
+      console.log('▶️ Now playing:', track.title);
+    } catch (error) {
+      console.error('❌ Error playing track:', error);
+      console.log('⏭️ Skipping to next track...');
+      
+      // Try next track if available
+      if (index + 1 < this.playlist.length) {
+        setTimeout(() => this.playTrack(index + 1), 1000);
+      } else {
+        console.warn('⚠️ No more tracks to play');
+        // Only show error message if we've tried all tracks
+        const freesoundKey = localStorage.getItem('freesound_api_key');
+        if (!freesoundKey) {
+          this.showToast('🔑 Music playback requires a free Freesound API key. Get one at freesound.org/apiv2/apply and add it in Settings.', 'error');
+        } else {
+          this.showToast('❌ Unable to load music tracks. Please check your API key in Settings.', 'error');
+        }
+      }
+    }
+  }
+
+  showToast(message, type = 'info') {
+    // Simple toast notification
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    toast.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--bg-secondary);color:var(--text-primary);padding:12px 24px;border-radius:8px;z-index:10000;box-shadow:0 4px 12px rgba(0,0,0,0.3);max-width:90%;text-align:center;';
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 5000);
   }
 
   updateCurrentTrackInfo(track) {

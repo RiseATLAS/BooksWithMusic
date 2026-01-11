@@ -1,24 +1,42 @@
+import { EPUBParser } from '../core/epub-parser.js';
+import { AIProcessor } from '../core/ai-processor.js';
+
 export class BookLibrary {
   constructor(db) {
     this.db = db;
+    this.parser = new EPUBParser();
+    this.aiProcessor = new AIProcessor();
     this.eventHandlers = {};
   }
 
   async initialize() {
+    console.log('Initializing library...');
     this.setupImportButton();
-    await this.loadBooks();
+    console.log('Import button setup complete');
+    try {
+      await this.loadBooks();
+      console.log('Books loaded');
+    } catch (error) {
+      console.error('Error loading books:', error);
+      // Continue anyway - buttons should still work
+    }
   }
 
   setupImportButton() {
     const importBtn = document.getElementById('import-book');
     const fileInput = document.getElementById('file-input');
 
+    console.log('Setting up import button:', importBtn ? 'Found' : 'Not found');
+    console.log('File input:', fileInput ? 'Found' : 'Not found');
+
     importBtn?.addEventListener('click', () => {
+      console.log('Import button clicked!');
       fileInput?.click();
     });
 
     fileInput?.addEventListener('change', async (e) => {
       const file = e.target.files[0];
+      console.log('File selected:', file?.name);
       if (file && file.name.endsWith('.epub')) {
         await this.importBook(file);
         fileInput.value = ''; // Reset input
@@ -30,18 +48,28 @@ export class BookLibrary {
     try {
       this.showLoading('Importing book...');
       
-      // Read file as ArrayBuffer
+      // Read and parse EPUB
       const arrayBuffer = await file.arrayBuffer();
+      const parsed = await this.parser.parse(arrayBuffer);
       
       // Store book data
-      const bookId = await this.db.saveBook({
-        title: file.name.replace('.epub', ''),
-        author: 'Unknown',
+      const bookData = {
+        title: parsed.metadata?.title || file.name.replace('.epub', ''),
+        author: parsed.metadata?.creator || 'Unknown',
         data: arrayBuffer,
         importDate: new Date(),
         progress: 0,
         currentChapter: 0
-      });
+      };
+      
+      const bookId = await this.db.saveBook(bookData);
+      
+      // Run AI analysis on import
+      console.log('🤖 Analyzing book with AI...');
+      const book = { id: bookId, title: bookData.title, chapters: parsed.chapters };
+      const analysis = await this.aiProcessor.analyzeBook(book);
+      await this.db.saveAnalysis(bookId, analysis);
+      console.log('✓ AI analysis saved to database');
 
       this.hideLoading();
       this.showToast('Book imported successfully!');
@@ -91,31 +119,51 @@ export class BookLibrary {
       </div>
     `).join('');
 
-    // Add event listeners
-    bookList.querySelectorAll('.btn-read').forEach(btn => {
-      btn.addEventListener('click', (e) => {
+    // Use event delegation on book-list container
+    console.log('Setting up book list event delegation');
+    console.log('Books rendered:', books.length);
+    
+    // Remove any existing listener first
+    const newBookList = bookList.cloneNode(true);
+    bookList.parentNode.replaceChild(newBookList, bookList);
+    
+    // Add single event listener to parent
+    newBookList.addEventListener('click', async (e) => {
+      console.log('📍 Click detected on book list');
+      console.log('   Target:', e.target.tagName, e.target.className);
+      
+      // Handle read button
+      const readBtn = e.target.closest('.btn-read');
+      if (readBtn) {
         e.preventDefault();
         e.stopPropagation();
-        const bookId = parseInt(e.target.dataset.bookId);
+        const bookId = parseInt(readBtn.dataset.bookId);
+        console.log('✓ Read button clicked for book:', bookId);
         this.emit('bookSelected', bookId);
-      });
-    });
-
-    bookList.querySelectorAll('.btn-delete').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
+        return;
+      }
+      
+      // Handle delete button
+      const deleteBtn = e.target.closest('.btn-delete');
+      if (deleteBtn) {
         e.preventDefault();
         e.stopPropagation();
-        const bookId = parseInt(e.target.dataset.bookId);
+        const bookId = parseInt(deleteBtn.dataset.bookId);
+        console.log('✓ Delete button clicked for book:', bookId);
         if (confirm('Are you sure you want to delete this book?')) {
           await this.deleteBook(bookId);
         }
-      });
+        return;
+      }
     });
+    
+    console.log('Event delegation setup complete');
   }
 
   async deleteBook(bookId) {
     try {
       await this.db.deleteBook(bookId);
+      await this.db.deleteAnalysis(bookId);
       this.showToast('Book deleted');
       await this.loadBooks();
     } catch (error) {

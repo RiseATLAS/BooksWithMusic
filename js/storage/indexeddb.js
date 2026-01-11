@@ -2,7 +2,7 @@ export class DatabaseManager {
   constructor() {
     this.db = null;
     this.DB_NAME = 'BooksWithMusicDB';
-    this.DB_VERSION = 1;
+    this.DB_VERSION = 2;
   }
 
   async initialize() {
@@ -31,6 +31,11 @@ export class DatabaseManager {
         if (!db.objectStoreNames.contains('mappings')) {
           const mappingsStore = db.createObjectStore('mappings', { keyPath: 'chapterId' });
           mappingsStore.createIndex('by-book', 'bookId');
+        }
+
+        if (!db.objectStoreNames.contains('analyses')) {
+          const analysesStore = db.createObjectStore('analyses', { keyPath: 'bookId' });
+          analysesStore.createIndex('by-date', 'analyzedAt');
         }
 
         if (!db.objectStoreNames.contains('settings')) {
@@ -117,6 +122,24 @@ export class DatabaseManager {
       pageMusicSwitch: false,
       crossfadeDuration: 4,
     };
+  }
+
+  // Analysis methods
+  async saveAnalysis(bookId, analysis) {
+    const data = {
+      bookId,
+      ...analysis,
+      analyzedAt: new Date().toISOString()
+    };
+    return this._performTransaction('analyses', 'readwrite', (store) => store.put(data));
+  }
+
+  async getAnalysis(bookId) {
+    return this._performTransaction('analyses', 'readonly', (store) => store.get(bookId));
+  }
+
+  async deleteAnalysis(bookId) {
+    return this._performTransaction('analyses', 'readwrite', (store) => store.delete(bookId));
   }
 
   _performTransaction(storeName, mode, callback) {
