@@ -11,51 +11,8 @@ export class ReaderUI {
     this.chapters = [];
   }
 
-  createReaderView() {
-    const readerHTML = `
-      <div id="reader-view" class="view active">
-        <header class="reader-header">
-          <button id="back-to-library" class="btn btn-icon">
-            <span class="icon">←</span> Library
-          </button>
-          <h2 id="book-title" class="book-title">Book Title</h2>
-          <div class="header-actions">
-            <button id="settings-btn" class="btn btn-icon">⚙️</button>
-            <button id="music-toggle" class="btn btn-icon">🎵</button>
-          </div>
-        </header>
-
-        <div class="reader-container">
-          <aside id="chapter-nav" class="chapter-sidebar">
-            <h3>Chapters</h3>
-            <div id="chapter-list" class="chapter-list"></div>
-          </aside>
-
-          <main id="reader-content" class="reader-content"></main>
-        </div>
-
-        <div class="reader-controls">
-          <button id="prev-chapter" class="btn btn-secondary">Previous</button>
-          <div class="progress-indicator">
-            <span id="current-chapter">1</span> / <span id="total-chapters">10</span>
-          </div>
-          <button id="next-chapter" class="btn btn-secondary">Next</button>
-        </div>
-      </div>
-    `;
-    document.body.insertAdjacentHTML('beforeend', readerHTML);
-  }
-
-  destroyReaderView() {
-    const readerView = document.getElementById('reader-view');
-    if (readerView) {
-      readerView.remove();
-    }
-  }
-
   async openBook(bookId) {
     try {
-      this.createReaderView();
       this.showLoading('Loading book...');
       
       const book = await this.db.getBook(bookId);
@@ -63,30 +20,57 @@ export class ReaderUI {
         throw new Error('Book not found');
       }
 
-      this.currentBook = book;
-      
       // Parse EPUB
       const parsed = await this.parser.parse(book.data);
-      this.chapters = parsed.chapters;
       
-      // Update UI
-      document.getElementById('book-title').textContent = book.title;
-      this.renderChapterList();
-      
-      // Load saved progress or start from beginning
-      this.currentChapterIndex = book.currentChapter || 0;
-      await this.loadChapter(this.currentChapterIndex);
-      
-      // Initialize music
-      await this.musicManager.initialize(book.id, this.chapters);
-      
+      // Store book data in sessionStorage for reader page
+      sessionStorage.setItem('currentBook', JSON.stringify({
+        id: book.id,
+        title: book.title,
+        author: book.author,
+        currentChapter: book.currentChapter || 0,
+        chapters: parsed.chapters
+      }));
+
       this.hideLoading();
-      this.showReaderView();
+      
+      // Navigate to reader page
+      window.location.href = '/reader.html';
       
     } catch (error) {
       console.error('Error opening book:', error);
       this.hideLoading();
       this.showToast('Error opening book', 'error');
+    }
+  }
+
+  async initializeReader() {
+    // Called when reader.html loads
+    const bookData = sessionStorage.getItem('currentBook');
+    if (!bookData) {
+      window.location.href = '/';
+      return;
+    }
+
+    try {
+      const book = JSON.parse(bookData);
+      this.currentBook = { id: book.id, title: book.title, author: book.author };
+      this.chapters = book.chapters;
+      this.currentChapterIndex = book.currentChapter || 0;
+
+      // Update UI
+      document.getElementById('book-title').textContent = book.title;
+      this.renderChapterList();
+      await this.loadChapter(this.currentChapterIndex);
+      
+      // Initialize music
+      await this.musicManager.initialize(book.id, this.chapters);
+      
+      // Setup event listeners
+      this.setupEventListeners();
+    } catch (error) {
+      console.error('Error initializing reader:', error);
+      window.location.href = '/';
     }
   }
 
@@ -221,11 +205,6 @@ export class ReaderUI {
       e.preventDefault();
       this.loadChapter(this.currentChapterIndex + 1);
     });
-  }
-
-  showReaderView() {
-    document.getElementById('library-view')?.classList.remove('active');
-    document.getElementById('reader-view')?.classList.add('active');
   }
 
   escapeHtml(text) {

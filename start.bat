@@ -15,7 +15,7 @@ if not exist "node_modules" (
 
 REM Open in default browser
 echo Opening in your browser...
-start "" "start.html"
+start "" "http://localhost:5173/"
 
 echo.
 echo [92m✓ BooksWithMusic is now running![0m

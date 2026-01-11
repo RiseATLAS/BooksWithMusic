@@ -15,26 +15,38 @@ class BooksWithMusicApp {
 
   async initialize() {
     await this.db.initialize();
-    await this.library.initialize();
-    this.reader.setupEventListeners();
-    this.settings.initialize();
-    this.musicPanel.initialize();
+    
+    // Check if we're on reader page
+    if (window.location.pathname.includes('reader.html')) {
+      await this.reader.initializeReader();
+      this.settings.initialize();
+      this.musicPanel.initialize();
+    } else {
+      // We're on home page
+      await this.library.initialize();
+      this.settings.initialize();
+      this.musicPanel.initialize();
+    }
+    
     this.setupEventListeners();
     this.registerServiceWorker();
   }
 
   setupEventListeners() {
-    this.library.on('bookSelected', (bookId) => {
-      this.showReader(bookId);
-    });
-
-    // Use event delegation for back button since it's created dynamically
+    // Back to library button (on reader page)
     document.body.addEventListener('click', (e) => {
       if (e.target.closest('#back-to-library')) {
         e.preventDefault();
         this.showLibrary();
       }
     });
+    
+    // Book selection (on home page)
+    if (this.library && this.library.on) {
+      this.library.on('bookSelected', (bookId) => {
+        this.showReader(bookId);
+      });
+    }
   }
 
   async showReader(bookId) {
@@ -42,8 +54,7 @@ class BooksWithMusicApp {
   }
 
   showLibrary() {
-    this.reader.destroyReaderView();
-    document.getElementById('library-view')?.classList.add('active');
+    window.location.href = '/';
   }
 
   async registerServiceWorker() {

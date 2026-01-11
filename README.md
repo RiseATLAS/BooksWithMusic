@@ -59,10 +59,9 @@ The `dist/` folder can be deployed to:
 
 ### First Time Setup
 
-1. **Open the app**: Double-click `start.html` OR visit the deployed URL
-2. **Import Books**: Click "Import EPUB" and select `.epub` files
-3. **Wait for Analysis**: First import triggers AI analysis (30-60 seconds)
-4. **Start Reading**: Click any book to open reader
+1. **Run the app**: Double-click `start.bat` OR run `npm run dev`
+2. **Import Books**: Click "Import Book" and select `.epub` files
+3. **Start Reading**: Click any book to open reader
 
 *No configuration needed - everything works out of the box!*
 
@@ -128,10 +127,8 @@ BooksWithMusic/
 ├── js/
 │   ├── core/
 │   │   ├── epub-parser.js       # EPUB → chapters/pages
-│   │   ├── pagination.js        # Deterministic page calculation
 │   │   ├── audio-player.js      # Web Audio with crossfade
-│   │   ├── music-manager.js     # Track selection & caching
-│   │   └── ai-processor.js      # One-time book/chapter analysis
+│   │   └── music-manager.js     # Track selection & caching
 │   ├── storage/
 │   │   ├── indexeddb.js         # Local database wrapper
 │   │   └── cache-manager.js     # Audio file caching
@@ -141,12 +138,24 @@ BooksWithMusic/
 │   │   ├── settings.js          # Settings & navigation
 │   │   └── music-panel.js       # Track display & override
 │   └── main.js                  # App entry point
-├── index.html                   # Main app (just open this!)
-├── styles.css
-└── service-worker.js
+├── public/
+│   ├── styles.css               # Glassmorphism styling
+│   └── service-worker.js        # Offline support
+├── index.html                   # Library view
+├── reader.html                  # Reading interface
+├── package.json                 # Dependencies
+├── vite.config.js               # Dev server config
+└── start.bat                    # Quick start script
 ```
 
-**No build required!** Just pure JavaScript that runs in the browser.
+**Quick Start:**
+
+1. Clone/download this project
+2. Open terminal in project folder
+3. Run `npm install` (first time only)
+4. Run `npm run dev` or double-click `start.bat`
+5. Browser opens automatically to http://localhost:5173/
+6. Click "Import Book" and select an EPUB file
 
 ## Troubleshooting
 
