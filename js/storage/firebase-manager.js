@@ -35,8 +35,10 @@ export class FirebaseManager {
           console.log('✓ Firebase: Authenticated user:', user.uid);
         } else {
           // If not on the login page, redirect to it
-          if (window.location.pathname !== '/login.html' && window.location.pathname !== '/login') {
-            window.location.href = '/login.html';
+          const path = window.location.pathname;
+          if (!path.endsWith('/login.html') && !path.endsWith('/login')) {
+            // Use relative path for redirect to work with any base path
+            window.location.href = 'login.html';
           }
         }
         resolve(); // Resolve to allow the app to continue
