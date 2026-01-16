@@ -9,6 +9,8 @@ BooksWithMusic uses Firebase to provide:
 - **Firestore Database** - Cloud storage for user settings, reading progress, and book metadata
 - **Firebase Storage** - Cloud storage for EPUB files
 
+**Privacy Note:** Firebase Analytics is intentionally disabled in this application to protect user privacy. We only use Firebase for essential features: authentication, data storage, and file storage.
+
 ## Prerequisites
 
 - A Google account
@@ -19,7 +21,7 @@ BooksWithMusic uses Firebase to provide:
 1. Go to [Firebase Console](https://console.firebase.google.com/)
 2. Click **"Add project"** or **"Create a project"**
 3. Enter a project name (e.g., "BooksWithMusic")
-4. (Optional) Enable Google Analytics for your project
+4. **Disable Google Analytics** when prompted (we don't use it for privacy reasons)
 5. Click **"Create project"** and wait for it to be provisioned
 
 ## Step 2: Register Your Web App
@@ -37,6 +39,7 @@ BooksWithMusic uses Firebase to provide:
      storageBucket: "your-project.appspot.com",
      messagingSenderId: "123456789",
      appId: "1:123456789:web:abc123"
+     // Note: measurementId is not needed - we don't use Analytics
    };
    ```
 6. Click **"Continue to console"**
@@ -133,7 +136,11 @@ service firebase.storage {
 
 You have two options for adding your Firebase configuration:
 
-### Option A: Using Environment Variables (Recommended for GitHub Pages)
+### Option A: Using Environment Variables (Recommended)
+
+**For this repository, Firebase variables are already configured as GitHub repository secrets** for secure deployment. 
+
+For local development, create a `.env` file:
 
 1. Create a `.env` file in your project root (this file is already gitignored)
 2. Add your Firebase configuration values:
@@ -145,12 +152,15 @@ VITE_FIREBASE_PROJECT_ID=your-project-id
 VITE_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
 VITE_FIREBASE_MESSAGING_SENDER_ID=123456789
 VITE_FIREBASE_APP_ID=1:123456789:web:abc123
+# Note: VITE_FIREBASE_MEASUREMENT_ID is not needed - Analytics is disabled
 ```
 
-3. For GitHub Pages deployment, you'll need to set these as repository secrets:
-   - Go to your GitHub repository
-   - Navigate to **Settings > Secrets and variables > Actions**
-   - Add each variable as a secret (e.g., `VITE_FIREBASE_API_KEY`)
+**📝 Note:** For GitHub Pages/Actions deployment, Firebase credentials are already stored as repository secrets:
+   - Location: **Repository Settings > Secrets and variables > Actions**
+   - The CI/CD pipeline automatically uses these secrets during build
+   - Variables: `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, etc.
+
+**🔐 SECURITY REMINDER:** Never commit the `.env` file to version control. It's already in `.gitignore` for your protection.
 
 ### Option B: Direct Configuration (For Local Development)
 
@@ -165,10 +175,15 @@ const firebaseConfig = {
   storageBucket: "your-project.appspot.com",
   messagingSenderId: "123456789",
   appId: "1:123456789:web:abc123"
+  // measurementId is intentionally omitted - Analytics is disabled
 };
 ```
 
-**⚠️ Warning:** Do not commit actual API keys to public repositories. Use environment variables for production.
+**⚠️ CRITICAL WARNING:** 
+- **NEVER** commit actual API keys to public repositories
+- **ALWAYS** use environment variables for production deployments
+- The `.env` file is gitignored to prevent accidental commits
+- If you accidentally commit keys, immediately regenerate them in Firebase Console
 
 ## Step 7: Test Your Setup
 
@@ -186,7 +201,7 @@ const firebaseConfig = {
 
 4. Look for the Firebase initialization message in the browser console:
    ```
-   ✓ Firebase initialized successfully
+   ✓ Firebase initialized successfully (Analytics disabled for privacy)
    ✓ Firebase Auth initialized
    ```
 
@@ -304,4 +319,13 @@ If you encounter issues:
 
 ---
 
-**Note:** Firebase configuration values (API keys, project IDs) are not secret in the traditional sense - they're meant to identify your Firebase project. Security is enforced through Firebase Security Rules, not by hiding these values. However, it's still good practice to use environment variables to avoid committing them to version control.
+**Security Best Practices:**
+- Firebase configuration values (API keys, project IDs) identify your Firebase project but are not secret in the traditional sense
+- Security is enforced through Firebase Security Rules (properly configured above), not by hiding configuration values
+- However, it's **strongly recommended** to:
+  - Use environment variables to avoid committing configuration to version control
+  - Keep your `.env` file in `.gitignore` (already configured)
+  - Never commit real API keys to public repositories
+  - Regenerate keys immediately if they are accidentally exposed
+
+**Privacy Note:** This application does not use Firebase Analytics. Only Authentication, Firestore, and Storage are enabled to protect user privacy.

@@ -10,6 +10,16 @@
 // 6. Create Firestore Database (Start in production mode)
 // 7. Create Storage bucket
 // 8. Update the values below or use environment variables
+//
+// 🔐 SECURITY: NEVER commit actual Firebase API keys to version control!
+// Always use environment variables (.env file) for production deployments.
+// The .env file is gitignored to prevent accidental commits.
+//
+// 📝 PRODUCTION: Firebase credentials are stored as GitHub repository secrets
+// for secure CI/CD deployment. They are automatically injected during build.
+//
+// 🚫 ANALYTICS DISABLED: Firebase Analytics is intentionally disabled
+// for privacy reasons. Only Authentication, Firestore, and Storage are used.
 
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
@@ -19,6 +29,7 @@ import { getStorage } from 'firebase/storage';
 // Firebase configuration
 // Replace these with your actual Firebase project values
 // Or use Vite environment variables (VITE_FIREBASE_*)
+// ⚠️ WARNING: Do NOT hardcode real API keys here. Use environment variables!
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "YOUR_API_KEY",
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "YOUR_PROJECT.firebaseapp.com",
@@ -26,6 +37,7 @@ const firebaseConfig = {
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "YOUR_PROJECT.appspot.com",
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "YOUR_SENDER_ID",
   appId: import.meta.env.VITE_FIREBASE_APP_ID || "YOUR_APP_ID"
+  // measurementId is intentionally omitted - Analytics is disabled for privacy
 };
 
 // Check if Firebase is configured
@@ -48,7 +60,7 @@ if (isFirebaseConfigured()) {
     auth = getAuth(app);
     db = getFirestore(app);
     storage = getStorage(app);
-    console.log('✓ Firebase initialized successfully');
+    console.log('✓ Firebase initialized successfully (Analytics disabled for privacy)');
   } catch (error) {
     console.error('Firebase initialization error:', error);
   }
@@ -58,4 +70,5 @@ if (isFirebaseConfigured()) {
 }
 
 // Export Firebase services
+// Note: Analytics is intentionally not initialized or exported
 export { app, auth, db, storage, isFirebaseConfigured };

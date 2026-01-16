@@ -6,8 +6,11 @@ dist/
 build/
 
 # Environment variables
+# 🔐 CRITICAL: Never commit these files - they contain sensitive API keys
 .env
 .env.local
+.env.production
+.env.*.local
 
 # IDE
 .vscode/
