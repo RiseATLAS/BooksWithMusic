@@ -86,7 +86,7 @@ class BooksWithMusicApp {
   }
 
   showLibrary() {
-    window.location.href = './index.html';
+    window.location.href = './';
   }
 
   async registerServiceWorker() {

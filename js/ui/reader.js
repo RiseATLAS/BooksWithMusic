@@ -96,7 +96,7 @@ export class ReaderUI {
     if (!bookData) {
       console.warn('❌ No book data found, redirecting to library');
       alert('No book selected. Redirecting to library...');
-      window.location.href = './index.html';
+      window.location.href = './';
       return;
     }
 
@@ -140,7 +140,7 @@ export class ReaderUI {
     } catch (error) {
       console.error('❌ Error initializing reader:', error);
       alert('Failed to load book: ' + error.message);
-      window.location.href = './index.html';
+      window.location.href = './';
     }
   }
 
