@@ -264,7 +264,7 @@ class BooksWithMusicApp {
   }
 
   showLibrary() {
-    window.location.href = import.meta.env.BASE_URL;
+    window.location.href = '/';
   }
 
   async registerServiceWorker() {
@@ -294,7 +294,7 @@ class BooksWithMusicApp {
 
     if ('serviceWorker' in navigator) {
       try {
-        await navigator.serviceWorker.register(`${import.meta.env.BASE_URL}service-worker.js`);
+        await navigator.serviceWorker.register('/service-worker.js');
         console.log('Service Worker registered');
       } catch (error) {
         console.warn('Service Worker registration failed:', error);

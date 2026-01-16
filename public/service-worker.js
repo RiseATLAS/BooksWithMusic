@@ -5,9 +5,9 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll([
-        '/BooksWithMusic/',
-        '/BooksWithMusic/index.html',
-        '/BooksWithMusic/styles.css',
+        '/',
+        '/index.html',
+        '/styles.css',
       ]);
     })
   );

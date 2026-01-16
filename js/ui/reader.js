@@ -92,7 +92,7 @@ export class ReaderUI {
       
       // Navigate to reader page
       console.log('🔄 Navigating to reader page...');
-      window.location.href = `${import.meta.env.BASE_URL}reader.html`;
+      window.location.href = '/reader.html';
       
     } catch (error) {
       console.error('❌ Error opening book:', error);
@@ -107,7 +107,7 @@ export class ReaderUI {
     
     if (!bookData) {
       alert('No book selected. Redirecting to library...');
-      window.location.href = import.meta.env.BASE_URL;
+      window.location.href = '/';
       return;
     }
 
@@ -162,7 +162,7 @@ export class ReaderUI {
     } catch (error) {
       console.error('❌ Reader init failed:', error);
       alert('Failed to load book: ' + error.message);
-      window.location.href = import.meta.env.BASE_URL;
+      window.location.href = '/';
     }
   }
 
