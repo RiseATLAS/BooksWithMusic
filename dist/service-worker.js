@@ -1,13 +1,16 @@
 const CACHE_NAME = 'booksWithMusic-v2';
 const AUDIO_CACHE = 'booksWithMusic-audio-v2';
 
+// Get the base path from the service worker's own location
+const BASE_PATH = self.location.pathname.replace(/\/service-worker\.js$/, '') || '';
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll([
-        '/',
-        '/index.html',
-        '/styles.css',
+        BASE_PATH + '/',
+        BASE_PATH + '/index.html',
+        BASE_PATH + '/styles.css',
       ]);
     })
   );

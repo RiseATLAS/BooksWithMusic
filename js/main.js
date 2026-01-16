@@ -116,7 +116,8 @@ class BooksWithMusicApp {
 
     if ('serviceWorker' in navigator) {
       try {
-        await navigator.serviceWorker.register('/service-worker.js');
+        const swPath = import.meta.env.BASE_URL + 'service-worker.js';
+        await navigator.serviceWorker.register(swPath);
         console.log('Service Worker registered');
       } catch (error) {
         console.warn('Service Worker registration failed:', error);
