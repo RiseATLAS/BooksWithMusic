@@ -14,5 +14,15 @@ export const firebaseConfig = {
   appId: import.meta.env.VITE_APP_ID
 };
 
+// Validate Firebase configuration
+const requiredConfig = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'appId'];
+const missingConfig = requiredConfig.filter(key => !firebaseConfig[key]);
+
+if (missingConfig.length > 0) {
+  console.error('❌ Firebase configuration incomplete. Missing:', missingConfig);
+  console.error('Please set the following environment variables or GitHub secrets:', 
+    missingConfig.map(key => `VITE_${key.replace(/([A-Z])/g, '_$1').toUpperCase()}`).join(', '));
+}
+
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
