@@ -10,7 +10,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const provider = new window.firebase.auth.GoogleAuthProvider();
     try {
       await firebaseManager.auth.signInWithPopup(provider);
-      window.location.href = '/';
+      // Use relative path for redirect to work with any base path
+      window.location.href = './';
     } catch (error) {
       console.error('❌ Google Sign-In failed', error);
       errorMessage.textContent = 'Google Sign-In failed. Please try again.';
