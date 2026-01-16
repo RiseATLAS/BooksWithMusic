@@ -49,6 +49,43 @@ The app will open automatically at `http://localhost:5173/`
 - 🗄️ **IndexedDB Storage** - Efficient local book library
 - ⚡ **Fast Performance** - Optimized page splitting and rendering
 
+### Cloud Features (Optional)
+- 🔐 **Google Authentication** - Secure sign-in with Google account
+- ☁️ **Cloud Sync** - Settings and reading progress synced across devices
+- 📦 **Cloud Storage** - Store EPUBs in the cloud (Firebase Storage)
+- 🔒 **Private & Secure** - Each user's data is isolated and secure
+
+See [FIREBASE_SETUP.md](FIREBASE_SETUP.md) for setup instructions.
+
+## 🔐 Firebase Setup (Optional)
+
+BooksWithMusic can work entirely offline with local storage, or you can enable cloud features with Firebase:
+
+### What You Get with Firebase:
+- **User Authentication** - Sign in with your Google account
+- **Settings Sync** - Your preferences sync across all devices
+- **Cloud Book Storage** - Access your EPUBs from any device
+- **Reading Progress** - Continue where you left off on any device
+- **Private & Secure** - Your data is only accessible to you
+
+### Quick Setup:
+1. Create a free Firebase project at [console.firebase.google.com](https://console.firebase.google.com/)
+2. Enable Google Authentication
+3. Set up Firestore Database and Storage
+4. Add your Firebase config to `.env` file
+5. Deploy to GitHub Pages or run locally
+
+**📖 Full instructions:** See [FIREBASE_SETUP.md](FIREBASE_SETUP.md) for complete step-by-step guide.
+
+### Privacy & Security:
+- ✅ Your books and settings are **private to your account only**
+- ✅ Firebase security rules prevent access to other users' data
+- ✅ No server-side code - all operations run in your browser
+- ✅ You can delete your data anytime by clearing your Firebase Storage
+- ✅ App works offline - cloud features are progressive enhancements
+
+**Note:** Firebase is completely optional. The app works perfectly without it using local storage (IndexedDB).
+
 ## 🎵 Music Setup
 
 ### Option 1: Demo Tracks (Default)

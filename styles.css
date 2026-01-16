@@ -1068,6 +1068,7 @@ body {
 
 .toast-success { border-left: 4px solid #10b981; }
 .toast-error { border-left: 4px solid #ef4444; }
+.toast-info { border-left: 4px solid #3b82f6; }
 
 /* Fullscreen mode */
 /* Ensure fullscreen uses the same paper color everywhere (no body gradient bleeding through) */
