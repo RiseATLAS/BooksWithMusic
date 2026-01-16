@@ -194,6 +194,25 @@ After first load, the app works offline:
 
 ## Configuration (Optional)
 
+### Firebase Setup (for Authentication & Storage)
+
+This app uses Firebase for user authentication and cloud storage. Firebase configuration is managed through **GitHub repository secrets** for security:
+
+1. **Create a Firebase Project**: Go to [Firebase Console](https://console.firebase.google.com/)
+2. **Enable Authentication**: Enable Google Sign-In in Authentication settings
+3. **Create Firestore Database**: Set up a Firestore database in your project
+4. **Add GitHub Secrets**: In your GitHub repository, go to Settings → Secrets and variables → Actions, and add:
+   - `VITE_API_KEY` - Your Firebase API key
+   - `VITE_AUTH_DOMAIN` - Your Firebase auth domain (e.g., `project-id.firebaseapp.com`)
+   - `VITE_PROJECT_ID` - Your Firebase project ID
+   - `VITE_STORAGE_BUCKET` - Your Firebase storage bucket (e.g., `project-id.appspot.com`)
+   - `VITE_MESSAGING_SENDER_ID` - Your Firebase messaging sender ID
+   - `VITE_APP_ID` - Your Firebase app ID
+
+5. **Deploy**: Push to main branch to trigger automatic deployment to GitHub Pages
+
+### Optional API Keys
+
 The app works perfectly without configuration. Only add these if you want external AI/music APIs:
 
 ```env
