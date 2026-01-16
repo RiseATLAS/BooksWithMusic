@@ -2,14 +2,14 @@ import { BookLibrary } from './ui/library.js';
 import { ReaderUI } from './ui/reader.js';
 import { SettingsUI } from './ui/settings.js';
 import { MusicPanelUI } from './ui/music-panel.js';
-import { DatabaseManager } from './storage/indexeddb.js';
+import { FirebaseManager } from './storage/firebase-manager.js';
 
 class BooksWithMusicApp {
   constructor() {
-    this.db = new DatabaseManager();
+    this.db = new FirebaseManager();
     this.library = new BookLibrary(this.db);
     this.reader = new ReaderUI(this.db);
-    this.settings = new SettingsUI();
+    this.settings = new SettingsUI(this.db);
     // Note: MusicPanelUI needs reader's musicManager, initialized after reader
     this.musicPanel = null;
   }

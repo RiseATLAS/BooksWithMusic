@@ -1,3 +1,4 @@
+
 import { EPUBParser } from '../core/epub-parser.js';
 import { MusicManager } from '../core/music-manager.js';
 import { AIProcessor } from '../core/ai-processor.js';
@@ -34,17 +35,21 @@ export class ReaderUI {
       this.showLoading('Loading book...');
       
       const book = await this.db.getBook(bookId);
-      if (!book) {
-        throw new Error('Book not found in database');
+      if (!book || !book.downloadUrl) {
+        throw new Error('Book data or download URL not found');
       }
       console.log('✅ Book found:', book.title);
 
+      // Fetch EPUB from URL
+      const response = await fetch(book.downloadUrl);
+      if (!response.ok) throw new Error(`Failed to fetch EPUB: ${response.statusText}`);
+      const arrayBuffer = await response.arrayBuffer();
+
       // Parse EPUB
       console.log('📄 Parsing EPUB data...');
-      const parsed = await this.parser.parse(book.data);
+      const parsed = await this.parser.parse(arrayBuffer);
       console.log('✅ EPUB parsed, chapters:', parsed.chapters.length);
       
-      // Check if book has been analyzed
       let analysis = await this.db.getAnalysis(bookId);
       if (!analysis) {
         console.log('⚠️ Book not analyzed yet. Running AI analysis...');
@@ -56,7 +61,6 @@ export class ReaderUI {
         console.log('✓ Using cached AI analysis from database');
       }
       
-      // Store book data in sessionStorage for reader page
       const bookDataForSession = {
         id: book.id,
         title: book.title,
@@ -64,7 +68,7 @@ export class ReaderUI {
         currentChapter: book.currentChapter || 0,
         currentPageInChapter: book.currentPageInChapter || 1,
         chapters: parsed.chapters,
-        images: book.images // Store images for reader
+        downloadUrl: book.downloadUrl // Pass the download URL
       };
       
       console.log('💾 Storing book data in sessionStorage...');
@@ -72,7 +76,6 @@ export class ReaderUI {
 
       this.hideLoading();
       
-      // Navigate to reader page
       console.log('🔄 Navigating to reader page...');
       window.location.href = '/reader.html';
       
@@ -80,14 +83,13 @@ export class ReaderUI {
       console.error('❌ Error opening book:', error);
       this.hideLoading();
       this.showToast('Error opening book: ' + error.message, 'error');
-      throw error; // Re-throw so main.js can handle it
+      throw error;
     }
   }
 
   async initializeReader() {
     console.log('🔍 Initializing reader...');
     
-    // Called when reader.html loads
     const bookData = sessionStorage.getItem('currentBook');
     console.log('📖 Book data from sessionStorage:', bookData ? 'Found' : 'Not found');
     
@@ -105,31 +107,18 @@ export class ReaderUI {
       this.currentBook = { id: book.id, title: book.title, author: book.author };
       this.chapters = book.chapters;
 
-      // Prefer the most recently saved progress from IndexedDB (sessionStorage can be stale
-      // if the user refreshes the reader page).
-      let persistedProgress = null;
-      try {
-        persistedProgress = await this.db.getBook(book.id);
-      } catch {
-        // ignore
-      }
+      let persistedProgress = await this.db.getBook(book.id);
 
-      this.currentChapterIndex =
-        persistedProgress?.currentChapter ?? book.currentChapter ?? 0;
-      this.currentPageInChapter =
-        persistedProgress?.currentPageInChapter ?? book.currentPageInChapter ?? 1;
+      this.currentChapterIndex = persistedProgress?.currentChapter ?? book.currentChapter ?? 0;
+      this.currentPageInChapter = persistedProgress?.currentPageInChapter ?? book.currentPageInChapter ?? 1;
 
       this.pagesPerChapter = {};
       this.currentPage = 1;
       this.totalPages = 0;
 
-      // Check if required elements exist
       const bookTitleEl = document.getElementById('book-title');
-      if (!bookTitleEl) {
-        throw new Error('book-title element not found');
-      }
+      if (!bookTitleEl) throw new Error('book-title element not found');
       
-      // Update UI
       bookTitleEl.textContent = book.title;
       console.log('📋 Rendering chapter list...');
       this.renderChapterList();
@@ -137,11 +126,9 @@ export class ReaderUI {
       console.log('📄 Loading chapter:', this.currentChapterIndex);
       await this.loadChapter(this.currentChapterIndex, { pageInChapter: this.currentPageInChapter, preservePage: true });
 
-      // Setup event listeners
       console.log('⚡ Setting up event listeners...');
       this.setupEventListeners();
 
-      // Initialize music in the background so reader/settings feel instant
       console.log('🎵 Initializing music manager (async)...');
       this._musicInitPromise = this.musicManager
         .initialize(book.id, this.chapters)
@@ -150,8 +137,6 @@ export class ReaderUI {
       
       console.log('✅ Reader initialized successfully');
       
-      // Note: Initial chapter music will be triggered from main.js
-      // after music panel listener is registered
     } catch (error) {
       console.error('❌ Error initializing reader:', error);
       alert('Failed to load book: ' + error.message);
@@ -180,7 +165,6 @@ export class ReaderUI {
       `;
     }).join('');
 
-    // Add click listeners
     chapterList.querySelectorAll('.chapter-item').forEach(item => {
       item.addEventListener('click', (e) => {
         e.preventDefault();
@@ -215,7 +199,6 @@ export class ReaderUI {
     const chapter = this.chapters[index];
     const layoutToken = ++this._chapterLayoutToken;
 
-    // Render chapter content with page structure
     const contentEl = document.getElementById('reader-content');
     if (contentEl) {
       contentEl.innerHTML = `
@@ -229,14 +212,11 @@ export class ReaderUI {
         </div>
       `;
 
-      // Viewport element is replaced on each chapter render; rebind scroll handler.
       this._ensureViewportScrollHandler();
 
       await this._repaginateAndRender({ waitForImages: true });
       this._updateNavButtons();
 
-      // Fonts can finish loading after initial render and change line breaks.
-      // Repaginate once more when fonts settle to avoid skipping words on first page turn.
       try {
         if (document.fonts?.ready) {
           document.fonts.ready.then(() => {
@@ -248,21 +228,16 @@ export class ReaderUI {
         // ignore
       }
       
-      // Handle internal EPUB links intelligently
       contentEl.querySelectorAll('a').forEach(link => {
         link.addEventListener('click', (e) => {
           const href = link.getAttribute('href');
           
-          // If it's an anchor link (internal page navigation)
           if (href && href.startsWith('#')) {
-            // Allow it to work naturally
             return;
           }
           
-          // If it's a chapter reference or internal epub link
           if (href && !href.startsWith('http')) {
             e.preventDefault();
-            // Try to find matching chapter
             const chapterIndex = this.findChapterByHref(href);
             if (chapterIndex !== -1) {
               this.loadChapter(chapterIndex);
@@ -270,7 +245,6 @@ export class ReaderUI {
             return;
           }
           
-          // Prevent external links from navigating away
           if (href && (href.startsWith('http') || href.startsWith('//'))) {
             e.preventDefault();
             console.log('External link blocked:', href);
@@ -279,22 +253,17 @@ export class ReaderUI {
       });
     }
 
-    // Update progress indicator
     document.getElementById('current-chapter').textContent = index + 1;
     document.getElementById('total-chapters').textContent = this.chapters.length;
 
-    // Update chapter list
     document.querySelectorAll('.chapter-item').forEach((item, i) => {
       item.classList.toggle('active', i === index);
     });
 
-    // Update navigation buttons
     this._updateNavButtons();
 
-    // Save progress
     await this.saveProgress();
 
-    // Update music for chapter
     if (this.musicManager) {
       this.musicManager.onChapterChange(index);
     }
@@ -337,17 +306,13 @@ export class ReaderUI {
   }
 
   findChapterByHref(href) {
-    // Remove any leading path and get just the filename
     const filename = href.split('/').pop().split('#')[0];
     
-    // Try to match against chapter content or find by index
     for (let i = 0; i < this.chapters.length; i++) {
       const chapter = this.chapters[i];
-      // Simple matching - could be enhanced based on epub structure
       if (chapter.href && chapter.href.includes(filename)) {
         return i;
       }
-      // Match by chapter number in the link
       const match = filename.match(/chapter[-_]?(\d+)/i);
       if (match && parseInt(match[1]) === i + 1) {
         return i;
@@ -358,7 +323,6 @@ export class ReaderUI {
 
   _getPageMetrics() {
     const desiredWidth = this.getCurrentPageWidth();
-    // Clamp to available space so we don't clip the viewport (which causes skipped text)
     const readerContent = document.getElementById('reader-content');
     let maxWidth = 0;
     if (readerContent) {
@@ -379,8 +343,6 @@ export class ReaderUI {
     const h = viewport ? viewport.clientHeight : 0;
     const base = h > 0 ? h : pageHeight;
 
-    // Quantize stride to a whole number of lines so the bottom line isn't cut in half
-    // when font-size/line-height changes.
     const lineHeightPx = this._getLineHeightPx(chapterTextEl);
     if (lineHeightPx > 4 && Number.isFinite(lineHeightPx)) {
       const lines = Math.max(1, Math.floor(base / lineHeightPx));
@@ -402,7 +364,6 @@ export class ReaderUI {
     const lh = parseFloat(cs.lineHeight);
     if (!Number.isFinite(lh)) return fontSizePx * 1.2;
 
-    // Some browsers can return unitless line-height; treat small values as multiplier.
     if (lh > 0 && lh < 4) {
       return lh * fontSizePx;
     }
@@ -416,11 +377,9 @@ export class ReaderUI {
 
     const { pageWidth, pageGap } = this._getPageMetrics();
 
-    // Ensure the whole reader uses the effective width (important when clamped)
     document.documentElement.style.setProperty('--page-width', `${pageWidth}px`);
     chapterText.style.setProperty('--page-width', `${pageWidth}px`);
     chapterText.style.setProperty('--page-gap', `${pageGap}px`);
-    // Keep viewport in sync too
     document.querySelectorAll('.page-viewport').forEach((el) => {
       el.style.setProperty('--page-width', `${pageWidth}px`);
     });
@@ -441,10 +400,8 @@ export class ReaderUI {
   }
 
   async _waitForContentLayout(containerEl, { waitForImages } = { waitForImages: true }) {
-    // Fonts can affect layout heavily
     try {
       if (document.fonts?.ready) {
-        // On chapter load (waitForImages=true), wait longer so pagination is stable.
         const timeoutMs = waitForImages ? 2500 : 800;
         await Promise.race([
           document.fonts.ready,
@@ -455,7 +412,6 @@ export class ReaderUI {
       // ignore
     }
 
-    // Images can change scrollWidth/height; wait briefly
     if (waitForImages) {
       const images = Array.from(containerEl.querySelectorAll('img'));
       if (images.length) {
@@ -472,7 +428,6 @@ export class ReaderUI {
       }
     }
 
-    // Ensure a couple frames after layout changes
     await new Promise(resolve => requestAnimationFrame(() => resolve()));
     await new Promise(resolve => requestAnimationFrame(() => resolve()));
   }
@@ -499,8 +454,6 @@ export class ReaderUI {
     const strideY = this._getViewportPageStridePx(chapterText);
     const top = (clamped - 1) * strideY;
 
-    // Update state immediately so progress doesn't lag behind (or fail if scroll events
-    // are suppressed during smooth scrolling).
     if (clamped !== this.currentPageInChapter) {
       this.currentPageInChapter = clamped;
       this.currentPage = this.calculateCurrentPageNumber();
@@ -509,7 +462,6 @@ export class ReaderUI {
     }
 
     viewport.scrollTo({ top, behavior });
-    // Also schedule a sync/save in case the browser coalesces scroll events.
     window.clearTimeout(this._progressSaveTimer);
     this._progressSaveTimer = window.setTimeout(() => {
       this._syncCurrentPageFromScroll();
@@ -533,7 +485,6 @@ export class ReaderUI {
       this._updateNavButtons();
     }
 
-    // Throttle DB writes while scrolling
     window.clearTimeout(this._progressSaveTimer);
     this._progressSaveTimer = window.setTimeout(() => {
       this.saveProgress().catch(() => {});
@@ -542,11 +493,9 @@ export class ReaderUI {
 
   calculateCurrentPageNumber() {
     let pageNumber = 1;
-    // Add pages from previous chapters
     for (let i = 0; i < this.currentChapterIndex; i++) {
       pageNumber += (this.pagesPerChapter[i] || 1);
     }
-    // Add current page within chapter (subtract 1 because we start counting from 1)
     pageNumber += (this.currentPageInChapter - 1);
     return pageNumber;
   }
@@ -579,7 +528,6 @@ export class ReaderUI {
       progress: progress
     });
 
-    // Keep sessionStorage in sync so refresh resumes correctly even before DB reads.
     try {
       const raw = sessionStorage.getItem('currentBook');
       if (raw) {
@@ -626,7 +574,6 @@ export class ReaderUI {
       viewport.scrollBy({ top: -strideY, behavior: 'smooth' });
     }
 
-    // Ensure indicator/progress updates even if scroll events are coalesced.
     window.clearTimeout(this._scrollUpdateTimer);
     this._scrollUpdateTimer = window.setTimeout(() => this._syncCurrentPageFromScroll(), 120);
   }
@@ -651,7 +598,6 @@ export class ReaderUI {
   goToPreviousChapter() {
     if (this.currentChapterIndex <= 0) return;
     const prevChapterIndex = this.currentChapterIndex - 1;
-    // Jump to the end of the previous chapter; page is clamped after pagination.
     this.loadChapter(prevChapterIndex, { pageInChapter: Number.MAX_SAFE_INTEGER, preservePage: true });
   }
 
@@ -666,9 +612,7 @@ export class ReaderUI {
       this.scrollPage('down');
     });
 
-    // Arrow key navigation
     document.addEventListener('keydown', (e) => {
-      // Ignore if user is typing in an input
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
       
       if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
@@ -683,20 +627,16 @@ export class ReaderUI {
       }
     });
 
-    // Fullscreen toggle
     document.getElementById('fullscreen-btn')?.addEventListener('click', (e) => {
       e.preventDefault();
       this.toggleFullscreen();
     });
 
-    // Listen for fullscreen changes to update button
     document.addEventListener('fullscreenchange', () => this.updateFullscreenButton());
     document.addEventListener('webkitfullscreenchange', () => this.updateFullscreenButton());
 
-    // Normal scrolling: keep page indicator/progress synced when user scrolls manually.
     this._ensureViewportScrollHandler();
 
-    // Best-effort flush of progress when leaving the page.
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) this.saveProgress().catch(() => {});
     });
@@ -704,7 +644,6 @@ export class ReaderUI {
       this.saveProgress().catch(() => {});
     });
 
-    // React immediately to settings changes that affect layout
     if (!this._layoutChangedHandler) {
       let pending = false;
       this._layoutChangedHandler = () => {
@@ -722,7 +661,6 @@ export class ReaderUI {
 
   toggleFullscreen() {
     if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-      // Enter fullscreen
       const elem = document.documentElement;
       if (elem.requestFullscreen) {
         elem.requestFullscreen();
@@ -730,7 +668,6 @@ export class ReaderUI {
         elem.webkitRequestFullscreen();
       }
     } else {
-      // Exit fullscreen
       if (document.exitFullscreen) {
         document.exitFullscreen();
       } else if (document.webkitExitFullscreen) {
@@ -790,7 +727,6 @@ export class ReaderUI {
   }
 
   getCurrentPageWidth() {
-    // Get current page width from settings or default
     try {
       const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings'));
       return settings?.pageWidth || 650;

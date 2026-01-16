@@ -1,5 +1,6 @@
 export class SettingsUI {
-  constructor() {
+  constructor(db) {
+    this.db = db;
     // Detect system dark mode preference
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     
@@ -23,8 +24,8 @@ export class SettingsUI {
     this._layoutChangeTimer = null;
   }
 
-  initialize() {
-    this.loadSettings();
+  async initialize() {
+    await this.loadSettings();
     this.setupEventListeners();
     this.applySettings();
   }
@@ -207,21 +208,19 @@ export class SettingsUI {
     }
   }
 
-  loadSettings() {
-    const stored = localStorage.getItem('booksWithMusic-settings');
+  async loadSettings() {
+    const stored = await this.db.getSetting('reader');
     if (stored) {
       try {
-        this.settings = { ...this.settings, ...JSON.parse(stored) };
+        this.settings = { ...this.settings, ...stored };
         
         let needsSave = false;
         
-        // Force autoPlay to false by default (override old saved settings)
         if (this.settings.autoPlay === undefined || this.settings.autoPlay === true) {
           this.settings.autoPlay = false;
           needsSave = true;
         }
         
-        // Fix pageColor to match theme if there's a mismatch
         if (this.settings.theme === 'dark' && this.settings.pageColor === 'white') {
           this.settings.pageColor = 'black';
           needsSave = true;
@@ -297,8 +296,8 @@ export class SettingsUI {
     if (autoPlay) autoPlay.checked = this.settings.autoPlay;
   }
 
-  saveSettings() {
-    localStorage.setItem('booksWithMusic-settings', JSON.stringify(this.settings));
+  async saveSettings() {
+    await this.db.saveSetting('reader', this.settings);
   }
 
   applySettings() {
@@ -314,7 +313,6 @@ export class SettingsUI {
     this.applyShowProgress();
     this.applyShowChapterTitle();
 
-    // Ensure pagination updates after initial settings apply
     this._emitLayoutChanged('init');
   }
 
@@ -353,7 +351,6 @@ export class SettingsUI {
   }
 
   applyPageWidth() {
-    // Drive the pagination/layout through CSS vars so ReaderUI can measure real column widths.
     const pageWidthPx = `${this.settings.pageWidth}px`;
     document.documentElement.style.setProperty('--page-width', pageWidthPx);
     document.querySelectorAll('.chapter-text').forEach((el) => el.style.setProperty('--page-width', pageWidthPx));
@@ -382,14 +379,12 @@ export class SettingsUI {
     document.documentElement.style.setProperty('--page-paper-base-bg', base.bg);
     document.documentElement.style.setProperty('--page-paper-text', base.text);
 
-    // Always rely on CSS variables for page paper so warmth tint can layer correctly.
     if (readerView) readerView.style.backgroundColor = '';
     if (readerContent) {
       readerContent.style.backgroundColor = '';
       readerContent.style.color = '';
     }
 
-    // Re-apply warmth on top of any page color changes
     this.applyPageWarmth();
   }
 
@@ -414,13 +409,11 @@ export class SettingsUI {
 
   _colorToRgb(color) {
     const c = (color || '').trim();
-    // #RRGGBB
     const hex = c.match(/^#?([0-9a-f]{6})$/i);
     if (hex) {
       const n = parseInt(hex[1], 16);
       return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
     }
-    // rgb(...) or rgba(...)
     const rgb = c.match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})(?:\s*,\s*(\d*(?:\.\d+)?)\s*)?\)$/i);
     if (rgb) {
       return { r: Math.min(255, parseInt(rgb[1], 10)), g: Math.min(255, parseInt(rgb[2], 10)), b: Math.min(255, parseInt(rgb[3], 10)) };
@@ -429,7 +422,6 @@ export class SettingsUI {
   }
 
   _emitLayoutChanged(reason) {
-    // Debounce to avoid reflow storms while dragging sliders.
     window.clearTimeout(this._layoutChangeTimer);
     this._layoutChangeTimer = window.setTimeout(() => {
       window.dispatchEvent(new CustomEvent('reader:layoutChanged', { detail: { reason, settings: this.settings } }));
