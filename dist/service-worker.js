@@ -1,13 +1,23 @@
 const CACHE_NAME = 'booksWithMusic-v2';
 const AUDIO_CACHE = 'booksWithMusic-audio-v2';
 
+// Get the base path from the service worker's own location
+// This will be '' for root deployment or '/BooksWithMusic' for subdirectory
+const BASE_PATH = self.location.pathname.replace(/\/[^/]*$/, '');
+
+// Helper to construct URLs safely
+function getUrl(path) {
+  if (!BASE_PATH) return path;
+  return BASE_PATH + path;
+}
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll([
-        '/',
-        '/index.html',
-        '/styles.css',
+        getUrl('/'),
+        getUrl('/index.html'),
+        getUrl('/styles.css'),
       ]);
     })
   );
