@@ -9,22 +9,18 @@
 // 5. Enable Authentication > Sign-in method > Google
 // 6. Create Firestore Database (Start in production mode)
 // 7. Create Storage bucket
-// 8. Update the values below or use environment variables
+// 8. Update the values below
 //
 // 🔐 SECURITY: NEVER commit actual Firebase API keys to version control!
-// Always use environment variables (.env file) for production deployments.
-// The .env file is gitignored to prevent accidental commits.
-//
-// 📝 PRODUCTION: Firebase credentials are stored as GitHub repository secrets
-// for secure CI/CD deployment. They are automatically injected during build.
 //
 // 🚫 ANALYTICS DISABLED: Firebase Analytics is intentionally disabled
 // for privacy reasons. Only Authentication, Firestore, and Storage are used.
 
-import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
+// Import Firebase from CDN (compat version for simpler usage without bundler)
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+import { getAuth } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+import { getFirestore } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+import { getStorage } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js';
 
 // Firebase configuration
 // Replace these with your actual Firebase project values

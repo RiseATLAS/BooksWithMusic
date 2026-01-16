@@ -8,7 +8,7 @@ import {
   getDownloadURL,
   deleteObject,
   getMetadata
-} from 'firebase/storage';
+} from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js';
 
 /**
  * Upload EPUB file to Firebase Storage
