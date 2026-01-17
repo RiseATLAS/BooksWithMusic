@@ -367,6 +367,8 @@ This project is open source. All music tracks are CC0-licensed (Creative Commons
 ### 4. Recent Updates (18 January 2026) ✅
 - [x] Terms of Service modal on first login (user must accept to create account)
 - [x] ToS acceptance stored in Firestore with version tracking
+- [x] Max users modal (20 user cap) with proper denial flow
+- [x] User data only stored if ToS accepted (no ghost accounts)
 - [x] CC0-only music compliance (strict filtering at API layer)
 - [x] Track usage logging to Firebase (Freesound ID, license, source URL, timestamp)
 - [x] 20 user registration cap with name storage
@@ -375,6 +377,7 @@ This project is open source. All music tracks are CC0-licensed (Creative Commons
 - [x] Cache validation (only CC0 tracks cached)
 - [x] Fail-safe: music only plays if CC0-licensed
 - [x] Improved mood shift scoring (more nuanced, not all 100)
+- [x] Test configuration for ToS and max users (easily toggleable)
 
 ### 5. Privacy & Security ✅ COMPLETE
 - [x] No secrets in public git history

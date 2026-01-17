@@ -3,13 +3,13 @@
 
 export const TEST_CONFIG = {
   // Show Terms of Service modal to all users (even if already accepted)
-  ALWAYS_SHOW_TOS: false,  // PRODUCTION MODE: Only show to new users or on version update
+  ALWAYS_SHOW_TOS: false,  // ✅ PRODUCTION: Only show to new users or on version update
   
   // Simulate max users reached (blocks all new registrations)
-  SIMULATE_MAX_USERS: true,  // TEST MODE: Simulate max users to test denial
+  SIMULATE_MAX_USERS: false,  // ✅ PRODUCTION: Real user count check
   
   // Allow existing users to bypass max users check
-  ALLOW_EXISTING_USERS: false  // TEST MODE: Block even existing users to test modal
+  ALLOW_EXISTING_USERS: true  // ✅ PRODUCTION: Existing users can always log in
 };
 
 /**

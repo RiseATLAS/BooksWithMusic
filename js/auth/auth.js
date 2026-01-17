@@ -34,7 +34,12 @@ export async function signInWithGoogle() {
     const result = await signInWithPopup(auth, provider);
     const user = result.user;
     
-    // Check if user registration is allowed FIRST (to test max users modal)
+    // PRODUCTION FLOW:
+    // 1. Check max users / registration capacity first
+    // 2. Check/prompt for Terms of Service
+    // 3. Register new user or update existing user
+    
+    // Step 1: Check if user registration is allowed
     const registrationCheck = await checkUserRegistration(
       user.uid, 
       user.displayName || 'Unknown User', 
@@ -49,7 +54,7 @@ export async function signInWithGoogle() {
       throw new Error(registrationCheck.reason);
     }
     
-    // Check terms acceptance (new and existing users)
+    // Step 2: Check terms acceptance
     const termsAccepted = await checkAndPromptTerms(user.uid);
     
     if (!termsAccepted) {
@@ -58,7 +63,7 @@ export async function signInWithGoogle() {
       throw new Error('You must accept the Terms of Use to continue.');
     }
     
-    // Register or update user
+    // Step 3: Register or update user
     if (!registrationCheck.isExisting) {
       await registerUser(user.uid, user.displayName || 'Unknown User', user.email);
       console.log('✅ New user registered successfully');
