@@ -1,6 +1,5 @@
 import { db, auth } from '../config/firebase-config.js';
 import { FirestoreStorage } from '../storage/firestore-storage.js';
-import { BookReader } from '../core/book-reader.js';
 
 export class BookLibrary {
     constructor() {
