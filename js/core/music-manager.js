@@ -201,7 +201,7 @@ export class MusicManager {
         console.log(` Loaded ${this.availableTracks.length} tracks from cache`);
         return cachedTracks;
       } else {
-        console.log('�️ No cached tracks found, fetching from API...');
+        console.log('�️ No cached tracks found, fetching from API...');
       }
 
       // Check if Freesound API key is configured
@@ -285,7 +285,7 @@ export class MusicManager {
       
       if (this.availableTracks.length === 0) {
         console.error(' No tracks loaded from API - check your API key and network connection');
-        console.log('�️ Falling back to demo tracks...');
+        console.log('�️ Falling back to demo tracks...');
         this.availableTracks = this.getDemoTracks();
         console.log(` Loaded ${this.availableTracks.length} demo tracks as fallback`);
       } else {
@@ -316,7 +316,7 @@ export class MusicManager {
     } catch (error) {
       console.error(' Error loading tracks:', error);
       console.error('Stack trace:', error.stack);
-      console.log('�️ Attempting to use demo tracks as fallback...');
+      console.log('�️ Attempting to use demo tracks as fallback...');
       this.availableTracks = this.getDemoTracks();
       console.log(` Loaded ${this.availableTracks.length} demo tracks after error`);
       return this.availableTracks;

@@ -520,25 +520,29 @@ body {
   background: rgba(0, 0, 0, 0.3);
 }
 
-/* Page flip animations - Book-style right to left flip */
+/* Page flip animations - Book-style right to left flip with rotation */
 @keyframes pageFlipNext {
   0% {
-    transform: translateX(100%);
-    opacity: 0;
+    transform: perspective(2000px) rotateY(90deg);
+    transform-origin: left center;
+    opacity: 0.8;
   }
   100% {
-    transform: translateX(0);
+    transform: perspective(2000px) rotateY(0deg);
+    transform-origin: left center;
     opacity: 1;
   }
 }
 
 @keyframes pageFlipPrev {
   0% {
-    transform: translateX(-100%);
-    opacity: 0;
+    transform: perspective(2000px) rotateY(-90deg);
+    transform-origin: right center;
+    opacity: 0.8;
   }
   100% {
-    transform: translateX(0);
+    transform: perspective(2000px) rotateY(0deg);
+    transform-origin: right center;
     opacity: 1;
   }
 }
