@@ -1,6 +1,9 @@
 import { auth } from '../config/firebase-config.js';
 import { saveUserSettings } from '../storage/firestore-storage.js';
 
+import { auth } from '../config/firebase-config.js';
+import { saveUserSettings } from '../storage/firestore-storage.js';
+
 export class SettingsUI {
   constructor() {
     // Detect system dark mode preference
@@ -235,126 +238,32 @@ export class SettingsUI {
   }
 
   loadSettings() {
-    const stored = localStorage.getItem('booksWithMusic-settings');
-    if (stored) {
+    const saved = localStorage.getItem(this.STORAGE_KEY);
+    if (saved) {
+      this.settings = { ...this.defaultSettings, ...JSON.parse(saved) };
+    } else {
+      this.settings = { ...this.defaultSettings };
+    }
+  }
+
+  async syncToFirestore() {
+    if (auth.currentUser) {
       try {
-        this.settings = { ...this.settings, ...JSON.parse(stored) };
-        
-        let needsSave = false;
-        
-        // Force autoPlay to false by default (override old saved settings)
-        if (this.settings.autoPlay === undefined || this.settings.autoPlay === true) {
-          this.settings.autoPlay = false;
-          needsSave = true;
-        }
-        
-        // Fix pageColor to match theme if there's a mismatch
-        if (this.settings.theme === 'dark' && this.settings.pageColor === 'white') {
-          this.settings.pageColor = 'black';
-          needsSave = true;
-        } else if (this.settings.theme === 'light' && this.settings.pageColor === 'black') {
-          this.settings.pageColor = 'white';
-          needsSave = true;
-        } else if (this.settings.theme === 'sepia' && (this.settings.pageColor === 'white' || this.settings.pageColor === 'black')) {
-          this.settings.pageColor = 'cream';
-          needsSave = true;
-        }
-        
-        if (needsSave) {
-          this.saveSettings();
-        }
+        await saveUserSettings(auth.currentUser.uid, this.settings);
+        console.log('✓ Settings synced to Firestore');
       } catch (error) {
-        console.error('❌ Error loading settings from localStorage:', error);
-        console.error('Stack trace:', error.stack);
-        // Continue with default settings
+        console.error('Failed to sync settings to Firestore:', error);
       }
     }
-
-    // Update UI elements
-    const themeSelect = document.getElementById('theme-select');
-    if (themeSelect) themeSelect.value = this.settings.theme;
-
-    const fontSizeInput = document.getElementById('font-size');
-    const fontSizeValue = document.getElementById('font-size-value');
-    if (fontSizeInput) fontSizeInput.value = this.settings.fontSize;
-    if (fontSizeValue) fontSizeValue.textContent = `${this.settings.fontSize}px`;
-
-    const lineHeightInput = document.getElementById('line-height');
-    const lineHeightValue = document.getElementById('line-height-value');
-    if (lineHeightInput) lineHeightInput.value = this.settings.lineHeight;
-    if (lineHeightValue) lineHeightValue.textContent = this.settings.lineHeight.toFixed(1);
-
-    const fontFamilySelect = document.getElementById('font-family');
-    if (fontFamilySelect) fontFamilySelect.value = this.settings.fontFamily;
-
-    const textAlignSelect = document.getElementById('text-align');
-    if (textAlignSelect) textAlignSelect.value = this.settings.textAlign;
-
-    const pageWidthInput = document.getElementById('page-width');
-    const pageWidthValue = document.getElementById('page-width-value');
-    if (pageWidthInput) pageWidthInput.value = this.settings.pageWidth;
-    if (pageWidthValue) pageWidthValue.textContent = `${this.settings.pageWidth}px`;
-
-    const pageDensityInput = document.getElementById('page-density');
-    const pageDensityValue = document.getElementById('page-density-value');
-    if (pageDensityInput) pageDensityInput.value = this.settings.pageDensity ?? 1200;
-    if (pageDensityValue) {
-      const density = this.settings.pageDensity ?? 1200;
-      const words = Math.round(density / 6);
-      pageDensityValue.textContent = `${density} chars (~${words} words)`;
-    }
-
-    const brightnessInput = document.getElementById('brightness');
-    const brightnessValue = document.getElementById('brightness-value');
-    if (brightnessInput) brightnessInput.value = this.settings.brightness;
-    if (brightnessValue) brightnessValue.textContent = `${this.settings.brightness}%`;
-
-    const pageColorSelect = document.getElementById('page-color');
-    if (pageColorSelect) pageColorSelect.value = this.settings.pageColor;
-
-    const pageWarmthInput = document.getElementById('page-warmth');
-    const pageWarmthValue = document.getElementById('page-warmth-value');
-    if (pageWarmthInput) pageWarmthInput.value = this.settings.pageWarmth ?? 0;
-    if (pageWarmthValue) pageWarmthValue.textContent = `${this.settings.pageWarmth ?? 0}%`;
-
-    const showProgress = document.getElementById('show-progress');
-    if (showProgress) showProgress.checked = this.settings.showProgress;
-
-    const showChapterTitle = document.getElementById('show-chapter-title');
-    if (showChapterTitle) showChapterTitle.checked = this.settings.showChapterTitle;
-
-    const crossfadeInput = document.getElementById('crossfade-duration');
-    const crossfadeValue = document.getElementById('crossfade-value');
-    if (crossfadeInput) crossfadeInput.value = this.settings.crossfadeDuration;
-    if (crossfadeValue) crossfadeValue.textContent = `${this.settings.crossfadeDuration}s`;
-
-    const musicEnabled = document.getElementById('music-enabled');
-    if (musicEnabled) musicEnabled.checked = this.settings.musicEnabled;
-
-    const autoPlay = document.getElementById('auto-play');
-    if (autoPlay) autoPlay.checked = this.settings.autoPlay;
   }
 
   saveSettings() {
-    // Ensure all settings including autoPlay are saved
-    const settingsToSave = {
-      ...this.settings,
-      autoPlay: this.settings.autoPlay || false
-    };
-    localStorage.setItem('booksWithMusic-settings', JSON.stringify(settingsToSave));
-    
-    // Sync to Firestore if user is signed in (debounced to avoid excessive writes)
-    if (auth.currentUser) {
-      clearTimeout(this._saveDebounceTimer);
-      this._saveDebounceTimer = setTimeout(async () => {
-        try {
-          await saveUserSettings(auth.currentUser.uid, settingsToSave);
-        } catch (error) {
-          console.error('Failed to sync settings to Firestore:', error);
-        }
-      }, 1000); // Debounce: save after 1 second of no changes
-    }
+    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.settings));
+    // Sync to Firestore if user is signed in
+    this.syncToFirestore();
   }
+    
+  // ...existing code...
 
   applySettings() {
     this.applyTheme();
@@ -641,7 +550,7 @@ export class SettingsUI {
   _colorToRgb(color) {
     const c = (color || '').trim();
     // #RRGGBB
-    const hex = c.match(/^#?([0-9a-f]{6})$/i);
+    const hex = c.match(/^?([0-9a-f]{6})$/i);
     if (hex) {
       const n = parseInt(hex[1], 16);
       return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };

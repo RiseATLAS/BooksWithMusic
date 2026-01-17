@@ -100,6 +100,13 @@ class BooksWithMusicApp {
             }
 
             console.log("✓ User settings loaded from Firestore");
+          } else {
+            // No cloud settings, save local settings to cloud
+            const localSettings = localStorage.getItem('booksWithMusic-settings');
+            if (localSettings) {
+                await saveUserSettings(user.uid, JSON.parse(localSettings));
+                console.log('✓ Local settings saved to Firestore');
+            }
           }
         } catch (error) {
           console.error("Error loading user settings:", error);

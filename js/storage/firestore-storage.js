@@ -22,17 +22,22 @@ import {
  * @returns {Promise<void>}
  */
 export async function saveUserSettings(userId, settings) {
+  if (!userId) {
+    console.error('❌ saveUserSettings: No user ID provided');
+    throw new Error('User ID required to save settings');
+  }
+  if (!settings) {
+    console.error('❌ saveUserSettings: No settings provided');
+    throw new Error('Settings required');
+  }
+  
   try {
-    const userSettingsRef = doc(db, 'users', userId, 'settings', 'preferences');
-    await setDoc(userSettingsRef, {
-      ...settings,
-      updatedAt: serverTimestamp()
-    }, { merge: true });
-    
-    console.log('✓ User settings saved to Firestore');
+    const settingsRef = doc(db, 'users', userId, 'settings', 'preferences');
+    await setDoc(settingsRef, settings, { merge: true });
+    console.log('✓ Settings saved to Firestore');
   } catch (error) {
-    console.error('Error saving user settings:', error);
-    throw new Error(`Failed to save settings: ${error.message}`);
+    console.error('❌ Failed to save settings to Firestore:', error);
+    throw error;
   }
 }
 
