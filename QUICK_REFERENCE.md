@@ -11,10 +11,16 @@
 ### Navigation
 - `←` / `PageUp` - Previous page
 - `→` / `PageDown` / `Space` - Next page
-- `f` / `F11` - Toggle fullscreen
+- `Home` - Jump to first chapter
+- `End` - Jump to last chapter
+
+### View Controls
+- `F` / `F11` - Toggle fullscreen
 
 ### Music Controls
-- Music panel can be accessed via 🎵 button in reader
+- `P` - Play/Pause music
+- Music panel accessible via 🎵 button in reader
+- Hardware media keys (play/pause/next/previous) also supported
 
 ## Settings Quick Guide
 

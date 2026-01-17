@@ -369,6 +369,16 @@ export class ReaderUI {
         return;
       }
 
+      // Music play/pause shortcut
+      if (e.key === 'p' || e.key === 'P') {
+        e.preventDefault();
+        const playPauseBtn = document.getElementById('play-pause');
+        if (playPauseBtn) {
+          playPauseBtn.click();
+        }
+        return;
+      }
+
       // Navigation shortcuts
       switch(e.key) {
         case 'ArrowLeft':
