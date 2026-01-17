@@ -34,7 +34,6 @@ export async function saveUserSettings(userId, settings) {
   try {
     const settingsRef = doc(db, 'users', userId, 'settings', 'preferences');
     await setDoc(settingsRef, settings, { merge: true });
-    console.log(' Settings saved to Firestore');
   } catch (error) {
     console.error(' Failed to save settings to Firestore:', error);
     throw error;
@@ -52,10 +51,8 @@ export async function getUserSettings(userId) {
     const docSnap = await getDoc(userSettingsRef);
     
     if (docSnap.exists()) {
-      console.log('User settings loaded from Firestore');
       return docSnap.data();
     } else {
-      console.log('No settings found in Firestore, will use defaults');
       return null;
     }
   } catch (error) {
@@ -123,7 +120,6 @@ export async function saveBookMetadata(userId, bookId, metadata) {
       lastRead: serverTimestamp()
     }, { merge: true });
     
-    console.log(` Metadata saved for book ${bookId}`);
   } catch (error) {
     console.error('Error saving book metadata:', error);
     throw new Error(`Failed to save metadata: ${error.message}`);

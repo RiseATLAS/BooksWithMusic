@@ -44,12 +44,12 @@ export class MusicManager {
       this.currentBookId = bookId;
       this.chapters = chapters;
       
-      console.log(' Loading music tracks...');
-      
       // Load available tracks from API
       await this.loadTracksFromAPI();
       
-      console.log(` Loaded ${this.availableTracks.length} tracks`);
+      if (this.availableTracks.length > 0) {
+        console.log(` Loaded ${this.availableTracks.length} CC0 tracks`);
+      }
       
       // Check and report caching status
       await this.verifyCaching();
@@ -212,8 +212,6 @@ export class MusicManager {
         // Already filtered for CC0 in _loadFromCache
         this.availableTracks = cachedTracks;
         return cachedTracks;
-      } else {
-        console.log('🔍 No cached tracks found, fetching from API...');
       }
 
       // Check if Freesound API key is configured
@@ -225,8 +223,6 @@ export class MusicManager {
         console.log('Get a free API key at: https://freesound.org/apiv2/apply');
         this.availableTracks = [];
         return this.availableTracks;
-      } else {
-        console.log(' API key found, querying Freesound...');
       }
       
       // Expanded query categories: moods, genres, styles, and reading contexts
@@ -272,7 +268,6 @@ export class MusicManager {
       ];
       
       // Load all music in parallel
-      console.log(` Querying ${queryCategories.length} music categories from Freesound...`);
       const trackPromises = queryCategories.map(queryTerms => 
         this.musicAPI.searchByQuery(queryTerms, 15)
           .catch(error => {
@@ -292,8 +287,6 @@ export class MusicManager {
           console.warn(` Query ${index + 1} [${queryCategories[index].join(', ')}] returned 0 tracks`);
         }
       });
-      
-      console.log(`Retrieved ${this.availableTracks.length} total tracks from API`);
       
       if (this.availableTracks.length === 0) {
         console.error('❌ No CC0 tracks loaded from API');
@@ -333,10 +326,12 @@ export class MusicManager {
         if (maxEnergyLevel < 5) {
           const beforeFilter = this.availableTracks.length;
           this.availableTracks = this.availableTracks.filter(track => track.energy <= maxEnergyLevel);
-          console.log(` Energy filter applied: ${beforeFilter} → ${this.availableTracks.length} tracks (max energy: ${maxEnergyLevel})`);
+          if (beforeFilter > this.availableTracks.length) {
+            console.log(` Energy filter: ${beforeFilter} → ${this.availableTracks.length} tracks (max: ${maxEnergyLevel})`);
+          }
         }
         
-        console.log(`✅ Final track count: ${this.availableTracks.length} CC0-licensed tracks`);
+        console.log(`✅ ${this.availableTracks.length} CC0 tracks ready`);
         
         // Cache tracks for future use
         await this._saveToCache(this.availableTracks);
@@ -374,7 +369,6 @@ export class MusicManager {
           
           // Only return if we have CC0 tracks, otherwise re-fetch
           if (cc0Tracks.length > 0) {
-            console.log(`✅ Loaded ${cc0Tracks.length} CC0-licensed tracks from cache`);
             return cc0Tracks;
           } else {
             console.warn('⚠️ No CC0 tracks in cache, will re-fetch from API');
@@ -411,7 +405,6 @@ export class MusicManager {
         timestamp: Date.now()
       };
       localStorage.setItem('music_tracks_cache', JSON.stringify(cacheData));
-      console.log(`✅ Cached ${cc0Tracks.length} CC0-licensed tracks to localStorage`);
       
       if (cc0Tracks.length < tracks.length) {
         console.warn(`⚠️ Excluded ${tracks.length - cc0Tracks.length} non-CC0 tracks from cache`);

@@ -156,7 +156,6 @@ export class MusicAPI {
       const tracks = data.results
         .filter(sound => {
           // FAIL-SAFE: Only use CC0 licensed sounds
-          console.log(`🔍 Checking license for "${sound.name}": ${sound.license}`);
           // Check for CC0 license (can be URL or text)
           const isCC0 = sound.license && (
             sound.license.includes('Creative Commons 0') ||
@@ -165,8 +164,6 @@ export class MusicAPI {
           );
           if (!isCC0) {
             console.warn(`❌ Filtered out non-CC0 sound: ${sound.name} (License: ${sound.license})`);
-          } else {
-            console.log(`✅ CC0 confirmed: ${sound.name}`);
           }
           return isCC0;
         })
@@ -206,7 +203,9 @@ export class MusicAPI {
         console.log(` Filtered ${tracks.length - filteredTracks.length} tracks (duration or energy constraints)`);
       }
       
-      console.log(`✅ Final result: ${filteredTracks.length} CC0-licensed tracks ready for playback`);
+      if (filteredTracks.length > 0) {
+        console.log(`✅ Loaded ${filteredTracks.length} CC0-licensed tracks`);
+      }
       
       return filteredTracks;
     } catch (error) {
