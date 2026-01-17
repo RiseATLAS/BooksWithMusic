@@ -223,11 +223,18 @@ export function showTermsModal() {
  */
 export async function checkAndPromptTerms(userId) {
   try {
+    // FOR TESTING: Always show the modal to all users
+    // To revert to normal behavior, uncomment the code below and remove the forced prompt
+    
+    /*
     const accepted = await hasAcceptedTerms(userId);
     
     if (accepted) {
       return true;
     }
+    */
+    
+    console.log('🔍 [TEST MODE] Showing Terms of Service to all users for testing');
     
     // Show modal and wait for user decision
     const userAccepted = await showTermsModal();
