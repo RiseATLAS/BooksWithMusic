@@ -180,15 +180,27 @@ class BooksWithMusicApp {
       }
     }
 
-    // Reader page - clicking user photo shows a tooltip or opens settings
+    // Reader page - clicking user photo shows user menu
     if (isReaderPage && userProfile) {
-      userProfile.addEventListener("click", () => {
-        // Show user info or open settings panel
-        const settingsBtn = document.getElementById("settings-btn");
-        if (settingsBtn) {
-          settingsBtn.click();
+      userProfile.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.toggleUserMenu();
+      });
+      
+      // Close menu when clicking outside
+      document.addEventListener("click", (e) => {
+        const menu = document.getElementById("user-menu");
+        if (menu && !userProfile.contains(e.target) && !menu.contains(e.target)) {
+          menu?.classList.remove("show");
         }
       });
+    }
+  }
+
+  toggleUserMenu() {
+    const menu = document.getElementById("user-menu");
+    if (menu) {
+      menu.classList.toggle("show");
     }
   }
 
@@ -224,6 +236,55 @@ class BooksWithMusicApp {
 
       if (userName && !isReaderPage) {
         userName.textContent = user.displayName || user.email;
+      }
+      
+      // Update user menu (reader page only)
+      if (isReaderPage) {
+        const menuPhoto = document.getElementById("user-menu-photo");
+        const menuName = document.getElementById("user-menu-name");
+        const menuEmail = document.getElementById("user-menu-email");
+        
+        if (menuPhoto) {
+          menuPhoto.src = user.photoURL || "https://via.placeholder.com/48";
+          menuPhoto.alt = user.displayName || user.email;
+        }
+        if (menuName) {
+          menuName.textContent = user.displayName || "User";
+        }
+        if (menuEmail) {
+          menuEmail.textContent = user.email;
+        }
+        
+        // Setup sign out handler for reader page
+        const signOutBtnReader = document.getElementById("sign-out-btn-reader");
+        if (signOutBtnReader && !signOutBtnReader.dataset.handlerAdded) {
+          signOutBtnReader.dataset.handlerAdded = "true";
+          signOutBtnReader.addEventListener("click", async () => {
+            try {
+              // Save settings before signing out
+              if (this.currentUser) {
+                const settings = JSON.parse(
+                  localStorage.getItem("booksWithMusic-settings") || "{}",
+                );
+                await saveUserSettings(this.currentUser.uid, settings);
+              }
+              
+              await signOut();
+              this.showToast("Signed out successfully", "success");
+              
+              // Close user menu
+              document.getElementById("user-menu")?.classList.remove("show");
+              
+              // Redirect to home page after sign out from reader
+              setTimeout(() => {
+                window.location.href = "/BooksWithMusic/";
+              }, 500);
+            } catch (error) {
+              console.error("Sign-out error:", error);
+              this.showToast("Sign-out failed: " + error.message, "error");
+            }
+          });
+        }
       }
     } else {
       // Show sign in button, hide user profile
