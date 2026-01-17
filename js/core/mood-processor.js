@@ -1,4 +1,8 @@
-export class AIProcessor {
+/**
+ * MoodProcessor - Intelligent mood and scene analysis for matching music to narrative content
+ * Uses keyword-based pattern matching and text analysis to detect emotional tone and atmosphere
+ */
+export class MoodProcessor {
   constructor() {
     // Enhanced keyword system: Scene/Environment takes priority over emotions
     this.sceneKeywords = {
@@ -96,7 +100,7 @@ export class AIProcessor {
    * Analyze entire book and generate mood profiles for all chapters
    */
   async analyzeBook(book) {
-    console.log(`AI analyzing "${book.title}" (${book.chapters.length} chapters)...`);
+    console.log(`📖 Analyzing "${book.title}" (${book.chapters.length} chapters)...`);
     
     const chapterAnalyses = book.chapters.map((chapter, index) => {
       return this.analyzeChapter(chapter, book);

@@ -1,5 +1,5 @@
 import { CacheManager } from '../storage/cache-manager.js';
-import { AIProcessor } from './ai-processor.js';
+import { MoodProcessor } from './mood-processor.js';
 import { MusicAPI } from './music-api.js';
 
 /**
@@ -18,7 +18,7 @@ export class MusicManager {
   constructor(db) {
     this.db = db;
     this.cache = new CacheManager();
-    this.aiProcessor = new AIProcessor();
+    this.moodProcessor = new MoodProcessor();
     this.musicAPI = new MusicAPI();
     this.bookAnalysis = null;
     this.chapterMappings = {};
@@ -54,11 +54,11 @@ export class MusicManager {
       // Check and report caching status
       await this.verifyCaching();
       
-      // Analyze book with AI to determine chapter-specific music
-      this.bookAnalysis = await this.aiProcessor.analyzeBook({ id: bookId, title: 'Current Book', chapters });
+      // Analyze book with intelligent mood detection to determine chapter-specific music
+      this.bookAnalysis = await this.moodProcessor.analyzeBook({ id: bookId, title: 'Current Book', chapters });
       
       // Generate mappings using available tracks
-      const mappings = this.aiProcessor.generateChapterMappings(
+      const mappings = this.moodProcessor.generateChapterMappings(
         { id: bookId, title: 'Current Book', chapters },
         this.bookAnalysis.chapterAnalyses,
         this.availableTracks

@@ -1,6 +1,6 @@
 # BooksWithMusic 📚🎵
 
-A modern web-based EPUB reader with **AI-powered music selection** that automatically pairs instrumental music with your reading experience. The app analyzes each chapter's mood and selects appropriate background music to enhance your reading.
+A modern web-based EPUB reader with **intelligent music selection** that automatically pairs instrumental music with your reading experience. The app analyzes each chapter's mood and selects appropriate background music to enhance your reading.
 
 **⚖️ Music Compliance:** All music tracks are CC0-licensed (Creative Commons Zero) from Freesound. Full track usage logging and legal compliance built-in.
 
@@ -50,7 +50,7 @@ BooksWithMusic/
 │   ├── main.js         # App entry point
 │   ├── auth/           # Firebase authentication
 │   ├── config/         # Firebase configuration
-│   ├── core/           # Core functionality (EPUB, music, AI)
+│   ├── core/           # Core functionality (EPUB, music, mood analysis)
 │   ├── storage/        # Firebase Storage & Firestore
 │   └── ui/             # UI components
 └── README.md           # This file
@@ -82,7 +82,7 @@ BooksWithMusic/
 - 👥 **User Cap** - 20 user maximum for friends & family use
 
 ### Music Integration
-- 🤖 **AI Mood Analysis** - Automatically detects chapter emotions (10 mood types)
+- 🎭 **Intelligent Mood Analysis** - Automatically detects chapter emotions (10 mood types)
 - 🎵 **Smart Music Pairing** - Matches instrumental tracks to reading atmosphere
 - 🎧 **Seamless Playback** - Smooth crossfading between tracks
 - 📊 **Music Panel** - View and manage track queue for current chapter
@@ -248,7 +248,7 @@ export const TEST_CONFIG = {
 - Update `TERMS_VERSION` in the module when terms change to re-prompt users
 - ToS check happens BEFORE registration check in the flow
 
-## 🧠 AI Mood Detection
+## 🎭 Intelligent Mood Detection
 
 The app analyzes chapter text and detects **10 mood types**:
 

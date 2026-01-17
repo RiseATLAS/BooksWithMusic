@@ -1,6 +1,6 @@
 import { EPUBParser } from '../core/epub-parser.js';
 import { MusicManager } from '../core/music-manager.js';
-import { AIProcessor } from '../core/ai-processor.js';
+import { MoodProcessor } from '../core/mood-processor.js';
 import { saveBookProgress } from '../storage/firestore-storage.js';
 import { auth } from '../config/firebase-config.js';
 
@@ -19,7 +19,7 @@ export class ReaderUI {
   constructor(db) {
     this.db = db;
     this.parser = new EPUBParser();
-    this.aiProcessor = new AIProcessor();
+    this.moodProcessor = new MoodProcessor();
     this.musicManager = new MusicManager(db);
     this.currentBook = null;
     this.currentChapterIndex = 0;
@@ -817,7 +817,7 @@ export class ReaderUI {
     const plainText = tempDiv.textContent || tempDiv.innerText || '';
     
     // Analyze chapter sections
-    const sectionAnalysis = this.aiProcessor.analyzeChapterSections(
+    const sectionAnalysis = this.moodProcessor.analyzeChapterSections(
       plainText,
       chapterMood,
       totalPages,
