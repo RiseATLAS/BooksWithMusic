@@ -916,15 +916,16 @@ export class ReaderUI {
   }
 
   updatePageIndicator() {
-    let indicator = document.querySelector('.page-indicator');
+    const pageContainer = document.querySelector('.page-container');
+    if (!pageContainer) return;
+    
+    let indicator = pageContainer.querySelector('.page-indicator');
     if (!indicator) {
       indicator = document.createElement('div');
       indicator.className = 'page-indicator';
-      document.body.appendChild(indicator);
+      pageContainer.appendChild(indicator);
     }
-    if (indicator) {
-      indicator.textContent = `Page ${this.currentPage} of ${this.totalPages}`;
-    }
+    indicator.textContent = `${this.currentPage} / ${this.totalPages}`;
   }
 
   async saveProgress() {

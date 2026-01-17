@@ -44,6 +44,11 @@ export class BookLibrary {
                     this.books = cachedBooks;
                     console.log(`Loaded ${this.books.length} books from cache`);
                     this.displayBooks(); // Show cached books immediately
+                    
+                    // Show friendly message if signed out but have cached books
+                    if (!auth.currentUser && cachedBooks.length > 0) {
+                        this.showToast('📚 We stored your books so you can continue reading while offline, enjoy!', 'info', 5000);
+                    }
                 }
             }
             
@@ -240,14 +245,33 @@ export class BookLibrary {
             return;
         }
         
-        await updateBook(bookId, {
-            lastOpened: new Date().toISOString()
-        });
+        // Only update lastOpened in Firestore if user is signed in
+        if (auth.currentUser) {
+            try {
+                await updateBook(bookId, {
+                    lastOpened: new Date().toISOString()
+                });
+            } catch (error) {
+                console.warn('Could not update book in Firestore:', error);
+            }
+        }
         
         // Store book data in sessionStorage for reader page
         // Need to fetch the full book data including fileData to parse chapters
         const { getBook } = await import('../storage/firestore-storage.js');
-        const fullBook = await getBook(bookId);
+        let fullBook;
+        
+        // Try to get from Firestore if signed in, otherwise use cached book
+        if (auth.currentUser) {
+            try {
+                fullBook = await getBook(bookId);
+            } catch (error) {
+                console.warn('Could not fetch book from Firestore, using cache:', error);
+                fullBook = book;
+            }
+        } else {
+            fullBook = book;
+        }
         
         console.log('Full book data:', fullBook ? 'Found' : 'Not found');
         console.log('Has fileData:', fullBook?.fileData ? 'Yes (' + fullBook.fileData.length + ' chars)' : 'No');

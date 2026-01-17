@@ -467,6 +467,23 @@ body {
   perspective: 2000px; /* 3D perspective for page flips */
 }
 
+/* Page indicator overlay (bottom-left) */
+.page-indicator {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  padding: 6px 12px;
+  background: rgba(0, 0, 0, 0.6);
+  color: rgba(255, 255, 255, 0.9);
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  pointer-events: none;
+  z-index: 100;
+  backdrop-filter: blur(4px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
 .page-viewport {
   position: relative;
   width: var(--page-width, 800px);
@@ -752,14 +769,16 @@ body {
   opacity: 1;
 }
 
-/* Panels */
+/* Panels - 15% transparent with glass effect */
 .music-panel, .settings-panel {
   position: fixed;
   right: -860px;
   top: 0;
   width: 820px;
   height: 100vh;
-  background: var(--glass-bg);
+  background: var(--bg-secondary);
+  opacity: 0.85; /* 85% opacity = 15% transparent */
+  -webkit-backdrop-filter: blur(30px);
   backdrop-filter: blur(30px);
   border-left: 1px solid var(--glass-border);
   box-shadow: -4px 0 30px rgba(0, 0, 0, 0.1);
@@ -775,27 +794,28 @@ body {
   padding: 0; 
 }
 
-/* Settings panel content padding */
+/* Settings panel content - more compact */
 .settings-content {
-  padding: 1.5rem;
+  padding: 1rem 1.25rem;
 }
 
 .music-header, .settings-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1.5rem;
+  padding: 1rem 1.25rem; /* Reduced from 1.5rem */
   border-bottom: 1px solid var(--border);
 }
 
 .settings-header {
   position: sticky;
   top: 0;
-  background: var(--glass-bg);
+  background: var(--bg-secondary);
+  -webkit-backdrop-filter: blur(30px);
   backdrop-filter: blur(30px);
   z-index: 1;
 }
-.music-header h3, .settings-header h3 { font-size: 1.25rem; font-weight: 600; }
+.music-header h3, .settings-header h3 { font-size: 1.15rem; font-weight: 600; } /* Slightly smaller */
 
 .btn-close {
   background: none;
