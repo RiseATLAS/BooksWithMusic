@@ -410,6 +410,12 @@ export class ReaderUI {
       const newDensity = e.detail.charsPerPage;
       console.log('📏 Page density changed to:', newDensity);
       
+      // Skip if density hasn't actually changed (e.g., during initial settings load)
+      if (newDensity === this.charsPerPage) {
+        console.log('   No change detected, skipping re-pagination');
+        return;
+      }
+      
       // Calculate current character offset BEFORE re-pagination
       const currentOffset = this.calculateCharOffset();
       console.log(`📍 Current position: Chapter ${this.currentChapterIndex + 1}, Page ${this.currentPageInChapter}, Char offset: ${currentOffset}`);
