@@ -505,6 +505,18 @@ body {
   perspective-origin: center center;
 }
 
+/* Hide scrollbar during flip animations to prevent visual glitches */
+.page-viewport:has(.chapter-text.flipping-next),
+.page-viewport:has(.chapter-text.flipping-prev) {
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.page-viewport:has(.chapter-text.flipping-next)::-webkit-scrollbar,
+.page-viewport:has(.chapter-text.flipping-prev)::-webkit-scrollbar {
+  display: none;
+}
+
 /* Show minimal scrollbar for long pages */
 .page-viewport::-webkit-scrollbar {
   width: 8px;
