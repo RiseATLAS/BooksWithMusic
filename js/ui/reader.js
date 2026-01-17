@@ -711,8 +711,6 @@ export class ReaderUI {
       if (!pages || pages.length === 0) {
         console.warn('No pages found for chapter:', this.currentChapterIndex);
         return;
-      } else {
-        console.log('Rendering page', this.currentPageInChapter, 'of', pages.length);
       }
       
       const pageIndex = this.currentPageInChapter - 1;
@@ -1118,8 +1116,8 @@ export class ReaderUI {
     const animClass = direction === 'next' ? 'flipping-next' : 'flipping-prev';
     chapterText.classList.add(animClass);
     
-    // Quick animation (reduced from 300ms to 100ms)
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // Wait for animation to reach midpoint (when page is hidden)
+    await new Promise(resolve => setTimeout(resolve, 150));
     
     // Update page number and render new content
     this.currentPageInChapter = targetPage;
@@ -1140,8 +1138,8 @@ export class ReaderUI {
       this.saveProgress().catch(() => {});
     }, 400);
     
-    // Quick animation completion (reduced from 300ms to 100ms)
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // Wait for animation to complete
+    await new Promise(resolve => setTimeout(resolve, 150));
     
     // Remove animation class
     const newChapterText = document.querySelector('.chapter-text');

@@ -79,8 +79,6 @@ export async function saveBookProgress(userId, bookId, progress) {
       progress: progress,
       lastRead: serverTimestamp()
     }, { merge: true });
-    
-    console.log(` Progress saved for book ${bookId}`);
   } catch (error) {
     console.error('Error saving book progress:', error);
     throw new Error(`Failed to save progress: ${error.message}`);
