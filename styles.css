@@ -523,22 +523,12 @@ body {
 /* Page flip animations - Book-style right to left flip */
 @keyframes pageFlipNext {
   0% {
-    transform: perspective(1000px) rotateY(0deg);
+    transform: perspective(2000px) translateX(100%) rotateY(-90deg);
     transform-origin: left center;
-    opacity: 1;
-  }
-  50% {
-    transform: perspective(1000px) rotateY(-90deg);
-    transform-origin: left center;
-    opacity: 0.3;
-  }
-  51% {
-    transform: perspective(1000px) rotateY(90deg);
-    transform-origin: left center;
-    opacity: 0.3;
+    opacity: 0;
   }
   100% {
-    transform: perspective(1000px) rotateY(0deg);
+    transform: perspective(2000px) translateX(0) rotateY(0deg);
     transform-origin: left center;
     opacity: 1;
   }
@@ -546,22 +536,12 @@ body {
 
 @keyframes pageFlipPrev {
   0% {
-    transform: perspective(1000px) rotateY(0deg);
+    transform: perspective(2000px) translateX(-100%) rotateY(90deg);
     transform-origin: right center;
-    opacity: 1;
-  }
-  50% {
-    transform: perspective(1000px) rotateY(90deg);
-    transform-origin: right center;
-    opacity: 0.3;
-  }
-  51% {
-    transform: perspective(1000px) rotateY(-90deg);
-    transform-origin: right center;
-    opacity: 0.3;
+    opacity: 0;
   }
   100% {
-    transform: perspective(1000px) rotateY(0deg);
+    transform: perspective(2000px) translateX(0) rotateY(0deg);
     transform-origin: right center;
     opacity: 1;
   }
@@ -643,11 +623,11 @@ body {
 
 /* Apply animations based on flip direction */
 .chapter-text.flipping-next {
-  animation: pageFlipNext 0.3s cubic-bezier(0.45, 0, 0.55, 1);
+  animation: pageFlipNext 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .chapter-text.flipping-prev {
-  animation: pageFlipPrev 0.3s cubic-bezier(0.45, 0, 0.55, 1);
+  animation: pageFlipPrev 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .chapter-text.sliding-next {

@@ -1112,14 +1112,7 @@ export class ReaderUI {
       return;
     }
     
-    // Add animation class based on direction
-    const animClass = direction === 'next' ? 'flipping-next' : 'flipping-prev';
-    chapterText.classList.add(animClass);
-    
-    // Wait for animation to reach midpoint (when page is hidden)
-    await new Promise(resolve => setTimeout(resolve, 150));
-    
-    // Update page number and render new content
+    // Update page number and render new content FIRST
     this.currentPageInChapter = targetPage;
     this.renderCurrentPage();
     
@@ -1128,6 +1121,13 @@ export class ReaderUI {
     this.totalPages = this.calculateTotalPages();
     this.updatePageIndicator();
     this._updateNavButtons();
+    
+    // Add animation class based on direction (NEW page flips in)
+    const animClass = direction === 'next' ? 'flipping-next' : 'flipping-prev';
+    const newChapterText = document.querySelector('.chapter-text');
+    if (newChapterText) {
+      newChapterText.classList.add(animClass);
+    }
     
     // Notify music manager about page change
     this._notifyPageChange(oldPage, targetPage);
@@ -1138,11 +1138,10 @@ export class ReaderUI {
       this.saveProgress().catch(() => {});
     }, 400);
     
-    // Wait for animation to complete
-    await new Promise(resolve => setTimeout(resolve, 150));
+    // Wait for animation to complete (600ms)
+    await new Promise(resolve => setTimeout(resolve, 600));
     
     // Remove animation class
-    const newChapterText = document.querySelector('.chapter-text');
     if (newChapterText) {
       newChapterText.classList.remove(animClass);
     }
