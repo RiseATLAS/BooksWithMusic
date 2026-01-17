@@ -262,24 +262,24 @@ This project is open source. Music attribution required for Freesound tracks (se
 
 **Built with ❤️ for book lovers who enjoy atmospheric music while reading.**
 
-## ✅ Deployment & Functionality Checklist
+## ✅ Deployment & Functionality Checklist (Status as of 17 January 2026)
 
 ### 1. GitHub Pages Hosting
-- [ ] Repository is public and accessible on GitHub
-- [ ] GitHub Pages is enabled (Settings → Pages → Source: `main` branch, root folder)
-- [ ] All app files (`index.html`, `reader.html`, `styles.css`, `js/`, etc.) are in the root directory (not in `/public`)
-- [ ] No build step or npm required (pure static files)
-- [ ] Site loads at: `https://YOUR-USERNAME.github.io/BooksWithMusic/`
+- [x] Repository is public and accessible on GitHub
+- [x] GitHub Pages is enabled (Settings → Pages → Source: `main` branch, root folder)
+- [x] All app files (`index.html`, `reader.html`, `styles.css`, `js/`, etc.) are in the root directory (not in `/public`)
+- [x] No build step or npm required (pure static files)
+- [x] Site loads at: https://riseatlas.github.io/BooksWithMusic/
 
 ### 2. Firebase Configuration
-- [ ] Firebase project created at https://console.firebase.google.com/
-- [ ] Web app registered in Firebase project
-- [ ] Firebase config (apiKey, authDomain, etc.) is set in `js/config/firebase-config.js`
-- [ ] Google Authentication enabled in Firebase (Authentication → Sign-in method → Google)
-- [ ] Firestore Database created (in production mode)
-- [ ] Firebase Storage enabled (in production mode)
-- [ ] Security rules set for Firestore and Storage (see `FIREBASE_SETUP.md`)
-- [ ] Authorized domain (`github.io`) added in Firebase Auth settings
+- [x] Firebase project created at https://console.firebase.google.com/
+- [x] Web app registered in Firebase project
+- [x] Firebase config (apiKey, authDomain, etc.) is set in `js/config/firebase-config.js` (public, safe)
+- [x] Google Authentication enabled in Firebase (Authentication → Sign-in method → Google)
+- [x] Firestore Database created (in production mode)
+- [x] Firebase Storage enabled (in production mode)
+- [ ] Security rules set for Firestore and Storage (see `FIREBASE_SETUP.md`) — **RECOMMENDED: Double-check rules for user-only access**
+- [x] Authorized domain (`github.io`) added in Firebase Auth settings
 
 ### 3. Application Functionality
 - [ ] App loads without errors in browser (check console for red errors)
@@ -294,11 +294,11 @@ This project is open source. Music attribution required for Freesound tracks (se
 - [ ] Service worker is registered (for offline support and caching)
 
 ### 4. Privacy & Security
-- [ ] No Firebase API keys or secrets are committed to public git history
-- [ ] Only authenticated users can access their own data in Firestore/Storage
-- [ ] No analytics or tracking enabled (unless user consents)
+- [x] No Firebase API keys or secrets are committed to public git history (web config is public by design)
+- [ ] Only authenticated users can access their own data in Firestore/Storage (verify security rules)
+- [x] No analytics or tracking enabled (unless user consents)
 
 ### 5. Documentation & Support
-- [ ] `README.md` is up to date with correct setup and usage instructions
-- [ ] `FIREBASE_SETUP.md` provides step-by-step Firebase setup
-- [ ] `SECURITY.md` documents privacy and security practices
+- [x] `README.md` is up to date with correct setup and usage instructions
+- [x] `FIREBASE_SETUP.md` provides step-by-step Firebase setup
+- [x] `SECURITY.md` documents privacy and security practices

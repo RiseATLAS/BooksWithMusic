@@ -1,7 +1,7 @@
 // Firestore Storage Module
 // Handles user settings, book metadata, and reading progress in Firestore
 
-import { db, isFirebaseConfigured } from '../config/firebase-config.js';
+import { db } from '../config/firebase-config.js';
 import { 
   doc, 
   getDoc, 
@@ -22,10 +22,6 @@ import {
  * @returns {Promise<void>}
  */
 export async function saveUserSettings(userId, settings) {
-  if (!isFirebaseConfigured()) {
-    throw new Error('Firebase not configured');
-  }
-
   try {
     const userSettingsRef = doc(db, 'users', userId, 'settings', 'preferences');
     await setDoc(userSettingsRef, {
@@ -46,10 +42,6 @@ export async function saveUserSettings(userId, settings) {
  * @returns {Promise<Object|null>} Settings object or null if not found
  */
 export async function getUserSettings(userId) {
-  if (!isFirebaseConfigured()) {
-    throw new Error('Firebase not configured');
-  }
-
   try {
     const userSettingsRef = doc(db, 'users', userId, 'settings', 'preferences');
     const docSnap = await getDoc(userSettingsRef);
@@ -75,10 +67,6 @@ export async function getUserSettings(userId) {
  * @returns {Promise<void>}
  */
 export async function saveBookProgress(userId, bookId, progress) {
-  if (!isFirebaseConfigured()) {
-    throw new Error('Firebase not configured');
-  }
-
   try {
     const progressRef = doc(db, 'users', userId, 'books', bookId);
     // Use setDoc with merge to create or update the document
@@ -101,10 +89,6 @@ export async function saveBookProgress(userId, bookId, progress) {
  * @returns {Promise<Object|null>} Progress object or null if not found
  */
 export async function getBookProgress(userId, bookId) {
-  if (!isFirebaseConfigured()) {
-    throw new Error('Firebase not configured');
-  }
-
   try {
     const progressRef = doc(db, 'users', userId, 'books', bookId);
     const docSnap = await getDoc(progressRef);
@@ -128,10 +112,6 @@ export async function getBookProgress(userId, bookId) {
  * @returns {Promise<void>}
  */
 export async function saveBookMetadata(userId, bookId, metadata) {
-  if (!isFirebaseConfigured()) {
-    throw new Error('Firebase not configured');
-  }
-
   try {
     const bookRef = doc(db, 'users', userId, 'books', bookId);
     await setDoc(bookRef, {
@@ -153,10 +133,6 @@ export async function saveBookMetadata(userId, bookId, metadata) {
  * @returns {Promise<Array>} Array of book metadata objects
  */
 export async function getUserBooks(userId) {
-  if (!isFirebaseConfigured()) {
-    throw new Error('Firebase not configured');
-  }
-
   try {
     const booksRef = collection(db, 'users', userId, 'books');
     const querySnapshot = await getDocs(booksRef);
@@ -184,10 +160,6 @@ export async function getUserBooks(userId) {
  * @returns {Promise<void>}
  */
 export async function deleteBookMetadata(userId, bookId) {
-  if (!isFirebaseConfigured()) {
-    throw new Error('Firebase not configured');
-  }
-
   try {
     const bookRef = doc(db, 'users', userId, 'books', bookId);
     await deleteDoc(bookRef);
