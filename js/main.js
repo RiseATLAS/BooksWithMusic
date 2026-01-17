@@ -290,12 +290,17 @@ class BooksWithMusicApp {
       return;
     }
 
-    if ('serviceWorker' in navigator) {
-      try {
-        await navigator.serviceWorker.register('/service-worker.js');
-        console.log('Service Worker registered');
-      } catch (error) {
-        console.warn('Service Worker registration failed:', error);
+    async initServiceWorker() {
+      // Register service worker for offline support
+      if ('serviceWorker' in navigator) {
+          try {
+              // Use correct path for GitHub Pages (with repo name in URL)
+              const swPath = '/BooksWithMusic/service-worker.js';
+              const registration = await navigator.serviceWorker.register(swPath);
+              console.log('✓ Service Worker registered');
+          } catch (error) {
+              console.warn('Service Worker registration failed:', error);
+          }
       }
     }
   }
