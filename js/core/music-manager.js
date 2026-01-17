@@ -197,11 +197,11 @@ export class MusicManager {
       // Check cache first
       const cachedTracks = await this._loadFromCache();
       if (cachedTracks && cachedTracks.length > 0) {
+        // Already filtered for CC0 in _loadFromCache
         this.availableTracks = cachedTracks;
-        console.log(` Loaded ${this.availableTracks.length} tracks from cache`);
         return cachedTracks;
       } else {
-        console.log('�️ No cached tracks found, fetching from API...');
+        console.log('🔍 No cached tracks found, fetching from API...');
       }
 
       // Check if Freesound API key is configured
@@ -297,6 +297,20 @@ export class MusicManager {
           return true;
         });
         
+        // CRITICAL: Filter out any non-CC0 tracks (fail-safe)
+        const beforeCC0Filter = this.availableTracks.length;
+        this.availableTracks = this.availableTracks.filter(track => {
+          const isCC0 = track.license?.type === 'CC0';
+          if (!isCC0) {
+            console.warn(`❌ FAIL-SAFE: Filtered non-CC0 track: ${track.title} (License: ${track.license?.type})`);
+          }
+          return isCC0;
+        });
+        
+        if (beforeCC0Filter > this.availableTracks.length) {
+          console.warn(`⚠️ FAIL-SAFE: Removed ${beforeCC0Filter - this.availableTracks.length} non-CC0 tracks`);
+        }
+        
         // Apply energy level filter to all tracks
         const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
         const maxEnergyLevel = settings.maxEnergyLevel || 5;
@@ -307,9 +321,10 @@ export class MusicManager {
           console.log(` Energy filter applied: ${beforeFilter} → ${this.availableTracks.length} tracks (max energy: ${maxEnergyLevel})`);
         }
         
+        console.log(`✅ Final track count: ${this.availableTracks.length} CC0-licensed tracks`);
+        
         // Cache tracks for future use
         await this._saveToCache(this.availableTracks);
-        console.log(` Final track count: ${this.availableTracks.length}`);
       }
       
       return this.availableTracks;
@@ -330,7 +345,30 @@ export class MusicManager {
         const data = JSON.parse(cached);
         // Cache expires after 24 hours
         if (Date.now() - data.timestamp < 24 * 60 * 60 * 1000) {
-          return data.tracks;
+          // FILTER OUT NON-CC0 TRACKS FROM CACHE
+          const cc0Tracks = data.tracks.filter(track => {
+            const isCC0 = track.license?.type === 'CC0';
+            if (!isCC0) {
+              console.warn(`❌ Filtered non-CC0 track from cache: ${track.title} (License: ${track.license?.type})`);
+            }
+            return isCC0;
+          });
+          
+          // If we filtered out tracks, log it
+          if (cc0Tracks.length < data.tracks.length) {
+            console.warn(`⚠️ Removed ${data.tracks.length - cc0Tracks.length} non-CC0 tracks from cache`);
+          }
+          
+          // Only return if we have CC0 tracks, otherwise re-fetch
+          if (cc0Tracks.length > 0) {
+            console.log(`✅ Loaded ${cc0Tracks.length} CC0-licensed tracks from cache`);
+            return cc0Tracks;
+          } else {
+            console.warn('⚠️ No CC0 tracks in cache, will re-fetch from API');
+            // Clear invalid cache
+            localStorage.removeItem('music_tracks_cache');
+            return null;
+          }
         }
       }
     } catch (error) {
@@ -341,14 +379,47 @@ export class MusicManager {
 
   async _saveToCache(tracks) {
     try {
+      // ONLY CACHE CC0 TRACKS
+      const cc0Tracks = tracks.filter(track => {
+        const isCC0 = track.license?.type === 'CC0';
+        if (!isCC0) {
+          console.warn(`❌ Skipping non-CC0 track from cache: ${track.title} (License: ${track.license?.type})`);
+        }
+        return isCC0;
+      });
+      
+      if (cc0Tracks.length === 0) {
+        console.warn('⚠️ No CC0 tracks to cache');
+        return;
+      }
+      
       const cacheData = {
-        tracks: tracks,
+        tracks: cc0Tracks,
         timestamp: Date.now()
       };
       localStorage.setItem('music_tracks_cache', JSON.stringify(cacheData));
-      console.log(' Tracks cached to localStorage');
+      console.log(`✅ Cached ${cc0Tracks.length} CC0-licensed tracks to localStorage`);
+      
+      if (cc0Tracks.length < tracks.length) {
+        console.warn(`⚠️ Excluded ${tracks.length - cc0Tracks.length} non-CC0 tracks from cache`);
+      }
     } catch (error) {
       console.warn('Error saving tracks to cache:', error);
+    }
+  }
+  
+  /**
+   * Clear music cache and force re-fetch from API
+   * Use this to remove old non-CC0 tracks from cache
+   */
+  async clearMusicCache() {
+    try {
+      localStorage.removeItem('music_tracks_cache');
+      console.log('✅ Music cache cleared - will re-fetch CC0 tracks on next load');
+      return true;
+    } catch (error) {
+      console.error('Error clearing music cache:', error);
+      return false;
     }
   }
 

@@ -5,10 +5,25 @@ This document describes the implementation of strict CC0 (Creative Commons Zero)
 
 ## Legal Requirements Met
 ✅ **Only CC0-licensed sounds** - All other licenses filtered out at API layer  
-✅ **Fail-safe filtering** - Double-layer protection (API filter + runtime filter)  
+✅ **Fail-safe filtering** - Triple-layer protection (API + runtime + cache validation)  
 ✅ **Track documentation** - All played tracks logged to Firebase with full metadata  
 ✅ **No license info in UI** - License information removed from playlist display  
 ✅ **Source attribution** - Freesound ID, source URL, and timestamps stored for each track  
+✅ **Cache validation** - Non-CC0 tracks automatically filtered from localStorage cache  
+
+---
+
+## ⚠️ Important: Cache Migration Required
+
+**If you previously used this app before CC0 filtering was implemented, you MUST clear the music cache:**
+
+```javascript
+// In browser console (F12)
+localStorage.removeItem('music_tracks_cache');
+location.reload();
+```
+
+See [CC0_CACHE_MIGRATION.md](CC0_CACHE_MIGRATION.md) for full migration guide.
 
 ---
 
@@ -71,7 +86,75 @@ All tracks include full documentation metadata:
 
 ---
 
-### 2. Firebase Logging (`firestore-storage.js`)
+### 2. Cache Validation (`music-manager.js`)
+
+#### Load from Cache with CC0 Filtering
+When loading tracks from localStorage cache, non-CC0 tracks are automatically filtered:
+
+```javascript
+async _loadFromCache() {
+  const data = JSON.parse(cached);
+  
+  // FILTER OUT NON-CC0 TRACKS FROM CACHE
+  const cc0Tracks = data.tracks.filter(track => {
+    const isCC0 = track.license?.type === 'CC0';
+    if (!isCC0) {
+      console.warn(`❌ Filtered non-CC0 track from cache: ${track.title}`);
+    }
+    return isCC0;
+  });
+  
+  if (cc0Tracks.length > 0) {
+    console.log(`✅ Loaded ${cc0Tracks.length} CC0-licensed tracks from cache`);
+    return cc0Tracks;
+  } else {
+    // No CC0 tracks in cache - clear and re-fetch
+    localStorage.removeItem('music_tracks_cache');
+    return null;
+  }
+}
+```
+
+#### Save to Cache with CC0 Filtering
+When saving tracks to cache, only CC0 tracks are stored:
+
+```javascript
+async _saveToCache(tracks) {
+  // ONLY CACHE CC0 TRACKS
+  const cc0Tracks = tracks.filter(track => {
+    const isCC0 = track.license?.type === 'CC0';
+    if (!isCC0) {
+      console.warn(`❌ Skipping non-CC0 track from cache: ${track.title}`);
+    }
+    return isCC0;
+  });
+  
+  const cacheData = {
+    tracks: cc0Tracks,
+    timestamp: Date.now()
+  };
+  localStorage.setItem('music_tracks_cache', JSON.stringify(cacheData));
+  console.log(`✅ Cached ${cc0Tracks.length} CC0-licensed tracks`);
+}
+```
+
+#### Fail-Safe Validation Before Use
+Additional validation before tracks are used in the app:
+
+```javascript
+// CRITICAL: Filter out any non-CC0 tracks (fail-safe)
+this.availableTracks = this.availableTracks.filter(track => {
+  const isCC0 = track.license?.type === 'CC0';
+  if (!isCC0) {
+    console.warn(`❌ FAIL-SAFE: Filtered non-CC0 track: ${track.title}`);
+  }
+  return isCC0;
+});
+```
+
+---
+
+### 3. Firebase Logging (`firestore-storage.js`)
 
 #### logTrackUsage Function
 Logs every played track to Firestore for compliance documentation:
@@ -126,7 +209,7 @@ export async function logTrackUsage(userId, trackInfo) {
 
 ---
 
-### 3. Playback Integration (`music-panel.js`)
+### 4. Playback Integration (`music-panel.js`)
 
 #### Track Logging on Playback
 Every time a track is played, it's automatically logged to Firebase:
@@ -158,7 +241,7 @@ import { auth } from '../config/firebase-config.js';
 
 ---
 
-### 4. UI Changes (`music-panel.js`)
+### 5. UI Changes (`music-panel.js`)
 
 #### License Info Removed from Playlist
 The playlist UI only displays:
@@ -178,6 +261,11 @@ The playlist UI only displays:
 - [x] Runtime fail-safe filter catches any non-CC0 tracks
 - [x] All tracks include `freesoundId`, `license.type`, `license.sourceUrl`, and `license.fetchedAt`
 
+### ✅ Cache Validation
+- [x] `_loadFromCache()` filters out non-CC0 tracks
+- [x] `_saveToCache()` only saves CC0 tracks
+- [x] Available tracks are validated before use in the app
+
 ### ✅ Firebase Logging
 - [x] `logTrackUsage()` function implemented in `firestore-storage.js`
 - [x] Fail-safe check: only logs tracks with `license.type === 'CC0'`
@@ -193,7 +281,7 @@ The playlist UI only displays:
 - [x] API-level filtering (Freesound query filter)
 - [x] Runtime filtering (client-side validation)
 - [x] Logging validation (only CC0 tracks logged)
-- [x] Triple-layer protection against non-CC0 content
+- [x] Cache validation (non-CC0 tracks filtered from cache)
 
 ---
 
@@ -314,6 +402,10 @@ If implementing local caching:
    - Added imports for `logTrackUsage` and `auth`
    - Integrated logging into `playTrack()` method
    - Removed license info from playlist UI (in previous update)
+
+4. **`js/core/music-manager.js`**
+   - Added CC0 filtering to cache loading and saving methods
+   - Added fail-safe validation of available tracks
 
 ---
 
