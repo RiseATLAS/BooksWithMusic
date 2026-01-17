@@ -3,6 +3,8 @@ import { saveUserSettings } from '../storage/firestore-storage.js';
 
 export class SettingsUI {
   constructor() {
+    this.STORAGE_KEY = 'booksWithMusic-settings'; // Consistent key with music panel
+    
     // Detect system dark mode preference
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     
@@ -237,9 +239,12 @@ export class SettingsUI {
   loadSettings() {
     const saved = localStorage.getItem(this.STORAGE_KEY);
     if (saved) {
-      this.settings = { ...this.defaultSettings, ...JSON.parse(saved) };
+      const savedSettings = JSON.parse(saved);
+      // Merge saved settings with current defaults (in case new settings were added)
+      this.settings = { ...this.settings, ...savedSettings };
+      console.log('✓ Loaded settings from localStorage:', this.settings);
     } else {
-      this.settings = { ...this.defaultSettings };
+      console.log('⚠️ No saved settings, using defaults');
     }
   }
 
