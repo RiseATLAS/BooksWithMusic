@@ -488,7 +488,12 @@ export class MusicPanelUI {
 
   renderPlaylist() {
     const playlistEl = document.getElementById('playlist-tracks');
-    if (!playlistEl) return;
+    if (!playlistEl) {
+      console.error('Playlist element not found!');
+      return;
+    }
+
+    console.log('Rendering playlist with', this.playlist.length, 'tracks');
 
     if (this.playlist.length === 0) {
       playlistEl.innerHTML = '<p class="empty-playlist">No tracks available</p>';
@@ -741,11 +746,14 @@ export class MusicPanelUI {
       }
 
       // Reinitialize music manager with new filter
+      console.log('Reinitializing music manager with new energy filter...');
       await this.musicManager.initialize(reader.currentBook.id, reader.chapters);
       
       // Reload playlist for current chapter
       const chapterIndex = reader.currentChapterIndex || 0;
       const mapping = this.musicManager.chapterMappings[reader.chapters[chapterIndex]?.id || reader.chapters[chapterIndex]?.title];
+      
+      console.log('Mapping tracks:', mapping?.tracks?.length || 0);
       
       if (mapping && mapping.tracks && mapping.tracks.length > 0) {
         await this.loadPlaylistForChapter(chapterIndex, mapping.tracks);
@@ -753,6 +761,7 @@ export class MusicPanelUI {
         this.renderPlaylist();
         this.showToast('✓ Music tracks reloaded!', 'success');
       } else {
+        console.log('No tracks match filter, clearing playlist');
         this.playlist = [];
         this.renderPlaylist();
         this.showToast('⚠️ No tracks match your filter', 'warning');
