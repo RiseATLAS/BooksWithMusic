@@ -185,29 +185,27 @@ export class BookLibrary {
           console.log('Saving to Firestore...');
           await saveBook(userId, bookId, bookData, base64Data);
           console.log('✓ Book saved to Firestore successfully');
-          // Log current storage usage
-          await this.logStorageUsage(userId);
-          // Run AI analysis on import
-          console.log('🤖 Analyzing book with AI...');
-          const book = { id: bookId, title: bookData.title, chapters: parsed.chapters };
-          const analysis = await this.aiProcessor.analyzeBook(book);
-          // Optionally save analysis in Firestore if needed
-          this.hideLoading();
-          this.showToast('Book imported successfully!');
-          await this.loadBooks();
-        } catch (error) {
-          console.error('❌ Failed to save book:', error);
-          alert(`Failed to save book: ${error.message}`);
-          throw error;
-        }
-      };
-      
-      reader.onerror = (error) => {
-        console.error('❌ Failed to read file:', error);
-        alert('Failed to read EPUB file');
-      };
-      
-      reader.readAsDataURL(file);
+                    
+                    // Reload books from Firestore and refresh the UI
+                    console.log('Reloading books to refresh UI...');
+                    await this.loadBooks();
+                    this.displayBooks();
+                    
+                    alert(`✓ Book "${bookData.title}" imported successfully!`);
+                    
+                } catch (error) {
+                    console.error('❌ Failed to save book:', error);
+                    alert(`Failed to save book: ${error.message}`);
+                    throw error;
+                }
+            };
+            
+            reader.onerror = (error) => {
+              console.error('❌ Failed to read file:', error);
+              alert('Failed to read EPUB file');
+            };
+            
+            reader.readAsDataURL(file);
     } catch (error) {
       console.error('❌ Error importing book:', file?.name);
       console.error('Error details:', error);
@@ -414,4 +412,40 @@ export class BookLibrary {
       setTimeout(() => toast.remove(), 300);
     }, 3000);
   }
+
+  displayBooks() {
+    console.log('Displaying books:', this.books.length);
+    const grid = document.getElementById('books-grid');
+    
+    if (!grid) {
+        console.error('Books grid element not found');
+        return;
+    }
+    
+    if (this.books.length === 0) {
+        grid.innerHTML = '<p class="no-books">No books yet. Import an EPUB to get started!</p>';
+        return;
+    }
+    
+    grid.innerHTML = this.books.map(book => {
+        console.log('Rendering book:', book.title);
+        return `
+            <div class="book-card" data-book-id="${book.id}">
+                ${book.cover ? `<img src="${book.cover}" alt="${book.title}" class="book-cover">` : '<div class="book-cover-placeholder">📖</div>'}
+                <h3 class="book-title">${book.title}</h3>
+                <p class="book-author">${book.author}</p>
+                ${book.progress ? `<div class="book-progress">${Math.round(book.progress * 100)}% complete</div>` : ''}
+            </div>
+        `;
+    }).join('');
+    
+    // Add click handlers to book cards
+    grid.querySelectorAll('.book-card').forEach(card => {
+        card.addEventListener('click', () => {
+            const bookId = card.dataset.bookId;
+            this.openBook(bookId);
+        });
+    });
+    
+    console.log('Books displayed successfully');
 }
