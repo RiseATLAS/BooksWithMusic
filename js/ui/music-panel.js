@@ -1,9 +1,10 @@
 import { AudioPlayer } from '../core/audio-player.js';
 
 export class MusicPanelUI {
-  constructor(db, musicManager) {
+  constructor(db, musicManager, reader = null) {
     this.db = db;
     this.musicManager = musicManager;
+    this.reader = reader; // Store reader reference for music reload
     this.audioPlayer = new AudioPlayer();
     this.playlist = [];
     this.currentTrackIndex = 0;
@@ -14,13 +15,10 @@ export class MusicPanelUI {
   }
 
   initialize() {
-    console.log('🎵 Initializing music panel...');
-    console.log('   Music manager:', !!this.musicManager);
     this.setupEventListeners();
     this.setupMusicManagerListeners();
     this.setupMediaSessionHandlers();
     this.renderPlaylist();
-    console.log('✓ Music panel initialized');
   }
 
   /**
@@ -30,48 +28,38 @@ export class MusicPanelUI {
     if ('mediaSession' in navigator) {
       this.audioPlayer.setMediaSessionHandlers({
         play: () => {
-          console.log('🎮 Hardware play pressed');
           if (!this.audioPlayer.isPlaying()) {
             this.togglePlayPause();
           }
         },
         pause: () => {
-          console.log('🎮 Hardware pause pressed');
           if (this.audioPlayer.isPlaying()) {
             this.togglePlayPause();
           }
         },
         nextTrack: () => {
-          console.log('🎮 Hardware next pressed');
           this.nextTrack();
         },
         prevTrack: () => {
-          console.log('🎮 Hardware previous pressed');
           this.previousTrack();
         }
       });
-      console.log('✓ Hardware media controls enabled');
     }
   }
 
   setupMusicManagerListeners() {
-    console.log('🎧 Setting up music manager listeners...');
     if (!this.musicManager) {
       console.warn('⚠️ No music manager available');
       return;
     }
     
-    console.log('✓ Music manager available, registering listener');
-    
     // Listen for chapter music changes
     this.musicManager.on('chapterMusicChanged', async (data) => {
-      console.log('🎵 Chapter music changed event received:', data);
       
       // Reset page history when chapter changes
       this.currentChapter = data.chapterIndex;
       this.pageTrackHistory.clear();
       this.pageTrackHistory.set(1, 0); // Start at first track on page 1
-      console.log('🔄 Page-track history reset for new chapter');
       
       // Load playlist with recommended tracks (1-5 tracks in order)
       await this.loadPlaylistForChapter(data.chapterIndex, data.recommendedTracks);
@@ -100,8 +88,6 @@ export class MusicPanelUI {
 
   async loadPlaylistForChapter(chapterIndex, recommendedTracks) {
     try {
-      console.log('🎼 Loading playlist for chapter:', chapterIndex);
-      console.log('   Recommended tracks:', recommendedTracks?.length || 0);
       
       if (!this.musicManager) {
         console.warn('No music manager available');
@@ -234,6 +220,13 @@ export class MusicPanelUI {
       const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
       settings.autoPlay = e.target.checked;
       localStorage.setItem('booksWithMusic-settings', JSON.stringify(settings));
+      
+      // Also update the SettingsUI instance if it exists
+      if (window.app?.settings) {
+        window.app.settings.settings.autoPlay = e.target.checked;
+        window.app.settings.syncToFirestore();
+      }
+      
       this.showToast(`Auto-play ${e.target.checked ? 'enabled' : 'disabled'}`, 'success');
     });
 
@@ -249,7 +242,6 @@ export class MusicPanelUI {
       const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
       settings.musicEnabled = e.target.checked;
       localStorage.setItem('booksWithMusic-settings', JSON.stringify(settings));
-      console.log('🎵 Background music:', e.target.checked ? 'ENABLED' : 'DISABLED');
       
       if (!e.target.checked) {
         // Stop and clear playlist when disabled
@@ -352,7 +344,6 @@ export class MusicPanelUI {
       settings.maxEnergyLevel = level;
       localStorage.setItem('booksWithMusic-settings', JSON.stringify(settings));
       
-      console.log('🎚️ Max energy level:', level);
       this.showToast(`Energy limit: ${level}/5 - Reloading music...`, 'info');
       
       // Reload music with new energy filter
@@ -738,32 +729,30 @@ export class MusicPanelUI {
       // Stop current playback
       this.audioPlayer.stop();
       
-      // Clear music cache to force reload
+      // Clear music cache to force reload with new filter
       localStorage.removeItem('music_tracks_cache');
-      console.log('🗑️ Cleared music cache');
       
-      // Get current book and chapters
-      const reader = window.app?.reader;
+      // Get reader reference (try multiple ways)
+      const reader = window.app?.reader || this.reader;
       if (!reader || !reader.currentBook || !reader.chapters) {
-        console.warn('Reader not available for music reload');
+        console.error('Reader not available for music reload');
+        this.showToast('❌ Unable to reload - reader not found', 'error');
         return;
       }
 
-      // Reinitialize music manager with filter
-      console.log('🔄 Reinitializing music manager...');
+      // Reinitialize music manager with new filter
       await this.musicManager.initialize(reader.currentBook.id, reader.chapters);
       
       // Reload playlist for current chapter
       const chapterIndex = reader.currentChapterIndex || 0;
-      const chapterAnalysis = this.musicManager.getChapterAnalysis(chapterIndex);
       const mapping = this.musicManager.chapterMappings[reader.chapters[chapterIndex]?.id || reader.chapters[chapterIndex]?.title];
       
-      if (mapping && mapping.tracks) {
+      if (mapping && mapping.tracks && mapping.tracks.length > 0) {
         await this.loadPlaylistForChapter(chapterIndex, mapping.tracks);
         this.showToast('✓ Music tracks reloaded!', 'success');
+      } else {
+        this.showToast('⚠️ No tracks match your filter', 'warning');
       }
-      
-      console.log('✓ Music reloaded with new filter');
     } catch (error) {
       console.error('Error reloading music:', error);
       this.showToast('❌ Failed to reload music', 'error');

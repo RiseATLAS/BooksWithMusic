@@ -42,8 +42,8 @@ class BooksWithMusicApp {
         // Apply settings ASAP
         this.settings.initialize();
 
-        // Initialize music panel with reader's music manager
-        this.musicPanel = new MusicPanelUI(this.db, this.reader.musicManager);
+        // Initialize music panel with reader's music manager and reader reference
+        this.musicPanel = new MusicPanelUI(this.db, this.reader.musicManager, this.reader);
         this.musicPanel.initialize();
 
         // Trigger initial chapter music
@@ -378,4 +378,5 @@ class BooksWithMusicApp {
 }
 
 const booksWithMusicApp = new BooksWithMusicApp();
+window.app = booksWithMusicApp; // Expose globally for music panel access
 booksWithMusicApp.initialize().catch(console.error);

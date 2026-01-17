@@ -203,11 +203,7 @@ export class SettingsUI {
       this.saveSettings();
     });
 
-    // Auto-play
-    document.getElementById('auto-play-panel')?.addEventListener('change', (e) => {
-      this.settings.autoPlay = e.target.checked;
-      this.saveSettings();
-    });
+    // Note: Auto-play is handled by music-panel.js (uses auto-play-panel checkbox)
 
     // Freesound API key
     const freesoundKeyInput = document.getElementById('freesound-key');
