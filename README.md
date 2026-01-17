@@ -1,47 +1,47 @@
 # BooksWithMusic 📚🎵
 
-> **📄 Documentation Policy:** This project maintains exactly 4 MD files:
-> - **README.md** - User guide, features, and getting started (this file)
-> - **CHANGELOG.md** - All updates and fixes
-> - **DEVELOPMENT.md** - Technical architecture and dev guide
-> - **QUICK_REFERENCE.md** - Keyboard shortcuts and quick tips
+> **📄 Documentation:** 
+> - **README.md** - User guide and getting started (this file)
+> - **CHANGELOG.md** - Version history and updates
+> - **DEVELOPMENT.md** - Technical architecture for developers
+> - **QUICK_REFERENCE.md** - Keyboard shortcuts and tips
+> - **FIREBASE_SETUP.md** - Firebase configuration guide
 
 A modern web-based EPUB reader with **AI-powered music selection** that automatically pairs instrumental music with your reading experience. The app analyzes each chapter's mood and selects appropriate background music to enhance your reading.
 
+**🌐 Live App:** https://riseatlas.github.io/BooksWithMusic/
+
 ## 🚀 Quick Start
 
-### Running Locally
+### Use the Live App
 
-**This app runs as pure static HTML/JavaScript - no build step required!**
+**🌐 https://riseatlas.github.io/BooksWithMusic/**
 
-```bash
-# Option 1: Using npm (recommended)
-npm install
-npm start
-# Opens at http://localhost:8080
-
-# Option 2: Using Python
-python3 -m http.server 8080
-# Then open http://localhost:8080
-
-# Option 3: VS Code Live Server
-# Right-click index.html → "Open with Live Server"
-```
-
-⚠️ **Important**: Don't open `index.html` directly in browser - ES6 modules require a server!
-
-### Deployed Version
-
-**Live Site**: https://riseatlas.github.io/BooksWithMusic/
-
-The app is deployed on GitHub Pages and works immediately - no installation needed!
+No installation needed! Just visit the link and start reading.
 
 ### First Steps
 
-1. **Import a Book**: Click "Import Book" and select an EPUB file
-2. **Start Reading**: The book opens with the first chapter
-3. **Enjoy Music**: Music automatically plays based on chapter mood
-4. **Customize**: Click ⚙️ Settings to adjust fonts, themes, page density, and music
+1. **Sign In**: Click "Sign In with Google" (top right) to enable cloud sync
+2. **Import a Book**: Click "Import Book" and select an EPUB file
+3. **Start Reading**: The book opens with the first chapter
+4. **Enjoy Music**: Music automatically plays based on chapter mood
+5. **Customize**: Click ⚙️ Settings to adjust fonts, themes, page density, and music
+
+### Running Locally (For Development)
+
+```bash
+# Clone the repository
+git clone https://github.com/RiseATLAS/BooksWithMusic.git
+cd BooksWithMusic
+
+# Start a local server (choose one):
+python3 -m http.server 8080
+# OR use VS Code Live Server extension
+
+# Open http://localhost:8080
+```
+
+⚠️ **Important**: Don't open `index.html` directly - ES6 modules require a server!
 
 ## 📦 Project Structure
 
@@ -54,18 +54,18 @@ BooksWithMusic/
 ├── js/
 │   ├── main.js         # App entry point
 │   ├── auth/           # Firebase authentication
-│   ├── config/         # Configuration
+│   ├── config/         # Firebase configuration
 │   ├── core/           # Core functionality (EPUB, music, AI)
-│   ├── storage/        # IndexedDB, Firebase storage
+│   ├── storage/        # Firebase Storage & Firestore
 │   └── ui/             # UI components
-└── package.json        # Dependencies (only for local dev server)
+└── README.md           # This file
 ```
 
 **Tech Stack:**
-- Pure JavaScript (ES6 modules)
+- Pure JavaScript (ES6 modules) - no build tools
 - JSZip from CDN (for EPUB parsing)
-- Firebase SDK from CDN (optional, for cloud features)
-- No build tools, no compilation needed!
+- Firebase SDK from CDN (Auth, Firestore, Storage)
+- Hosted on GitHub Pages
 
 ## ✨ Features
 
@@ -75,46 +75,41 @@ BooksWithMusic/
 - 🎨 **Customizable Display** - Adjust font size, line height, page width, and density
 - 🌓 **Multiple Themes** - Light, dark, and sepia color schemes
 - 🔍 **Chapter Navigation** - Quick jump to any chapter via sidebar
-- 💾 **Auto-Save Progress** - Remembers your position across sessions
+- 💾 **Progress Tracking** - Automatically saves your reading position
+
+### Cloud Features (Firebase)
+- 🔐 **Google Authentication** - Secure sign-in with your Google account
+- ☁️ **Cloud Storage** - Books stored securely in Firebase Storage
+- 🔄 **Cross-Device Sync** - Access your library from any device
+- ⚙️ **Settings Sync** - Preferences synced across all your devices
+- 🔒 **Private & Secure** - Your data is only accessible to you
 
 ### Music Integration
 - 🤖 **AI Mood Analysis** - Automatically detects chapter emotions (10 mood types)
 - 🎵 **Smart Music Pairing** - Matches instrumental tracks to reading atmosphere
 - 🎧 **Seamless Playback** - Smooth crossfading between tracks
 - 📊 **Music Panel** - View and manage track queue for current chapter
-- 🔄 **Intelligent Switching** - Music adapts as you read through different moods
+- 🔄 **Dynamic Switching** - Music adapts as you read through different moods
 
 ### Technical Features
-- 💾 **Offline Support** - Works without internet via Service Worker
-- 📱 **Responsive Design** - Adapts to desktop, tablet, and mobile
-- 🗄️ **IndexedDB Storage** - Efficient local book library
+- 🌐 **Runs on GitHub Pages** - No server required, hosted for free
+- 📱 **Responsive Design** - Works on desktop, tablet, and mobile
 - ⚡ **Fast Performance** - Optimized page splitting and rendering
+- � **No Build Step** - Pure JavaScript (ES6 modules), no npm required
 
-### Cloud Features (Optional)
-- 🔐 **Google Authentication** - Secure sign-in with Google account
-- ☁️ **Cloud Sync** - Settings and reading progress synced across devices
-- 📦 **Cloud Storage** - Store EPUBs in the cloud (Firebase Storage)
-- 🔒 **Private & Secure** - Each user's data is isolated and secure
+## 🔐 Firebase Setup
 
-See [FIREBASE_SETUP.md](FIREBASE_SETUP.md) for setup instructions.
-
-## 🔐 Firebase Setup (Optional)
-
-BooksWithMusic can work entirely offline with local storage, or you can enable cloud features with Firebase:
-
-### What You Get with Firebase:
-- **User Authentication** - Sign in with your Google account
-- **Settings Sync** - Your preferences sync across all devices
-- **Cloud Book Storage** - Access your EPUBs from any device
-- **Reading Progress** - Continue where you left off on any device
-- **Private & Secure** - Your data is only accessible to you
+**Required for the app to work!** BooksWithMusic uses Firebase for:
+- **Authentication**: Google Sign-In
+- **Storage**: Store your EPUB files in the cloud
+- **Firestore**: Sync settings and reading progress across devices
 
 ### Quick Setup:
-1. Create a free Firebase project at [console.firebase.google.com](https://console.firebase.google.com/)
+1. Create a Firebase project at [console.firebase.google.com](https://console.firebase.google.com/)
 2. Enable Google Authentication
 3. Set up Firestore Database and Storage
-4. Add your Firebase config to `.env` file
-5. Deploy to GitHub Pages or run locally
+4. Add your Firebase config to `js/config/firebase-config.js`
+5. Push to GitHub - your changes go live automatically!
 
 **📖 Full instructions:** See [FIREBASE_SETUP.md](FIREBASE_SETUP.md) for complete step-by-step guide.
 
@@ -122,55 +117,47 @@ BooksWithMusic can work entirely offline with local storage, or you can enable c
 - ✅ Your books and settings are **private to your account only**
 - ✅ Firebase security rules prevent access to other users' data
 - ✅ No server-side code - all operations run in your browser
-- ✅ You can delete your data anytime by clearing your Firebase Storage
-- ✅ App works offline - cloud features are progressive enhancements
-
-**Note:** Firebase is completely optional. The app works perfectly without it using local storage (IndexedDB).
+- ✅ You can delete your data anytime through Firebase Console
 
 ## 🌐 Deployment
 
-### GitHub Pages (Current Setup)
+**Currently deployed at:** https://riseatlas.github.io/BooksWithMusic/
 
-**Live URL**: https://riseatlas.github.io/BooksWithMusic/
+The app runs on GitHub Pages and updates automatically when you push to the `main` branch.
 
-The project is already deployed! To update:
+### Update the Live Site
 
 ```bash
-# Make your changes, then:
+# Make your changes to the code
 git add .
 git commit -m "Your commit message"
 git push origin main
+
+# GitHub Pages rebuilds automatically (takes 1-2 minutes)
 ```
 
-GitHub Pages will automatically rebuild (takes 1-2 minutes).
-
-**Verify deployment:**
-- Settings: https://github.com/RiseATLAS/BooksWithMusic/settings/pages
+**Check deployment status:**
 - Actions: https://github.com/RiseATLAS/BooksWithMusic/actions
+- Settings: https://github.com/RiseATLAS/BooksWithMusic/settings/pages
 
-### Deploy to Your Own GitHub Pages
+### Deploy Your Own Copy
 
-1. **Fork this repository**
+1. **Fork this repository** on GitHub
 2. **Go to Settings → Pages**
-3. **Set source:**
-   - Branch: `main`
-   - Folder: `/ (root)`
-4. **Save and wait 1-2 minutes**
-5. **Access at**: `https://YOUR-USERNAME.github.io/BooksWithMusic/`
+3. **Set source:** Branch `main`, Folder `/ (root)`
+4. **Save** and wait 1-2 minutes
+5. **Access at:** `https://YOUR-USERNAME.github.io/BooksWithMusic/`
+6. **Configure Firebase** with your own project (see FIREBASE_SETUP.md)
 
-### Other Deployment Options
+### Other Hosting Options
 
 **Netlify / Vercel / Cloudflare Pages:**
-- Just connect your GitHub repo
-- Set build command: (leave empty - no build needed!)
-- Set publish directory: `/`
+- Connect your GitHub repo
+- Build command: (none - no build needed!)
+- Publish directory: `/`
 - Deploy!
 
-**Static File Hosting:**
-- Upload all files to any web server
-- No special configuration needed
-- Just serve the root folder
-
+**Any static file hosting works** - just upload the files!
 
 
 ## 🎵 Music Setup
