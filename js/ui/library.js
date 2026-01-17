@@ -140,11 +140,25 @@ export class BookLibrary {
           // Firestore document limit is 1MB, leave room for metadata
           if (base64Size > 900000) {
             throw new Error(`File too large: ${(base64Size / 1024).toFixed(2)} KB (max ~880 KB)`);
-          }
-          
-          // Extract book metadata
-          const metadata = await parsed.loaded.metadata;
-          const cover = await parsed.coverUrl();
+          }            // Parse EPUB to extract metadata
+            console.log('Parsing EPUB file...');
+            const epubBook = ePub(arrayBuffer);
+            
+            // Wait for the book to be fully parsed
+            await epubBook.ready;
+            console.log('EPUB parsed successfully');
+            
+            // Extract metadata (use book.packaging.metadata for ePub.js v0.3+)
+            const metadata = epubBook.packaging?.metadata || {};
+            console.log('Extracted metadata:', metadata);
+            
+            // Try to get cover image
+            let cover = null;
+            try {
+                cover = await epubBook.coverUrl();
+            } catch (e) {
+                console.warn('Could not extract cover image:', e);
+            }
           
           // Flatten metadata to avoid nested arrays (Firestore doesn't support them)
           const safeMetadata = {};
