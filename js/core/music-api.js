@@ -84,6 +84,7 @@ export class MusicAPI {
     // Check if background music filter is enabled
     const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
     const instrumentalOnly = settings.instrumentalOnly !== false; // Default true
+    const maxEnergyLevel = settings.maxEnergyLevel || 5; // Default: all energy levels
 
     const query = tags.join(' ');
     
@@ -115,7 +116,7 @@ export class MusicAPI {
 
       const data = await response.json();
       
-      return data.results.map(sound => ({
+      const tracks = data.results.map(sound => ({
         id: `freesound_${sound.id}`,
         title: sound.name,
         artist: sound.username,
@@ -131,6 +132,17 @@ export class MusicAPI {
           downloadAllowed: true
         }
       }));
+      
+      // Filter by max energy level if set
+      const filteredTracks = maxEnergyLevel < 5 
+        ? tracks.filter(track => track.energy <= maxEnergyLevel)
+        : tracks;
+      
+      if (filteredTracks.length < tracks.length) {
+        console.log(`🎚️ Filtered ${tracks.length - filteredTracks.length} tracks above energy level ${maxEnergyLevel}`);
+      }
+      
+      return filteredTracks;
     } catch (error) {
       console.error('Freesound search failed:', error);
       return [];

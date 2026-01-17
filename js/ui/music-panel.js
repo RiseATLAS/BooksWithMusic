@@ -85,11 +85,14 @@ export class MusicPanelUI {
             this.showToast('🎵 Click the play button to start music! (Requires Freesound API key - see Settings)', 'info');
           }, 1000);
         }
-      } else if (autoPlay && this.playlist.length > 0) {
+      } else if (autoPlay && this.playlist.length > 0 && !this.audioPlayer.state.playing) {
+        // Only auto-play if not already playing
         console.log('▶️ Auto-playing recommended track...');
         setTimeout(async () => {
           await this.playTrack(0);
         }, 500);
+      } else if (this.audioPlayer.state.playing) {
+        console.log('🎵 Music already playing, not auto-starting');
       } else {
         console.log('⚠️ No tracks in playlist');
       }
@@ -245,10 +248,17 @@ export class MusicPanelUI {
       const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
       settings.musicEnabled = e.target.checked;
       localStorage.setItem('booksWithMusic-settings', JSON.stringify(settings));
-      console.log('🎵 Background music:', e.target.checked ? 'ON' : 'OFF');
+      console.log('🎵 Background music:', e.target.checked ? 'ENABLED' : 'DISABLED');
       
-      if (!e.target.checked && this.audioPlayer.isPlaying()) {
-        this.audioPlayer.pause();
+      if (!e.target.checked) {
+        // Stop and clear playlist when disabled
+        if (this.audioPlayer.isPlaying()) {
+          this.audioPlayer.stop();
+          this.updatePlayPauseButton(false);
+        }
+        this.showToast('Music disabled - will not load for new chapters', 'info');
+      } else {
+        this.showToast('Music enabled - reload page to load tracks', 'success');
       }
     });
 

@@ -18,6 +18,17 @@ export class MusicManager {
 
   async initialize(bookId, chapters) {
     try {
+      // Check if music is enabled
+      const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
+      const musicEnabled = settings.musicEnabled !== false; // Default true for backward compatibility
+      
+      if (!musicEnabled) {
+        console.log('🔇 Music disabled by user - skipping initialization');
+        this.availableTracks = [];
+        this.chapterMappings = {};
+        return;
+      }
+      
       this.currentBookId = bookId;
       this.chapters = chapters;
       

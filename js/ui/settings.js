@@ -334,15 +334,15 @@ export class SettingsUI {
    * Also calibrates optimal page width based on viewport
    */
   calibratePageDensity() {
-    // Get current viewport dimensions
-    const viewport = document.querySelector('.page-viewport');
-    if (!viewport) {
+    // Get the actual page container (where text is rendered)
+    const pageContainer = document.querySelector('.page-container');
+    if (!pageContainer) {
       this.showToast('Please open a book first to calibrate page size.', 'error');
       return;
     }
 
-    // Get computed styles
-    const computedStyle = window.getComputedStyle(viewport);
+    // Get computed styles from the page container
+    const computedStyle = window.getComputedStyle(pageContainer);
     const fontSize = parseFloat(computedStyle.fontSize) || this.settings.fontSize || 16;
     
     // Handle lineHeight - it can be "normal" (string) or a pixel value
@@ -364,28 +364,33 @@ export class SettingsUI {
       return;
     }
     
-    // Get actual viewport dimensions
-    const viewportHeight = viewport.clientHeight;
-    const viewportActualWidth = viewport.clientWidth;
+    // Get actual page container dimensions (this is the available area for text)
+    const containerHeight = pageContainer.clientHeight;
+    const containerWidth = pageContainer.clientWidth;
     
-    // Calculate optimal page width based on viewport
-    // Use 65-70% of viewport width for comfortable reading
-    const optimalPageWidth = Math.floor(viewportActualWidth * 0.68);
+    console.log('📏 Calibration dimensions:', {
+      containerWidth,
+      containerHeight,
+      fontSize,
+      lineHeight
+    });
+    
+    // Calculate optimal page width based on container
+    // The container already accounts for viewport padding, so use most of it
+    const optimalPageWidth = Math.floor(containerWidth * 0.95);
     // Clamp to reasonable range (400-2000px)
     const calibratedPageWidth = Math.max(400, Math.min(2000, optimalPageWidth));
     
-    if (viewportHeight <= 160) {
-      console.error('Viewport too small:', viewportHeight);
-      this.showToast('Viewport is too small to calibrate', 'error');
+    if (containerHeight <= 100) {
+      console.error('Container too small:', containerHeight);
+      this.showToast('Page container is too small to calibrate', 'error');
       return;
     }
     
-    // Account for page-viewport padding (80px top/bottom from styles.css)
-    const contentHeight = viewportHeight - 160; // 80px top + 80px bottom padding
-    
-    // Account for chapter-text padding (48px left/right, 48px+96px top/bottom)
-    const textWidth = calibratedPageWidth - 96; // 48px * 2 padding
-    const textHeight = contentHeight - 144; // 48px top + 96px bottom
+    // The page container is the actual text area, so use its dimensions directly
+    // Only account for the chapter-text padding (48px left/right, varies top/bottom)
+    const textWidth = containerWidth - 96; // 48px * 2 horizontal padding
+    const textHeight = containerHeight - 144; // Conservative estimate for vertical padding
     
     // Validate dimensions
     if (textHeight <= 0 || textWidth <= 0) {
@@ -411,6 +416,13 @@ export class SettingsUI {
     
     // Calculate total chars per page with conservative estimate (reduce by 15% for better UX)
     const calculatedChars = Math.floor((linesPerPage * avgCharsPerLine) * 0.85);
+    
+    console.log('📐 Calibration results:', {
+      linesPerPage,
+      avgCharsPerLine,
+      calculatedChars,
+      calibratedPageWidth
+    });
     
     // Clamp to reasonable range
     const calibratedDensity = Math.max(600, Math.min(3000, calculatedChars));
