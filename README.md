@@ -90,6 +90,8 @@ BooksWithMusic/
 - 🎧 **Seamless Playback** - Smooth crossfading between tracks
 - 📊 **Music Panel** - View and manage track queue for current chapter
 - 🔄 **Dynamic Switching** - Music adapts as you read through different moods
+- 🎯 **Enhanced Search** - Improved Freesound queries for conventional, high-quality music (not weird SFX!)
+- ⚙️ **Customizable Filters** - Toggle instrumental-only mode and set max energy level
 
 ### Technical Features
 - 🌐 **Runs on GitHub Pages** - No server required, hosted for free

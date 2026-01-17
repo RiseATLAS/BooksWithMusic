@@ -61,6 +61,143 @@ export class MusicAPI {
       return await this.getFallbackTracks(tags, limit);
     }
   }
+  
+  /**
+   * Search for tracks using a multi-term query
+   * This creates better, more conventional music results by combining genre/style/mood terms
+   * @param {Array<string>} queryTerms - Terms to search for (e.g., ['epic', 'orchestral', 'cinematic'])
+   * @param {number} limit - Number of results
+   */
+  async searchByQuery(queryTerms, limit = 10) {
+    if (!this.freesoundKey) {
+      return await this.getFallbackTracks(queryTerms, limit);
+    }
+
+    // Build a smart query: use OR between terms for broader results
+    // e.g., "epic OR orchestral OR cinematic" finds tracks with any of these terms
+    const query = queryTerms.join(' OR ');
+    
+    // Check if we're rate limited
+    const now = Date.now();
+    if (now < this.rateLimitedUntil) {
+      console.warn('⚠️ Rate limited, skipping query for:', queryTerms);
+      return [];
+    }
+
+    // Enforce minimum interval between requests
+    const timeSinceLastRequest = now - this.lastRequestTime;
+    if (timeSinceLastRequest < this.minRequestInterval) {
+      const delay = this.minRequestInterval - timeSinceLastRequest;
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+
+    // Check settings
+    const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
+    const instrumentalOnly = settings.instrumentalOnly !== false; // Default true
+    const maxEnergyLevel = settings.maxEnergyLevel || 5;
+
+    // Build filter to get high-quality, conventional music (not weird sound effects)
+    let filter = 'duration:[30 TO *] tag:music';
+    
+    // Require soundtrack/background music tags for better quality
+    // This dramatically reduces weird experimental sounds
+    if (instrumentalOnly) {
+      filter += ' (tag:instrumental OR tag:soundtrack OR tag:background OR tag:ambient OR tag:cinematic OR tag:orchestral OR tag:piano OR tag:strings)';
+    }
+    
+    // Boost quality by requiring production/game/film tags
+    filter += ' (tag:soundtrack OR tag:film OR tag:game OR tag:score OR tag:production OR tag:music)';
+    
+    // Exclude common "weird" tags
+    filter += ' -tag:fx -tag:foley -tag:sfx -tag:effect -tag:noise -tag:experimental';
+
+    const url = `https://freesound.org/apiv2/search/text/?query=${encodeURIComponent(query)}&filter=${encodeURIComponent(filter)}&fields=id,name,username,duration,previews,tags,license&token=${this.freesoundKey}&page_size=${limit}&sort=rating_desc`;
+
+    // 🔍 LOG QUERY
+    console.group('🎵 Freesound Multi-Term Query');
+    console.log('📤 Search terms:', queryTerms);
+    console.log('🔎 Query string:', query);
+    console.log('🔧 Filter:', filter);
+    console.log('🎯 Limit:', limit);
+    console.log('⚙️ Settings:', { instrumentalOnly, maxEnergyLevel });
+    console.groupEnd();
+
+    try {
+      this.lastRequestTime = Date.now();
+      const response = await fetch(url);
+      
+      if (response.status === 429) {
+        console.warn('⚠️ Freesound API rate limit reached. Using cached/fallback tracks.');
+        this.rateLimitedUntil = Date.now() + 60000;
+        return [];
+      }
+      
+      if (!response.ok) {
+        console.error('❌ Freesound API error:', response.status, response.statusText);
+        return [];
+      }
+
+      const data = await response.json();
+      
+      // 🔍 LOG RAW RESPONSE
+      console.group('📥 Freesound Multi-Term Response');
+      console.log('✅ Total results available:', data.count);
+      console.log('📦 Results returned:', data.results.length);
+      console.groupEnd();
+      
+      const tracks = data.results.map(sound => ({
+        id: `freesound_${sound.id}`,
+        title: sound.name,
+        artist: sound.username,
+        duration: Math.round(sound.duration),
+        url: sound.previews['preview-hq-mp3'] || sound.previews['preview-lq-mp3'],
+        tags: sound.tags,
+        energy: this._estimateEnergy(sound.tags),
+        tempo: this._estimateTempo(sound.tags),
+        license: {
+          type: sound.license,
+          attributionRequired: !sound.license.includes('CC0'),
+          sourceUrl: `https://freesound.org/people/${sound.username}/sounds/${sound.id}/`,
+          downloadAllowed: true
+        }
+      }));
+      
+      // Filter by max energy level if set
+      const filteredTracks = maxEnergyLevel < 5 
+        ? tracks.filter(track => track.energy <= maxEnergyLevel)
+        : tracks;
+      
+      // 🔍 LOG FINAL RESULTS
+      console.group('✨ Multi-Term Track Results');
+      console.log('📊 Total tracks after filtering:', filteredTracks.length);
+      if (filteredTracks.length > 0) {
+        console.table(filteredTracks.map(t => ({
+          title: t.title,
+          artist: t.artist,
+          duration: t.duration + 's',
+          energy: t.energy,
+          tempo: t.tempo,
+          topTags: t.tags.slice(0, 5).join(', ')
+        })));
+        
+        // Show tag summary
+        const allTags = filteredTracks.flatMap(t => t.tags);
+        const tagCounts = {};
+        allTags.forEach(tag => tagCounts[tag] = (tagCounts[tag] || 0) + 1);
+        const topTags = Object.entries(tagCounts)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 10)
+          .map(([tag, count]) => `${tag}(${count})`);
+        console.log('🏷️ Most common tags:', topTags.join(', '));
+      }
+      console.groupEnd();
+      
+      return filteredTracks;
+    } catch (error) {
+      console.error('❌ Freesound multi-term search failed:', error);
+      return [];
+    }
+  }
 
   /**
    * Search Freesound.org API for music
@@ -86,18 +223,38 @@ export class MusicAPI {
     const instrumentalOnly = settings.instrumentalOnly !== false; // Default true
     const maxEnergyLevel = settings.maxEnergyLevel || 5; // Default: all energy levels
 
+    // Build query - combine tags with AND logic for precision
+    // For multi-term queries like ['calm', 'piano', 'ambient'], all terms are required
     const query = tags.join(' ');
     
-    // Build filter string
+    // Build filter string (using Lucene query syntax)
+    // duration:[30 TO *] = 30 seconds or longer (avoids short sound effects)
+    // tag:music = must be tagged as music (not sound effects)
     let filter = 'duration:[30 TO *] tag:music';
     
-    // Add background music filter if enabled (instrumental, ambient, background, cinematic)
+    // Add background music filter if enabled
+    // Require conventional instrument/genre tags to avoid weird sounds
     if (instrumentalOnly) {
-      filter += ' tag:instrumental OR tag:background OR tag:ambient OR tag:cinematic';
-      console.log('🎹 Filtering for background music only');
+      filter += ' (tag:instrumental OR tag:soundtrack OR tag:background OR tag:ambient OR tag:cinematic OR tag:orchestral OR tag:piano OR tag:strings)';
     }
     
-    const url = `https://freesound.org/apiv2/search/text/?query=${encodeURIComponent(query)}&filter=${encodeURIComponent(filter)}&fields=id,name,username,duration,previews,tags,license&token=${this.freesoundKey}&page_size=${limit}`;
+    // Boost quality results by requiring production tags
+    // This helps filter out weird experimental/sfx stuff
+    filter += ' (tag:soundtrack OR tag:film OR tag:game OR tag:score OR tag:production OR tag:music)';
+    
+    // Explicitly exclude sound effects and weird experimental stuff
+    filter += ' -tag:fx -tag:foley -tag:sfx -tag:effect -tag:noise -tag:experimental';
+    
+    // Sort by rating to get highest quality tracks first
+    const url = `https://freesound.org/apiv2/search/text/?query=${encodeURIComponent(query)}&filter=${encodeURIComponent(filter)}&fields=id,name,username,duration,previews,tags,license&token=${this.freesoundKey}&page_size=${limit}&sort=rating_desc`;
+
+    // 🔍 LOG QUERY
+    console.group('🎵 Freesound Query');
+    console.log('📤 Search terms:', tags);
+    console.log('🔎 Query string:', query);
+    console.log('🔧 Filter:', filter);
+    console.log('🎯 Limit:', limit);
+    console.groupEnd();
 
     try {
       this.lastRequestTime = Date.now();
@@ -111,10 +268,17 @@ export class MusicAPI {
       }
       
       if (!response.ok) {
+        console.error('❌ Freesound API error:', response.status, response.statusText);
         return [];
       }
 
       const data = await response.json();
+      
+      // 🔍 LOG RAW RESPONSE
+      console.group('📥 Freesound Response');
+      console.log('✅ Total results available:', data.count);
+      console.log('📦 Results returned:', data.results.length);
+      console.groupEnd();
       
       const tracks = data.results.map(sound => ({
         id: `freesound_${sound.id}`,
@@ -142,9 +306,34 @@ export class MusicAPI {
         console.log(`🎚️ Filtered ${tracks.length - filteredTracks.length} tracks above energy level ${maxEnergyLevel}`);
       }
       
+      // 🔍 LOG FINAL RESULTS
+      console.group('✨ Final Track Results');
+      console.log('📊 Total tracks after filtering:', filteredTracks.length);
+      if (filteredTracks.length > 0) {
+        console.table(filteredTracks.map(t => ({
+          title: t.title,
+          artist: t.artist,
+          duration: t.duration + 's',
+          energy: t.energy,
+          tempo: t.tempo,
+          topTags: t.tags.slice(0, 5).join(', ')
+        })));
+        
+        // Show tag summary
+        const allTags = filteredTracks.flatMap(t => t.tags);
+        const tagCounts = {};
+        allTags.forEach(tag => tagCounts[tag] = (tagCounts[tag] || 0) + 1);
+        const topTags = Object.entries(tagCounts)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 10)
+          .map(([tag, count]) => `${tag}(${count})`);
+        console.log('🏷️ Most common tags:', topTags.join(', '));
+      }
+      console.groupEnd();
+      
       return filteredTracks;
     } catch (error) {
-      console.error('Freesound search failed:', error);
+      console.error('❌ Freesound search failed:', error);
       return [];
     }
   }

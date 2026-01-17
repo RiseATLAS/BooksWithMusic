@@ -213,15 +213,31 @@ export class MusicManager {
         return;
       }
       
-      console.log('🎵 Loading tracks from Freesound (this may take a moment)...');
+      // Improved mood queries with genre/style keywords for better quality results
+      // Each query uses multiple search terms to find cinematic/conventional music
+      const moodQueries = [
+        ['calm', 'piano', 'ambient'],              // Calm piano/ambient
+        ['epic', 'orchestral', 'cinematic'],       // Epic orchestral
+        ['romantic', 'piano', 'strings'],          // Romantic piano/strings
+        ['mysterious', 'ambient', 'dark'],         // Mysterious ambient
+        ['adventure', 'orchestral', 'uplifting'],  // Adventure orchestral
+        ['dark', 'cinematic', 'suspense'],         // Dark cinematic
+        ['tense', 'strings', 'suspense'],          // Tense strings
+        ['joyful', 'upbeat', 'acoustic'],          // Joyful acoustic
+        ['peaceful', 'ambient', 'soft'],           // Peaceful ambient
+        ['magical', 'fantasy', 'orchestral']       // Magical fantasy
+      ];
       
-      // Load tracks in parallel with Promise.allSettled for better performance
-      const moods = ['calm', 'epic', 'romantic', 'mysterious', 'adventure', 'dark', 'tense', 'joyful', 'peaceful', 'magical'];
+      // 🔍 LOG LOADING START
+      console.group('🎼 Music Library Loading');
+      console.log('📋 Query count:', moodQueries.length);
+      console.log('📋 Query terms:', moodQueries);
+      console.groupEnd();
       
-      const trackPromises = moods.map(mood => 
-        this.musicAPI.getTracksForMood(mood, 15)
+      const trackPromises = moodQueries.map(queryTerms => 
+        this.musicAPI.searchByQuery(queryTerms, 15)
           .catch(error => {
-            console.warn(`Failed to load ${mood} tracks:`, error.message);
+            console.error(`❌ Failed to load tracks for [${queryTerms.join(', ')}]:`, error);
             return [];
           })
       );
@@ -234,16 +250,24 @@ export class MusicManager {
         }
       });
       
+      // 🔍 LOG BEFORE DEDUPLICATION
+      console.group('📊 Track Collection Summary');
+      console.log('📦 Raw tracks collected:', this.availableTracks.length);
+      
       if (this.availableTracks.length === 0) {
         console.warn('⚠️ No tracks loaded from API');
+        console.groupEnd();
       } else {
         // Remove duplicates
         const seen = new Set();
+        const beforeDedup = this.availableTracks.length;
         this.availableTracks = this.availableTracks.filter(track => {
           if (seen.has(track.id)) return false;
           seen.add(track.id);
           return true;
         });
+        
+        console.log('🔄 After deduplication:', this.availableTracks.length, `(removed ${beforeDedup - this.availableTracks.length} duplicates)`);
         
         // Apply energy level filter to all tracks
         const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
@@ -255,7 +279,30 @@ export class MusicManager {
           console.log(`🎚️ Energy filter: ${beforeCount} tracks → ${this.availableTracks.length} tracks (max energy: ${maxEnergyLevel})`);
         }
         
-        console.log(`✓ ${this.availableTracks.length} tracks loaded from API`);
+        console.log('✅ Final library size:', this.availableTracks.length);
+        
+        // Show energy distribution
+        const energyDist = [0, 0, 0, 0, 0];
+        this.availableTracks.forEach(t => energyDist[t.energy - 1]++);
+        console.log('📊 Energy distribution:', {
+          'Very Calm (1)': energyDist[0],
+          'Calm (2)': energyDist[1],
+          'Moderate (3)': energyDist[2],
+          'Energetic (4)': energyDist[3],
+          'Very Energetic (5)': energyDist[4]
+        });
+        
+        // Show most common tags across all tracks
+        const allTags = this.availableTracks.flatMap(t => t.tags);
+        const tagCounts = {};
+        allTags.forEach(tag => tagCounts[tag] = (tagCounts[tag] || 0) + 1);
+        const topTags = Object.entries(tagCounts)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 15)
+          .map(([tag, count]) => `${tag}(${count})`);
+        console.log('🏷️ Top 15 tags across library:', topTags.join(', '));
+        
+        console.groupEnd();
         
         // Cache tracks for future use
         await this._saveToCache(this.availableTracks);

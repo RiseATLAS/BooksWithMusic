@@ -29,16 +29,66 @@ export class AIProcessor {
     };
 
     this.moodToMusicMapping = {
-      dark: { tags: ['dark', 'atmospheric', 'tense', 'ominous'], energy: 4, tempo: 'slow' },
-      mysterious: { tags: ['mysterious', 'ambient', 'ethereal', 'enigmatic'], energy: 3, tempo: 'moderate' },
-      romantic: { tags: ['romantic', 'gentle', 'piano', 'strings'], energy: 2, tempo: 'slow' },
-      sad: { tags: ['melancholy', 'piano', 'emotional', 'somber'], energy: 2, tempo: 'slow' },
-      epic: { tags: ['epic', 'orchestral', 'dramatic', 'powerful'], energy: 5, tempo: 'upbeat' },
-      peaceful: { tags: ['calm', 'peaceful', 'ambient', 'nature'], energy: 1, tempo: 'slow' },
-      tense: { tags: ['suspenseful', 'intense', 'dramatic', 'tense'], energy: 4, tempo: 'moderate' },
-      joyful: { tags: ['uplifting', 'cheerful', 'bright', 'happy'], energy: 4, tempo: 'upbeat' },
-      adventure: { tags: ['adventurous', 'energetic', 'inspiring', 'cinematic'], energy: 4, tempo: 'upbeat' },
-      magical: { tags: ['mystical', 'ethereal', 'ambient', 'fantasy'], energy: 3, tempo: 'moderate' }
+      dark: { 
+        tags: ['dark', 'atmospheric', 'suspense', 'ominous', 'cinematic'], 
+        energy: 4, 
+        tempo: 'slow',
+        genres: ['dark ambient', 'cinematic', 'soundtrack', 'horror']
+      },
+      mysterious: { 
+        tags: ['mysterious', 'ambient', 'ethereal', 'enigmatic', 'atmospheric'], 
+        energy: 3, 
+        tempo: 'moderate',
+        genres: ['ambient', 'electronic', 'soundtrack', 'minimal']
+      },
+      romantic: { 
+        tags: ['romantic', 'gentle', 'piano', 'strings', 'emotional'], 
+        energy: 2, 
+        tempo: 'slow',
+        genres: ['classical', 'piano', 'strings', 'orchestral']
+      },
+      sad: { 
+        tags: ['melancholy', 'piano', 'emotional', 'somber', 'gentle'], 
+        energy: 2, 
+        tempo: 'slow',
+        genres: ['piano', 'classical', 'acoustic', 'emotional']
+      },
+      epic: { 
+        tags: ['epic', 'orchestral', 'cinematic', 'powerful', 'heroic'], 
+        energy: 5, 
+        tempo: 'upbeat',
+        genres: ['orchestral', 'cinematic', 'epic', 'soundtrack']
+      },
+      peaceful: { 
+        tags: ['calm', 'peaceful', 'ambient', 'gentle', 'serene'], 
+        energy: 1, 
+        tempo: 'slow',
+        genres: ['ambient', 'meditation', 'calm', 'nature']
+      },
+      tense: { 
+        tags: ['suspenseful', 'intense', 'dramatic', 'tense', 'strings'], 
+        energy: 4, 
+        tempo: 'moderate',
+        genres: ['suspense', 'cinematic', 'thriller', 'soundtrack']
+      },
+      joyful: { 
+        tags: ['uplifting', 'cheerful', 'bright', 'happy', 'upbeat'], 
+        energy: 4, 
+        tempo: 'upbeat',
+        genres: ['uplifting', 'indie', 'folk', 'acoustic']
+      },
+      adventure: { 
+        tags: ['adventurous', 'energetic', 'inspiring', 'cinematic', 'orchestral'], 
+        energy: 4, 
+        tempo: 'upbeat',
+        genres: ['orchestral', 'cinematic', 'adventure', 'world music']
+      },
+      magical: { 
+        tags: ['mystical', 'ethereal', 'ambient', 'fantasy', 'enchanting'], 
+        energy: 3, 
+        tempo: 'moderate',
+        genres: ['fantasy', 'ambient', 'ethereal', 'orchestral']
+      }
     };
   }
 
@@ -112,10 +162,16 @@ export class AIProcessor {
       // Get music properties for primary mood
       const musicProps = this.moodToMusicMapping[primaryMood] || this.moodToMusicMapping.peaceful;
 
-      // Combine tags from primary and secondary moods
+      // Combine tags from primary and secondary moods + add genre tags
       const tags = [...musicProps.tags];
       if (secondaryMood && this.moodToMusicMapping[secondaryMood]) {
+        // Add top 2 tags from secondary mood for nuance
         tags.push(...this.moodToMusicMapping[secondaryMood].tags.slice(0, 2));
+      }
+      
+      // Add genre tags for better music search results
+      if (musicProps.genres) {
+        tags.push(...musicProps.genres.slice(0, 2));
       }
 
       return {
@@ -128,7 +184,7 @@ export class AIProcessor {
         musicTags: [...new Set(tags)], // Remove duplicates
         energy: musicProps.energy,
         tempo: musicProps.tempo,
-        recommendedGenres: this._getGenresForMood(primaryMood)
+        recommendedGenres: musicProps.genres || this._getGenresForMood(primaryMood)
       };
     } catch (error) {
       console.error(`❌ Error analyzing chapter "${chapter.title}":`, error);
@@ -189,22 +245,23 @@ export class AIProcessor {
 
   /**
    * Get appropriate music genres for a mood
+   * Used as fallback if mood mapping doesn't have genres
    */
   _getGenresForMood(mood) {
     const genreMap = {
-      dark: ['dark ambient', 'atmospheric', 'drone'],
-      mysterious: ['ambient', 'electronic', 'minimal'],
-      romantic: ['classical', 'piano', 'strings'],
-      sad: ['piano', 'classical', 'acoustic'],
-      epic: ['orchestral', 'cinematic', 'epic'],
-      peaceful: ['ambient', 'nature sounds', 'meditation'],
-      tense: ['suspense', 'electronic', 'minimal'],
-      joyful: ['uplifting', 'indie', 'folk'],
-      adventure: ['orchestral', 'world music', 'energetic'],
-      magical: ['fantasy', 'ambient', 'ethereal']
+      dark: ['dark ambient', 'cinematic', 'soundtrack', 'horror'],
+      mysterious: ['ambient', 'electronic', 'minimal', 'soundtrack'],
+      romantic: ['classical', 'piano', 'strings', 'orchestral'],
+      sad: ['piano', 'classical', 'acoustic', 'emotional'],
+      epic: ['orchestral', 'cinematic', 'epic', 'soundtrack'],
+      peaceful: ['ambient', 'meditation', 'calm', 'nature'],
+      tense: ['suspense', 'cinematic', 'thriller', 'soundtrack'],
+      joyful: ['uplifting', 'indie', 'folk', 'acoustic'],
+      adventure: ['orchestral', 'cinematic', 'adventure', 'world music'],
+      magical: ['fantasy', 'ambient', 'ethereal', 'orchestral']
     };
 
-    return genreMap[mood] || ['instrumental', 'ambient'];
+    return genreMap[mood] || ['instrumental', 'ambient', 'soundtrack'];
   }
 
   /**
