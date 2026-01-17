@@ -249,6 +249,47 @@ export async function updateBook(bookId, updates) {
 }
 
 /**
+ * Log track usage to Firestore for CC0 compliance documentation
+ * Stores: freesoundId, license (CC0), source URL, timestamp, file hash (if available)
+ * @param {string} userId - User's unique ID
+ * @param {Object} trackInfo - Track information
+ * @returns {Promise<void>}
+ */
+export async function logTrackUsage(userId, trackInfo) {
+  if (!userId || !trackInfo) {
+    console.error('logTrackUsage: Missing required parameters');
+    return;
+  }
+  
+  // Only log CC0 tracks (fail-safe)
+  if (trackInfo.license?.type !== 'CC0') {
+    console.error(`Attempted to log non-CC0 track: ${trackInfo.title} (${trackInfo.license?.type})`);
+    return;
+  }
+  
+  try {
+    const usageRef = doc(db, 'trackUsage', `${userId}_${trackInfo.freesoundId}_${Date.now()}`);
+    await setDoc(usageRef, {
+      userId: userId,
+      freesoundId: trackInfo.freesoundId,
+      trackTitle: trackInfo.title,
+      artist: trackInfo.artist,
+      license: 'CC0',
+      sourceUrl: trackInfo.license.sourceUrl,
+      fetchedAt: trackInfo.license.fetchedAt,
+      playedAt: serverTimestamp(),
+      duration: trackInfo.duration,
+      tags: trackInfo.tags || []
+    });
+    
+    console.log(`Track usage logged: ${trackInfo.title} (Freesound ID: ${trackInfo.freesoundId})`);
+  } catch (error) {
+    console.error('Failed to log track usage:', error);
+    // Don't throw - logging shouldn't break playback
+  }
+}
+
+/**
  * FirestoreStorage class - wraps Firestore functions with auth context
  */
 export class FirestoreStorage {

@@ -100,7 +100,8 @@ export class MusicAPI {
     const maxEnergyLevel = settings.maxEnergyLevel || 5;
 
     // Build filter to get high-quality, conventional music (not weird sound effects)
-    let filter = 'duration:[30 TO 360] tag:music';
+    // IMPORTANT: Only use CC0 (Creative Commons Zero) licensed sounds for legal compliance
+    let filter = 'duration:[30 TO 360] tag:music license:"Creative Commons 0"';
     
     // Require soundtrack/background music tags for better quality
     // This dramatically reduces weird experimental sounds
@@ -151,22 +152,38 @@ export class MusicAPI {
       // 🔍 LOG RAW RESPONSE
 
       
-      const tracks = data.results.map(sound => ({
-        id: `freesound_${sound.id}`,
-        title: sound.name,
-        artist: sound.username,
-        duration: Math.round(sound.duration),
-        url: sound.previews['preview-hq-mp3'] || sound.previews['preview-lq-mp3'],
-        tags: sound.tags,
-        energy: this._estimateEnergy(sound.tags),
-        tempo: this._estimateTempo(sound.tags),
-        license: {
-          type: sound.license,
-          attributionRequired: !sound.license.includes('CC0'),
-          sourceUrl: `https://freesound.org/people/${sound.username}/sounds/${sound.id}/`,
-          downloadAllowed: true
-        }
-      }));
+      const tracks = data.results
+        .filter(sound => {
+          // FAIL-SAFE: Only use CC0 licensed sounds
+          const isCC0 = sound.license && sound.license.includes('Creative Commons 0');
+          if (!isCC0) {
+            console.warn(`Filtered out non-CC0 sound: ${sound.name} (License: ${sound.license})`);
+          }
+          return isCC0;
+        })
+        .map(sound => ({
+          // Core identifiers
+          id: `freesound_${sound.id}`,
+          freesoundId: sound.id, // Store original Freesound ID for documentation
+          
+          // Display info
+          title: sound.name,
+          artist: sound.username,
+          duration: Math.round(sound.duration),
+          url: sound.previews['preview-hq-mp3'] || sound.previews['preview-lq-mp3'],
+          
+          // Categorization
+          tags: sound.tags,
+          energy: this._estimateEnergy(sound.tags),
+          tempo: this._estimateTempo(sound.tags),
+          
+          // Legal documentation (stored but not displayed in UI)
+          license: {
+            type: 'CC0', // Only CC0 sounds pass the filter
+            sourceUrl: `https://freesound.org/people/${sound.username}/sounds/${sound.id}/`,
+            fetchedAt: new Date().toISOString() // Timestamp of retrieval
+          }
+        }));
       
       // Filter by max duration (6 minutes)
       let filteredTracks = tracks.filter(track => track.duration <= this.maxDuration);
@@ -218,7 +235,8 @@ export class MusicAPI {
     // Build filter string (using Lucene query syntax)
     // duration:[30 TO 360] = 30 seconds to 6 minutes (avoids short sound effects and very long tracks)
     // tag:music = must be tagged as music (not sound effects)
-    let filter = 'duration:[30 TO 360] tag:music';
+    // license:"Creative Commons 0" = ONLY CC0 licensed sounds (legal requirement)
+    let filter = 'duration:[30 TO 360] tag:music license:"Creative Commons 0"';
     
     // Add background music filter if enabled
     // Require conventional instrument/genre tags to avoid weird sounds
@@ -260,22 +278,38 @@ export class MusicAPI {
       // 🔍 LOG RAW RESPONSE
 
       
-      const tracks = data.results.map(sound => ({
-        id: `freesound_${sound.id}`,
-        title: sound.name,
-        artist: sound.username,
-        duration: Math.round(sound.duration),
-        url: sound.previews['preview-hq-mp3'] || sound.previews['preview-lq-mp3'],
-        tags: sound.tags,
-        energy: this._estimateEnergy(sound.tags),
-        tempo: this._estimateTempo(sound.tags),
-        license: {
-          type: sound.license,
-          attributionRequired: !sound.license.includes('CC0'),
-          sourceUrl: `https://freesound.org/people/${sound.username}/sounds/${sound.id}/`,
-          downloadAllowed: true
-        }
-      }));
+      const tracks = data.results
+        .filter(sound => {
+          // FAIL-SAFE: Only use CC0 licensed sounds
+          const isCC0 = sound.license && sound.license.includes('Creative Commons 0');
+          if (!isCC0) {
+            console.warn(`Filtered out non-CC0 sound: ${sound.name} (License: ${sound.license})`);
+          }
+          return isCC0;
+        })
+        .map(sound => ({
+          // Core identifiers
+          id: `freesound_${sound.id}`,
+          freesoundId: sound.id, // Store original Freesound ID for documentation
+          
+          // Display info
+          title: sound.name,
+          artist: sound.username,
+          duration: Math.round(sound.duration),
+          url: sound.previews['preview-hq-mp3'] || sound.previews['preview-lq-mp3'],
+          
+          // Categorization
+          tags: sound.tags,
+          energy: this._estimateEnergy(sound.tags),
+          tempo: this._estimateTempo(sound.tags),
+          
+          // Legal documentation (stored but not displayed in UI)
+          license: {
+            type: 'CC0', // Only CC0 sounds pass the filter
+            sourceUrl: `https://freesound.org/people/${sound.username}/sounds/${sound.id}/`,
+            fetchedAt: new Date().toISOString() // Timestamp of retrieval
+          }
+        }));
       
       // Filter by max duration (6 minutes)
       let filteredTracks = tracks.filter(track => track.duration <= this.maxDuration);

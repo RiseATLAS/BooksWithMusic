@@ -1,4 +1,6 @@
 import { AudioPlayer } from '../core/audio-player.js';
+import { logTrackUsage } from '../storage/firestore-storage.js';
+import { auth } from '../config/firebase-config.js';
 
 export class MusicPanelUI {
   constructor(db, musicManager, reader = null) {
@@ -656,9 +658,6 @@ export class MusicPanelUI {
       
       const categories = [energy, tempo, tags].filter(c => c).join(' • ');
       
-      // License info
-      const license = track.license ? track.license.type : '';
-      
       return `
         <div class="playlist-item ${index === this.currentTrackIndex ? 'active' : ''} ${isShiftTrack ? 'shift-point' : ''}" 
              data-track-index="${index}"
@@ -674,11 +673,6 @@ export class MusicPanelUI {
               ${categories ? `
                 <div class="track-categories" style="font-size: 0.65rem; opacity: 0.5; margin-top: 0.25rem; line-height: 1.3;">
                   ${this.escapeHtml(categories)}
-                </div>
-              ` : ''}
-              ${license ? `
-                <div class="track-license" style="font-size: 0.6rem; opacity: 0.4; margin-top: 0.15rem;">
-                  License: ${this.escapeHtml(license)}
                 </div>
               ` : ''}
             </div>
@@ -729,6 +723,11 @@ export class MusicPanelUI {
     try {
       await this.audioPlayer.playTrack(track);
       console.log(' Now playing:', track.title);
+      
+      // Log track usage to Firebase for CC0 compliance documentation
+      if (auth.currentUser && track.freesoundId && track.license) {
+        await logTrackUsage(auth.currentUser.uid, track);
+      }
     } catch (error) {
       console.error(' Error playing track:', error);
       console.log(' Skipping to next track...');
