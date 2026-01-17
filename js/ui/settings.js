@@ -21,6 +21,7 @@ export class SettingsUI {
       pageWarmth: 0,
       showProgress: true,
       showChapterTitle: true,
+      showBookPageNumbers: true, // true = full book pages, false = chapter pages only
       musicEnabled: true,
       autoPlay: false,
       crossfadeDuration: 3,
@@ -36,6 +37,7 @@ export class SettingsUI {
     this.loadSettings();
     this.setupEventListeners();
     this.applySettings();
+    this.syncUIWithSettings(); // Sync UI elements with loaded settings
   }
 
   setupEventListeners() {
@@ -174,6 +176,14 @@ export class SettingsUI {
       this.settings.showChapterTitle = e.target.checked;
       this.applyShowChapterTitle();
       this.saveSettings();
+    });
+
+    // Show book page numbers (vs chapter page numbers)
+    document.getElementById('show-book-page-numbers')?.addEventListener('change', (e) => {
+      this.settings.showBookPageNumbers = e.target.checked;
+      this.saveSettings();
+      // Trigger page indicator update
+      window.dispatchEvent(new CustomEvent('settings:pageNumbersChanged'));
     });
 
     // Crossfade duration
@@ -618,5 +628,72 @@ export class SettingsUI {
       toast.classList.remove('show');
       setTimeout(() => toast.remove(), 300);
     }, 3000);
+  }
+
+  syncUIWithSettings() {
+    // Sync all UI inputs with current settings values
+    const themeSelect = document.getElementById('theme-select');
+    if (themeSelect) themeSelect.value = this.settings.theme;
+
+    const fontSizeInput = document.getElementById('font-size');
+    const fontSizeValue = document.getElementById('font-size-value');
+    if (fontSizeInput) fontSizeInput.value = this.settings.fontSize;
+    if (fontSizeValue) fontSizeValue.textContent = `${this.settings.fontSize}px`;
+
+    const lineHeightInput = document.getElementById('line-height');
+    const lineHeightValue = document.getElementById('line-height-value');
+    if (lineHeightInput) lineHeightInput.value = this.settings.lineHeight;
+    if (lineHeightValue) lineHeightValue.textContent = this.settings.lineHeight.toFixed(1);
+
+    const fontFamilySelect = document.getElementById('font-family');
+    if (fontFamilySelect) fontFamilySelect.value = this.settings.fontFamily;
+
+    const textAlignSelect = document.getElementById('text-align');
+    if (textAlignSelect) textAlignSelect.value = this.settings.textAlign;
+
+    const pageWidthInput = document.getElementById('page-width');
+    const pageWidthValue = document.getElementById('page-width-value');
+    if (pageWidthInput) pageWidthInput.value = this.settings.pageWidth;
+    if (pageWidthValue) pageWidthValue.textContent = `${this.settings.pageWidth}px`;
+
+    const pageDensityInput = document.getElementById('page-density');
+    const pageDensityValue = document.getElementById('page-density-value');
+    if (pageDensityInput) pageDensityInput.value = this.settings.pageDensity;
+    if (pageDensityValue) pageDensityValue.textContent = `${this.settings.pageDensity} chars`;
+
+    const brightnessInput = document.getElementById('brightness');
+    const brightnessValue = document.getElementById('brightness-value');
+    if (brightnessInput) brightnessInput.value = this.settings.brightness;
+    if (brightnessValue) brightnessValue.textContent = `${this.settings.brightness}%`;
+
+    const pageColorSelect = document.getElementById('page-color');
+    if (pageColorSelect) pageColorSelect.value = this.settings.pageColor;
+
+    const pageWarmthInput = document.getElementById('page-warmth');
+    const pageWarmthValue = document.getElementById('page-warmth-value');
+    if (pageWarmthInput) pageWarmthInput.value = this.settings.pageWarmth;
+    if (pageWarmthValue) pageWarmthValue.textContent = `${this.settings.pageWarmth}%`;
+
+    const showProgressCheckbox = document.getElementById('show-progress');
+    if (showProgressCheckbox) showProgressCheckbox.checked = this.settings.showProgress;
+
+    const showChapterTitleCheckbox = document.getElementById('show-chapter-title');
+    if (showChapterTitleCheckbox) showChapterTitleCheckbox.checked = this.settings.showChapterTitle;
+
+    const showBookPageNumbersCheckbox = document.getElementById('show-book-page-numbers');
+    if (showBookPageNumbersCheckbox) showBookPageNumbersCheckbox.checked = this.settings.showBookPageNumbers;
+
+    const crossfadeInput = document.getElementById('crossfade-duration');
+    const crossfadeValue = document.getElementById('crossfade-value');
+    if (crossfadeInput) crossfadeInput.value = this.settings.crossfadeDuration;
+    if (crossfadeValue) crossfadeValue.textContent = `${this.settings.crossfadeDuration}s`;
+
+    const musicEnabledCheckbox = document.getElementById('music-enabled');
+    if (musicEnabledCheckbox) musicEnabledCheckbox.checked = this.settings.musicEnabled;
+
+    const autoPlayCheckbox = document.getElementById('auto-play');
+    if (autoPlayCheckbox) autoPlayCheckbox.checked = this.settings.autoPlay;
+
+    console.log('✓ UI synced with settings');
   }
 }

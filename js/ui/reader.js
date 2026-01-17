@@ -456,6 +456,12 @@ export class ReaderUI {
         }
       }
     });
+
+    // Listen for page number display preference changes from settings
+    window.addEventListener('settings:pageNumbersChanged', () => {
+      console.log('📄 Page number display preference changed, updating indicator');
+      this.updatePageIndicator();
+    });
   }
 
   /**
@@ -1037,7 +1043,19 @@ export class ReaderUI {
       indicator.className = 'page-indicator';
       pageContainer.appendChild(indicator);
     }
-    indicator.textContent = `${this.currentPage} / ${this.totalPages}`;
+    
+    // Check settings for page number display preference
+    const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
+    const showBookPages = settings.showBookPageNumbers !== false; // Default true
+    
+    if (showBookPages) {
+      // Show full book page numbers
+      indicator.textContent = `${this.currentPage} / ${this.totalPages}`;
+    } else {
+      // Show chapter-only page numbers
+      const chapterPages = this.pagesPerChapter[this.currentChapterIndex] || 1;
+      indicator.textContent = `Ch ${this.currentChapterIndex + 1}: ${this.currentPageInChapter} / ${chapterPages}`;
+    }
   }
 
   async saveProgress() {
