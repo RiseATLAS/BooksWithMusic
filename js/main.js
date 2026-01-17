@@ -361,7 +361,8 @@ class BooksWithMusicApp {
   }
 
   showLibrary() {
-    window.location.href = "/";
+    // Use correct path for GitHub Pages
+    window.location.href = "/BooksWithMusic/";
   }
 
   async registerServiceWorker() {

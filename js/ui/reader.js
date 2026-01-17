@@ -23,6 +23,9 @@ export class ReaderUI {
     this.charsPerPage = this.getPageDensityFromSettings(); // Get from settings or default
     this._isFlipping = false; // Prevent multiple simultaneous flips
     
+    // Character offset tracking for robust page restoration
+    this.currentCharOffset = 0; // Character offset within current chapter (for robust page restoration)
+    
     this._isTurningPage = false;
     this._pageGapPx = 48;
     this._musicInitPromise = null;
@@ -124,7 +127,7 @@ export class ReaderUI {
       this.currentBook = { id: book.id, title: book.title, author: book.author };
       this.chapters = book.chapters;
 
-      // Prefer the most recently saved progress from IndexedDB
+      // Prefer the most recently saved progress from IndexedDB or Firestore
       let persistedProgress = null;
       try {
         persistedProgress = await this.db.getBook(book.id);
@@ -134,6 +137,11 @@ export class ReaderUI {
 
       this.currentChapterIndex =
         persistedProgress?.currentChapter ?? book.currentChapter ?? 0;
+      
+      // Store the character offset for later restoration (after pagination)
+      const savedCharOffset = persistedProgress?.currentCharOffset ?? book.currentCharOffset ?? 0;
+      
+      // Temporarily use saved page number (will be corrected after pagination if offset exists)
       this.currentPageInChapter =
         persistedProgress?.currentPageInChapter ?? book.currentPageInChapter ?? 1;
 
@@ -149,7 +157,22 @@ export class ReaderUI {
       
       this.renderChapterList();
       
+      // Load the chapter (this will paginate it)
       await this.loadChapter(this.currentChapterIndex, { pageInChapter: this.currentPageInChapter, preservePage: true });
+      
+      // If we have a saved character offset, use it to find the correct page after re-pagination
+      // This ensures reading position is preserved even if pagination changes (e.g., font size change)
+      if (savedCharOffset > 0) {
+        const correctPage = this.findPageByCharOffset(this.currentChapterIndex, savedCharOffset);
+        if (correctPage !== this.currentPageInChapter) {
+          console.log(`📍 Restoring reading position: page ${this.currentPageInChapter} → ${correctPage} (based on character offset ${savedCharOffset})`);
+          this.currentPageInChapter = correctPage;
+          this.renderCurrentPage();
+          this.currentPage = this.calculateCurrentPageNumber();
+          this.totalPages = this.calculateTotalPages();
+          this.updatePageIndicator();
+        }
+      }
 
       // Setup event listeners
       this.setupEventListeners();
@@ -329,6 +352,10 @@ export class ReaderUI {
       const newDensity = e.detail.charsPerPage;
       console.log('📏 Page density changed to:', newDensity);
       
+      // Calculate current character offset BEFORE re-pagination
+      const currentOffset = this.calculateCharOffset();
+      console.log(`📍 Current position: Chapter ${this.currentChapterIndex + 1}, Page ${this.currentPageInChapter}, Char offset: ${currentOffset}`);
+      
       // Update internal setting
       this.charsPerPage = newDensity;
       
@@ -342,6 +369,17 @@ export class ReaderUI {
           pageInChapter: this.currentPageInChapter, 
           preservePage: true 
         });
+        
+        // Restore position using character offset
+        const newPage = this.findPageByCharOffset(this.currentChapterIndex, currentOffset);
+        if (newPage !== this.currentPageInChapter) {
+          console.log(`📍 Restoring position after pagination change: page ${this.currentPageInChapter} → ${newPage}`);
+          this.currentPageInChapter = newPage;
+          this.renderCurrentPage();
+          this.currentPage = this.calculateCurrentPageNumber();
+          this.totalPages = this.calculateTotalPages();
+          this.updatePageIndicator();
+        }
       }
     });
   }
@@ -934,12 +972,16 @@ export class ReaderUI {
 
       const progress = this.totalPages > 0 ? (this.currentPage / this.totalPages) * 100 : 0;
       
+      // Calculate character offset for robust page restoration
+      this.currentCharOffset = this.calculateCharOffset();
+      
       // Save to Firestore if user is signed in
       const userId = auth.currentUser?.uid;
       if (userId) {
         await saveBookProgress(userId, this.currentBook.id, {
           currentChapter: this.currentChapterIndex,
           currentPageInChapter: this.currentPageInChapter,
+          currentCharOffset: this.currentCharOffset, // Save character offset
           progress: progress
         });
       }
@@ -952,6 +994,7 @@ export class ReaderUI {
           if (stored?.id === this.currentBook.id) {
             stored.currentChapter = this.currentChapterIndex;
             stored.currentPageInChapter = this.currentPageInChapter;
+            stored.currentCharOffset = this.currentCharOffset; // Save to session storage too
             sessionStorage.setItem('currentBook', JSON.stringify(stored));
           }
         }
@@ -1133,59 +1176,6 @@ export class ReaderUI {
     } catch (error) {
       console.error('❌ Error toggling fullscreen:', error);
       this.showToast('Fullscreen failed', 'error');
-    }
-  }
-
-  // Utility methods for UI feedback
-  
-  escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
-  
-  showLoading(message) {
-    const overlay = document.getElementById('loading-overlay');
-    const messageEl = document.getElementById('loading-message');
-    if (overlay && messageEl) {
-      messageEl.textContent = message;
-      overlay.classList.remove('hidden');
-    }
-  }
-
-  hideLoading() {
-    const overlay = document.getElementById('loading-overlay');
-    if (overlay) {
-      overlay.classList.add('hidden');
-    }
-  }
-
-  showToast(message, type = 'success') {
-    try {
-      const container = document.getElementById('toast-container');
-      if (!container) {
-        console.warn('Toast container not found');
-        return;
-      }
-
-      const toast = document.createElement('div');
-      toast.className = `toast toast-${type}`;
-      toast.textContent = message;
-      
-      container.appendChild(toast);
-      
-      // Trigger animation
-      setTimeout(() => toast.classList.add('show'), 10);
-      
-      // Remove after 3 seconds
-      setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => toast.remove(), 300);
-      }, 3000);
-    } catch (error) {
-      console.error('❌ Error showing toast:', error);
-      // Fallback to console if toast fails
-      console.log(`[${type.toUpperCase()}] ${message}`);
     }
   }
 }

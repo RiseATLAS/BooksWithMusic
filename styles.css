@@ -769,21 +769,19 @@ body {
   opacity: 1;
 }
 
-/* Panels - 15% transparent with glass effect */
+/* Panels - Compact and solid (NO transparency) */
 .music-panel, .settings-panel {
   position: fixed;
-  right: -860px;
+  right: -700px;
   top: 0;
-  width: 820px;
+  width: 650px; /* More compact: reduced from 700px */
   height: 100vh;
-  background: var(--bg-secondary);
-  opacity: 0.85; /* 85% opacity = 15% transparent */
-  -webkit-backdrop-filter: blur(30px);
-  backdrop-filter: blur(30px);
-  border-left: 1px solid var(--glass-border);
-  box-shadow: -4px 0 30px rgba(0, 0, 0, 0.1);
+  background: var(--bg-secondary); /* Solid background, no transparency */
+  border-left: 1px solid var(--border);
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
   transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 1000;
+  opacity: 1; /* Explicitly solid */
 }
 
 .music-panel.show, .settings-panel.show { right: 0; }
@@ -796,26 +794,25 @@ body {
 
 /* Settings panel content - more compact */
 .settings-content {
-  padding: 1rem 1.25rem;
+  padding: 0.5rem 0.75rem; /* Even more compact */
 }
 
 .music-header, .settings-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem 1.25rem; /* Reduced from 1.5rem */
+  padding: 0.5rem 0.75rem; /* More compact */
   border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary); /* Ensure solid */
 }
 
 .settings-header {
   position: sticky;
   top: 0;
   background: var(--bg-secondary);
-  -webkit-backdrop-filter: blur(30px);
-  backdrop-filter: blur(30px);
   z-index: 1;
 }
-.music-header h3, .settings-header h3 { font-size: 1.15rem; font-weight: 600; } /* Slightly smaller */
+.music-header h3, .settings-header h3 { font-size: 1rem; font-weight: 600; margin: 0; }
 
 .btn-close {
   background: none;
@@ -831,9 +828,10 @@ body {
 .btn-close:hover { color: var(--text-primary); }
 
 .music-info {
-  padding: 2rem 1.5rem;
+  padding: 1rem 1rem; /* More compact: reduced from 2rem 1.5rem */
   text-align: center;
   border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary); /* Ensure solid */
 }
 
 .track-info { margin-bottom: 1.5rem; }
@@ -885,19 +883,21 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 1rem;
-  padding: 1.5rem;
+  gap: 0.75rem; /* More compact: reduced from 1rem */
+  padding: 1rem; /* More compact: reduced from 1.5rem */
   border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary); /* Ensure solid */
 }
 
-.btn-large { font-size: 2rem; padding: 1rem; }
+.btn-large { font-size: 1.75rem; padding: 0.75rem; } /* More compact */
 
 .volume-control {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 1.5rem;
+  gap: 0.75rem; /* More compact: reduced from 1rem */
+  padding: 1rem; /* More compact: reduced from 1.5rem */
   border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary); /* Ensure solid */
 }
 
 #volume-slider {

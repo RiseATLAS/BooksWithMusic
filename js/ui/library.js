@@ -16,6 +16,7 @@ export class BookLibrary {
         this.localDb = new DatabaseManager();
         this.cacheInitialized = false;
         this.eventListenersSetup = false;
+        this.shownCacheMessage = false; // Track if we've shown the cache message
     }
 
     async init() {
@@ -46,8 +47,16 @@ export class BookLibrary {
                     this.displayBooks(); // Show cached books immediately
                     
                     // Show friendly message if signed out but have cached books
-                    if (!auth.currentUser && cachedBooks.length > 0) {
-                        this.showToast('📚 We stored your books so you can continue reading while not logged in, enjoy!', 'info', 5000);
+                    // Only show once to avoid showing during auth initialization
+                    if (!auth.currentUser && cachedBooks.length > 0 && !this.shownCacheMessage) {
+                        // Wait a bit to ensure auth has initialized
+                        setTimeout(() => {
+                            // Re-check after delay to ensure user is actually signed out
+                            if (!auth.currentUser) {
+                                this.showToast('📚 We stored your books so you can continue reading while not logged in, enjoy!', 'info', 5000);
+                                this.shownCacheMessage = true;
+                            }
+                        }, 1000);
                     }
                 }
             }
@@ -121,7 +130,7 @@ export class BookLibrary {
                 ${book.cover ? `<img src="${book.cover}" alt="${book.title}" class="book-cover">` : '<div class="book-cover-placeholder">📖</div>'}
                 <h3 class="book-title">${book.title}</h3>
                 <p class="book-author">${book.author}</p>
-                ${book.progress ? `<div class="book-progress">${Math.round(book.progress * 100)}% complete</div>` : ''}
+                ${book.progress && !isNaN(book.progress) && book.progress > 0 ? `<div class="book-progress">${Math.round(book.progress)}% complete</div>` : ''}
                 <button class="delete-btn" data-book-id="${book.id}" title="Delete book">🗑️</button>
             </div>
         `).join('');
