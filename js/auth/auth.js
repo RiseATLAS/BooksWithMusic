@@ -9,6 +9,7 @@ import {
   onAuthStateChanged as firebaseOnAuthStateChanged
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 import { checkUserRegistration, registerUser, updateLastLogin } from './user-manager.js';
+import { checkAndPromptTerms } from './terms-of-service.js';
 
 /**
  * Initialize Firebase Authentication
@@ -46,13 +47,22 @@ export async function signInWithGoogle() {
       throw new Error(registrationCheck.reason);
     }
     
+    // Check terms acceptance (new and existing users)
+    const termsAccepted = await checkAndPromptTerms(user.uid);
+    
+    if (!termsAccepted) {
+      // User declined terms - sign them out
+      await firebaseSignOut(auth);
+      throw new Error('You must accept the Terms of Use to continue.');
+    }
+    
     // Register or update user
     if (!registrationCheck.isExisting) {
       await registerUser(user.uid, user.displayName || 'Unknown User', user.email);
-      console.log(' New user registered successfully');
+      console.log('✅ New user registered successfully');
     } else {
       await updateLastLogin(user.uid);
-      console.log(' Existing user logged in:', user.email);
+      console.log('✅ Existing user logged in:', user.email);
     }
     
     return {

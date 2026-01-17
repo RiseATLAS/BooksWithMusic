@@ -74,10 +74,12 @@ BooksWithMusic/
 
 ### Cloud Features (Firebase)
 - 🔐 **Google Authentication** - Secure sign-in with your Google account
+- 📋 **Terms of Service** - First-time users must accept ToS before creating account
 - ☁️ **Cloud Storage** - Books stored securely in Firebase Storage
 - 🔄 **Cross-Device Sync** - Access your library from any device
 - ⚙️ **Settings Sync** - Preferences synced across all your devices
 - 🔒 **Private & Secure** - Your data is only accessible to you
+- 👥 **User Cap** - 20 user maximum for friends & family use
 
 ### Music Integration
 - 🤖 **AI Mood Analysis** - Automatically detects chapter emotions (10 mood types)
@@ -128,9 +130,11 @@ service cloud.firestore {
 
 ### Privacy & Security:
 - ✅ Your books and settings are **private to your account only**
+- ✅ Terms of Service acceptance required on first login
 - ✅ Firebase security rules prevent access to other users' data
 - ✅ Track usage logged for legal compliance
 - ✅ 20 user registration cap for friends & family use
+- ✅ User confirms they own or are legally entitled to upload content
 
 ## 🌐 Deployment
 
@@ -188,6 +192,38 @@ The app uses CC0-licensed music from Freesound:
 - ✅ All track usage is logged to Firebase (Freesound ID, license, source URL, timestamp)
 - ✅ No attribution required for CC0, but full documentation maintained
 - ✅ 20 user cap for friends & family use (names stored for verification)
+
+## 📋 Terms of Service
+
+### First-Time Login
+When you sign in for the first time, you'll be asked to accept the Terms of Use:
+
+1. **Automatic Prompt**: A modal appears before account creation
+2. **Must Accept**: You must click "Accept & Continue" to proceed
+3. **Stored in Firestore**: Your acceptance is recorded with timestamp
+4. **One-Time Only**: Existing users won't see this again (unless terms are updated)
+
+### What You're Agreeing To
+
+**User-Provided Content**: You confirm you own or are legally entitled to upload the ebooks you use.
+
+**Limited License**: You grant the Service permission to store and process your content only for providing the Service to you.
+
+**No Redistribution**: Your content is private and never shared with other users.
+
+**Your Rights**: You remain the owner. The Service doesn't claim ownership of your content.
+
+**Content Removal**: Content can be removed at your request or if there are legal concerns.
+
+**"As Is" Service**: This is an experimental service provided without guarantees.
+
+### For Developers
+- Terms acceptance is handled by `/js/auth/terms-of-service.js`
+- User acceptance is stored in Firestore `users/{userId}` with fields:
+  - `termsAccepted`: boolean
+  - `termsVersion`: string (e.g., "1.0")
+  - `termsAcceptedAt`: timestamp
+- Update `TERMS_VERSION` in the module when terms change to re-prompt users
 
 ## 🧠 AI Mood Detection
 
@@ -291,6 +327,7 @@ This project is open source. All music tracks are CC0-licensed (Creative Commons
 ### 3. Application Functionality ✅ COMPLETE
 - [x] App loads without errors (all syntax errors fixed)
 - [x] Google Sign-In with 20 user cap (names stored for verification)
+- [x] Terms of Service acceptance required on first login
 - [x] EPUB import works (upload and storage)
 - [x] Books stored in Firebase Storage + cached in IndexedDB
 - [x] Books load instantly from cache, sync with Firestore
@@ -305,6 +342,8 @@ This project is open source. All music tracks are CC0-licensed (Creative Commons
 - [x] Redundant console logging removed (clean UI feedback)
 
 ### 4. Recent Updates (18 January 2026) ✅
+- [x] Terms of Service modal on first login (user must accept to create account)
+- [x] ToS acceptance stored in Firestore with version tracking
 - [x] CC0-only music compliance (strict filtering at API layer)
 - [x] Track usage logging to Firebase (Freesound ID, license, source URL, timestamp)
 - [x] 20 user registration cap with name storage
@@ -312,6 +351,7 @@ This project is open source. All music tracks are CC0-licensed (Creative Commons
 - [x] Removed redundant playlist console logging
 - [x] Cache validation (only CC0 tracks cached)
 - [x] Fail-safe: music only plays if CC0-licensed
+- [x] Improved mood shift scoring (more nuanced, not all 100)
 
 ### 5. Privacy & Security ✅ COMPLETE
 - [x] No secrets in public git history
