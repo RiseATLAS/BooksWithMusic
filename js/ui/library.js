@@ -1,6 +1,7 @@
 import { EPUBParser } from '../core/epub-parser.js';
 import { AIProcessor } from '../core/ai-processor.js';
 import { saveBook, getUserBooks } from '../storage/firestore-storage.js';
+import { auth } from '../firebase/init.js';
 
 export class BookLibrary {
   constructor(db) {
@@ -78,27 +79,45 @@ export class BookLibrary {
     console.log('Setting up import button:', importBtn ? 'Found' : 'Not found');
     console.log('File input:', fileInput ? 'Found' : 'Not found');
 
-    importBtn?.addEventListener('click', () => {
-      console.log('Import button clicked!');
-      fileInput?.click();
-    });
-
-    fileInput?.addEventListener('change', async (e) => {
-      const file = e.target.files[0];
-      console.log('File selected:', file?.name);
-      if (file && file.name.endsWith('.epub')) {
-        await this.importBook(file);
-        fileInput.value = ''; // Reset input
-      }
-    });
+    if (importBtn && fileInput) {
+      // Prevent duplicate event listeners
+      importBtn.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('Import button clicked!');
+        fileInput.click();
+      };
+      
+      fileInput.onchange = async (e) => {
+        const file = e.target.files[0];
+        console.log('File selected:', file?.name);
+        if (file && file.name.endsWith('.epub')) {
+          await this.importBook(file);
+          // Clear the input so the same file can be selected again
+          fileInput.value = '';
+        }
+      };
+      
+      console.log('Import button setup complete');
+    }
   }
 
   async importBook(file) {
     try {
+      console.log(`File selected: ${file?.name}`);
+      
+      // Check if user is authenticated using Firebase Auth
+      if (!auth.currentUser) {
+        console.error('No authenticated user found');
+        alert('Please sign in first to import books');
+        throw new Error('User not signed in');
+      }
+      
+      const userId = auth.currentUser.uid;
+      console.log(`Importing for user: ${userId}`);
+      
       this.showLoading('Importing book...');
       // Check book count before import
-      const userId = window.currentUser?.uid;
-      if (!userId) throw new Error('User not signed in');
       const books = await getUserBooks(userId);
       if (books.length >= 10) {
         this.showToast('Maximum 10 books allowed per user. Delete a book to add more.', 'error');
@@ -109,33 +128,61 @@ export class BookLibrary {
       const arrayBuffer = await file.arrayBuffer();
       const parsed = await this.parser.parse(arrayBuffer);
       // Convert ArrayBuffer to base64
-      const fileBase64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-      // Store book data
-      const bookId = parsed.id;
-      const metadata = {
-        title: parsed.metadata?.title || parsed.title || file.name.replace('.epub', ''),
-        author: parsed.author || parsed.metadata?.author || 'Unknown Author',
-        coverImage: parsed.coverImage,
-        images: parsed.images ? Array.from(parsed.images.entries()) : [],
-        importDate: new Date(),
-        progress: 0,
-        currentChapter: 0,
-        totalWords: parsed.chapters.reduce((total, chapter) => {
-          const textContent = chapter.content.replace(/<[^>]*>/g, '');
-          return total + textContent.split(/\s+/).filter(word => word.length > 0).length;
-        }, 0)
+      console.log('Converting EPUB to base64...');
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const base64Data = e.target.result.split(',')[1];
+          const base64Size = base64Data.length;
+          console.log(`Original file: ${(file.size / 1024).toFixed(2)} KB`);
+          console.log(`Base64 size: ${(base64Size / 1024).toFixed(2)} KB`);
+          
+          // Firestore document limit is 1MB, leave room for metadata
+          if (base64Size > 900000) {
+            throw new Error(`File too large: ${(base64Size / 1024).toFixed(2)} KB (max ~880 KB)`);
+          }
+          
+          // Store book data
+          const bookId = parsed.id;
+          const metadata = {
+            title: parsed.metadata?.title || parsed.title || file.name.replace('.epub', ''),
+            author: parsed.author || parsed.metadata?.author || 'Unknown Author',
+            coverImage: parsed.coverImage,
+            images: parsed.images ? Array.from(parsed.images.entries()) : [],
+            importDate: new Date(),
+            progress: 0,
+            currentChapter: 0,
+            totalWords: parsed.chapters.reduce((total, chapter) => {
+              const textContent = chapter.content.replace(/<[^>]*>/g, '');
+              return total + textContent.split(/\s+/).filter(word => word.length > 0).length;
+            }, 0)
+          };
+          console.log('Saving to Firestore...');
+          await saveBook(userId, bookId, metadata, base64Data);
+          console.log('✓ Book saved to Firestore successfully');
+          // Log current storage usage
+          await this.logStorageUsage(userId);
+          // Run AI analysis on import
+          console.log('🤖 Analyzing book with AI...');
+          const book = { id: bookId, title: metadata.title, chapters: parsed.chapters };
+          const analysis = await this.aiProcessor.analyzeBook(book);
+          // Optionally save analysis in Firestore if needed
+          this.hideLoading();
+          this.showToast('Book imported successfully!');
+          await this.loadBooks();
+        } catch (error) {
+          console.error('❌ Failed to save book:', error);
+          alert(`Failed to save book: ${error.message}`);
+          throw error;
+        }
       };
-      await saveBook(userId, bookId, metadata, fileBase64);
-      // Log current storage usage
-      await this.logStorageUsage(userId);
-      // Run AI analysis on import
-      console.log('🤖 Analyzing book with AI...');
-      const book = { id: bookId, title: metadata.title, chapters: parsed.chapters };
-      const analysis = await this.aiProcessor.analyzeBook(book);
-      // Optionally save analysis in Firestore if needed
-      this.hideLoading();
-      this.showToast('Book imported successfully!');
-      await this.loadBooks();
+      
+      reader.onerror = (error) => {
+        console.error('❌ Failed to read file:', error);
+        alert('Failed to read EPUB file');
+      };
+      
+      reader.readAsDataURL(file);
     } catch (error) {
       console.error('❌ Error importing book:', file?.name);
       console.error('Error details:', error);
