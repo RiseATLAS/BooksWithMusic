@@ -30,17 +30,25 @@ export class MusicPanelUI {
     if ('mediaSession' in navigator) {
       this.audioPlayer.setMediaSessionHandlers({
         play: () => {
-          if (!this.audioPlayer.state.playing) {
+          console.log('🎮 Hardware play pressed');
+          if (!this.audioPlayer.isPlaying()) {
             this.togglePlayPause();
           }
         },
         pause: () => {
-          if (this.audioPlayer.state.playing) {
+          console.log('🎮 Hardware pause pressed');
+          if (this.audioPlayer.isPlaying()) {
             this.togglePlayPause();
           }
         },
-        nextTrack: () => this.nextTrack(),
-        prevTrack: () => this.previousTrack()
+        nextTrack: () => {
+          console.log('🎮 Hardware next pressed');
+          this.nextTrack();
+        },
+        prevTrack: () => {
+          console.log('🎮 Hardware previous pressed');
+          this.previousTrack();
+        }
       });
       console.log('✓ Hardware media controls enabled');
     }
@@ -241,8 +249,11 @@ export class MusicPanelUI {
 
     // Load auto-play setting on startup (check both true and false values)
     if (autoPlayCheckbox) {
-      autoPlayCheckbox.checked = settings.autoPlay === true;
-      console.log('📖 Loaded auto-play setting:', settings.autoPlay);
+      const isAutoPlay = settings.autoPlay === true;
+      autoPlayCheckbox.checked = isAutoPlay;
+      console.log('📖 Loaded auto-play setting:', settings.autoPlay, '→ checkbox:', isAutoPlay);
+    } else {
+      console.warn('⚠️ Auto-play checkbox not found!');
     }
 
     // Music enabled checkbox
