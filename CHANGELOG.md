@@ -2,6 +2,34 @@
 
 All notable changes to BooksWithMusic will be documented in this file.
 
+## [1.3.1] - 2026-01-17 - Expanded Query Categories
+
+### Added
+- **30 Diverse Query Categories**: Expanded from 10 basic moods to 30 categories
+  - 12 mood categories (calm, epic, romantic, mysterious, adventure, dark, tense, joyful, peaceful, magical, sad, hopeful)
+  - 8 genre/style categories (classical, orchestral, ambient, acoustic, electronic, jazz, folk, world music)
+  - 6 reading context categories (study/focus, reading background, meditation, nature, night/evening, morning/dawn)
+  - 4 cinematic/production categories (trailer, film score, game music, documentary)
+  
+- **Comprehensive Logging**: Added detailed console logging for debugging
+  - Query structure and filter strings
+  - Raw API responses with result counts
+  - Interactive tables showing all tracks with tags
+  - Library-wide statistics (energy distribution, top tags, deduplication)
+  - Created `TESTING_MUSIC_LOGS.md` guide for users
+
+### Improved
+- **Greater Variety**: Up to 450 tracks before deduplication (3x more than before)
+- **Better Instrument Coverage**: Classical, jazz, acoustic, electronic, orchestral, folk, world
+- **Context-Aware Music**: Queries match specific reading scenarios beyond emotions
+- **Reduced Overlap**: More diverse queries mean less duplication between categories
+
+### Technical Changes
+- Renamed `moodQueries` to `queryCategories` in `music-manager.js`
+- Expanded from 10 to 30 query categories (each with 3 search terms)
+- Added comprehensive console.group() logging throughout music loading
+- Updated documentation with expanded categories and testing instructions
+
 ## [1.3.0] - 2024 - Music Search Improvements
 
 ### Improved

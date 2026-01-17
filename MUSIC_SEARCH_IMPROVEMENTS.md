@@ -223,3 +223,57 @@ This will help identify if:
 - OR queries help but filters limit total pool
 - Consider adjusting instrumental-only setting
 - Freesound has limited high-quality music vs sound effects
+
+## Enhanced Query Categories (v1.3.1)
+
+We've expanded from 10 basic moods to **30 diverse categories** covering:
+
+### Moods (12 categories)
+- Calm, Epic, Romantic, Mysterious, Adventure
+- Dark, Tense, Joyful, Peaceful, Magical
+- Sad, Hopeful
+
+### Genres & Styles (8 categories)
+- Classical piano & baroque
+- Orchestral symphony
+- Ambient soundscape
+- Acoustic folk & guitar
+- Electronic chillout
+- Jazz smooth
+- Folk storytelling
+- World/ethnic music
+
+### Reading Contexts (6 categories)
+- Study/focus/concentration
+- Reading background
+- Meditation/zen
+- Nature sounds (forest, rain)
+- Night/evening/twilight
+- Morning/dawn/sunrise
+
+### Cinematic & Production (4 categories)
+- Cinematic trailer
+- Film soundtrack/score
+- Video game/RPG music
+- Documentary underscore
+
+### Why This Helps:
+
+1. **More Variety**: 30 categories × 15 tracks = up to 450 tracks (before deduplication)
+2. **Better Coverage**: Covers different reading scenarios beyond just emotions
+3. **More Instruments**: Classical, jazz, acoustic, electronic, orchestral, etc.
+4. **Context-Aware**: "Study music" and "nature sounds" for calm reading, "epic trailer" for action
+5. **Reduced Duplicates**: More diverse queries = less overlap between categories
+
+### Expected Results:
+
+- **With energy filter 1-2**: 80-120 tracks (calm/gentle only)
+- **With energy filter 1-3**: 150-250 tracks (calm to moderate)
+- **With energy filter 1-4**: 250-350 tracks (calm to energetic)
+- **With energy filter 1-5**: 300-450 tracks (full range)
+
+The filters still apply, so you'll only get:
+- ✅ Real music (not SFX)
+- ✅ Instrumental/background (if enabled)
+- ✅ High-quality rated tracks
+- ✅ Appropriate energy level for your setting

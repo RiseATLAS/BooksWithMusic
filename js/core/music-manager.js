@@ -213,28 +213,55 @@ export class MusicManager {
         return;
       }
       
-      // Improved mood queries with genre/style keywords for better quality results
-      // Each query uses multiple search terms to find cinematic/conventional music
-      const moodQueries = [
+      // Expanded query categories: moods, genres, styles, and reading contexts
+      // Cast a wider net for more variety while maintaining quality through filters
+      const queryCategories = [
+        // MOODS
         ['calm', 'piano', 'ambient'],              // Calm piano/ambient
         ['epic', 'orchestral', 'cinematic'],       // Epic orchestral
-        ['romantic', 'piano', 'strings'],          // Romantic piano/strings
-        ['mysterious', 'ambient', 'dark'],         // Mysterious ambient
-        ['adventure', 'orchestral', 'uplifting'],  // Adventure orchestral
-        ['dark', 'cinematic', 'suspense'],         // Dark cinematic
-        ['tense', 'strings', 'suspense'],          // Tense strings
-        ['joyful', 'upbeat', 'acoustic'],          // Joyful acoustic
-        ['peaceful', 'ambient', 'soft'],           // Peaceful ambient
-        ['magical', 'fantasy', 'orchestral']       // Magical fantasy
+        ['romantic', 'gentle', 'strings'],         // Romantic strings
+        ['mysterious', 'ambient', 'ethereal'],     // Mysterious ethereal
+        ['adventure', 'uplifting', 'journey'],     // Adventure journey
+        ['dark', 'atmospheric', 'suspense'],       // Dark suspense
+        ['tense', 'dramatic', 'intense'],          // Tense dramatic
+        ['joyful', 'cheerful', 'bright'],          // Joyful bright
+        ['peaceful', 'serene', 'tranquil'],        // Peaceful serene
+        ['magical', 'fantasy', 'enchanting'],      // Magical fantasy
+        ['sad', 'melancholy', 'emotional'],        // Sad melancholy
+        ['hopeful', 'inspiring', 'uplifting'],     // Hopeful inspiring
+        
+        // GENRES & STYLES
+        ['classical', 'piano', 'baroque'],         // Classical piano
+        ['orchestral', 'symphony', 'strings'],     // Orchestral symphony
+        ['ambient', 'atmospheric', 'soundscape'],  // Ambient soundscape
+        ['acoustic', 'guitar', 'folk'],            // Acoustic folk
+        ['electronic', 'ambient', 'chillout'],     // Electronic ambient
+        ['jazz', 'smooth', 'mellow'],              // Jazz smooth
+        ['folk', 'acoustic', 'storytelling'],      // Folk storytelling
+        ['world', 'ethnic', 'cultural'],           // World music
+        
+        // READING CONTEXTS
+        ['study', 'focus', 'concentration'],       // Study focus
+        ['reading', 'background', 'subtle'],       // Reading background
+        ['meditation', 'zen', 'mindful'],          // Meditation zen
+        ['nature', 'forest', 'rain'],              // Nature sounds
+        ['night', 'evening', 'twilight'],          // Night evening
+        ['morning', 'dawn', 'sunrise'],            // Morning dawn
+        
+        // CINEMATIC & PRODUCTION
+        ['cinematic', 'trailer', 'epic'],          // Cinematic trailer
+        ['soundtrack', 'film', 'score'],           // Film soundtrack
+        ['game', 'video-game', 'rpg'],             // Game RPG
+        ['documentary', 'underscore', 'neutral']   // Documentary underscore
       ];
       
       // 🔍 LOG LOADING START
       console.group('🎼 Music Library Loading');
-      console.log('📋 Query count:', moodQueries.length);
-      console.log('📋 Query terms:', moodQueries);
+      console.log('📋 Total categories:', queryCategories.length);
+      console.log('📋 Query terms:', queryCategories);
       console.groupEnd();
       
-      const trackPromises = moodQueries.map(queryTerms => 
+      const trackPromises = queryCategories.map(queryTerms => 
         this.musicAPI.searchByQuery(queryTerms, 15)
           .catch(error => {
             console.error(`❌ Failed to load tracks for [${queryTerms.join(', ')}]:`, error);
@@ -250,7 +277,8 @@ export class MusicManager {
         }
       });
       
-      // 🔍 LOG BEFORE DEDUPLICATION
+      // 🔍 LOG COLLECTION SUMMARY - THIS IS THE MAIN RESULT
+      console.log('═══════════════════════════════════════════════════════');
       console.group('📊 Track Collection Summary');
       console.log('📦 Raw tracks collected:', this.availableTracks.length);
       
@@ -303,6 +331,7 @@ export class MusicManager {
         console.log('🏷️ Top 15 tags across library:', topTags.join(', '));
         
         console.groupEnd();
+        console.log('═══════════════════════════════════════════════════════');
         
         // Cache tracks for future use
         await this._saveToCache(this.availableTracks);
