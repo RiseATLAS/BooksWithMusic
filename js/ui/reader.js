@@ -1115,6 +1115,9 @@ export class ReaderUI {
     // Get container
     const pageViewport = chapterText.parentElement;
     
+    // Hide scrollbar during flip animation
+    pageViewport.classList.add('flipping');
+    
     // Create new page element that will flip in
     const newPageDiv = document.createElement('div');
     newPageDiv.className = 'chapter-text';
@@ -1155,6 +1158,9 @@ export class ReaderUI {
     if (chapterText && chapterText.parentElement) {
       chapterText.remove();
     }
+    
+    // Restore scrollbar
+    pageViewport.classList.remove('flipping');
   }
 
   async goToNextPage() {

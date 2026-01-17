@@ -632,6 +632,11 @@ body {
   visibility: visible !important;
 }
 
+/* Hide scrollbar during flip animations */
+.page-viewport.flipping {
+  overflow-y: hidden !important;
+}
+
 /* Apply animations based on flip direction */
 .chapter-text.flipping-next,
 .chapter-text.flipping-prev {

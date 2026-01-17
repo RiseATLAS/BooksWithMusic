@@ -478,9 +478,9 @@ export class SettingsUI {
     }));
     
     // Show feedback
-    console.log('� Page Calibration:');
-    console.log(`  Viewport: ${viewportActualWidth}px × ${viewportHeight}px`);
-    console.log(`  ✓ Optimal page width: ${calibratedPageWidth}px (${Math.round(calibratedPageWidth/viewportActualWidth*100)}% of viewport)`);
+    console.log('📏 Page Calibration:');
+    console.log(`  Viewport: ${containerWidth}px × ${containerHeight}px`);
+    console.log(`  ✓ Optimal page width: ${calibratedPageWidth}px (${Math.round(calibratedPageWidth/containerWidth*100)}% of viewport)`);
     console.log(`  Text area: ${textWidth}px × ${textHeight}px`);
     console.log(`  Font: ${fontSize}px, Line height: ${lineHeight.toFixed(2)}px`);
     console.log(`  Lines per page: ${linesPerPage}`);

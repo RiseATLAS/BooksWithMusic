@@ -46,6 +46,41 @@ Updated `.chapter-text.flipping-next` and `.chapter-text.flipping-prev` CSS:
 - ✅ Flipping pages now align perfectly with static pages
 - ✅ No offset or jumping during page transitions
 - ✅ Natural book-like flip animation maintained
+- ✅ No scrollbar appears during flip animation
+
+## 3. ✅ Fixed Scrollbar During Flip Animation
+
+**Issue**: A scrollbar would briefly appear on the right side during the page flip animation, disrupting the visual experience.
+
+**Root Cause**: 
+- `.page-viewport` has `overflow-y: auto` to allow scrolling for long pages
+- During flip animation, the absolutely positioned flipping page was causing temporary overflow
+- This triggered the scrollbar to appear even though it wasn't needed
+
+**Solution**: 
+- Added `.flipping` class to viewport during animation
+- CSS rule `.page-viewport.flipping { overflow-y: hidden !important; }` hides scrollbar during flip
+- JavaScript adds the class before animation starts and removes it after animation completes
+
+**Result**: 
+- ✅ No scrollbar appears during page flips
+- ✅ Smooth, uninterrupted flip animation
+- ✅ Scrollbar still works normally for long pages when not flipping
+
+## 4. ✅ Fixed Calibration Bug
+
+**Issue**: Calibration feature threw `ReferenceError: viewportActualWidth is not defined`
+
+**Root Cause**: 
+- Console logs referenced undefined variables `viewportActualWidth` and `viewportHeight`
+- These were remnants from an earlier version of the code
+
+**Solution**: 
+- Changed references to use the correctly defined variables `containerWidth` and `containerHeight`
+
+**Result**: 
+- ✅ Calibration works without errors
+- ✅ Proper feedback in console logs
 
 ## Files Modified
 
@@ -63,8 +98,12 @@ Updated `.chapter-text.flipping-next` and `.chapter-text.flipping-prev` CSS:
    - Class renamed: `AIProcessor` → `MoodProcessor`
    - Added documentation explaining methodology
 
+4. `/js/ui/settings.js`
+   - Fixed undefined variables in calibration: `viewportActualWidth` and `viewportHeight`
+   - Changed to use `containerWidth` and `containerHeight` which are properly defined
+
 ### Configuration Files:
-4. `/.env.example`
+5. `/.env.example`
    - Environment variable renamed
    - Updated comments to reflect "intelligent mood-based" rather than "AI-powered"
 
