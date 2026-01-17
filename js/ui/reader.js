@@ -4,6 +4,17 @@ import { AIProcessor } from '../core/ai-processor.js';
 import { saveBookProgress } from '../storage/firestore-storage.js';
 import { auth } from '../config/firebase-config.js';
 
+/**
+ * ReaderUI - EPUB Reader with Character Offset-Based Page Restoration
+ * 
+ * KEY FEATURE: Robust page position tracking that survives pagination changes.
+ * 
+ * When users change reading settings (font size, line height, page density), 
+ * the pagination changes but their reading position is preserved by tracking
+ * character offset, not page numbers.
+ * 
+ * See: calculateCharOffset(), findPageByCharOffset(), saveProgress()
+ */
 export class ReaderUI {
   constructor(db) {
     this.db = db;
@@ -1186,7 +1197,7 @@ export class ReaderUI {
   async goToPreviousChapter() {
     try {
       if (this.currentChapterIndex <= 0) return;
-      if this._isFlipping) return;
+      if (this._isFlipping) return;
       
       const prevChapterIndex = this.currentChapterIndex - 1;
       // Jump to the end of the previous chapter; page is clamped after pagination.
