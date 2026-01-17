@@ -261,3 +261,44 @@ This project is open source. Music attribution required for Freesound tracks (se
 ---
 
 **Built with ❤️ for book lovers who enjoy atmospheric music while reading.**
+
+## ✅ Deployment & Functionality Checklist
+
+### 1. GitHub Pages Hosting
+- [ ] Repository is public and accessible on GitHub
+- [ ] GitHub Pages is enabled (Settings → Pages → Source: `main` branch, root folder)
+- [ ] All app files (`index.html`, `reader.html`, `styles.css`, `js/`, etc.) are in the root directory (not in `/public`)
+- [ ] No build step or npm required (pure static files)
+- [ ] Site loads at: `https://YOUR-USERNAME.github.io/BooksWithMusic/`
+
+### 2. Firebase Configuration
+- [ ] Firebase project created at https://console.firebase.google.com/
+- [ ] Web app registered in Firebase project
+- [ ] Firebase config (apiKey, authDomain, etc.) is set in `js/config/firebase-config.js`
+- [ ] Google Authentication enabled in Firebase (Authentication → Sign-in method → Google)
+- [ ] Firestore Database created (in production mode)
+- [ ] Firebase Storage enabled (in production mode)
+- [ ] Security rules set for Firestore and Storage (see `FIREBASE_SETUP.md`)
+- [ ] Authorized domain (`github.io`) added in Firebase Auth settings
+
+### 3. Application Functionality
+- [ ] App loads without errors in browser (check console for red errors)
+- [ ] Google Sign-In works (user can log in/out)
+- [ ] EPUB import works (user can upload and open books)
+- [ ] Books are stored in Firebase Storage (not just in browser memory)
+- [ ] Reading progress and settings are synced via Firestore
+- [ ] Music plays automatically based on chapter mood
+- [ ] Music panel and controls work (play/pause, next/prev, volume)
+- [ ] Settings panel works (themes, font size, etc.)
+- [ ] App is responsive (works on desktop, tablet, mobile)
+- [ ] Service worker is registered (for offline support and caching)
+
+### 4. Privacy & Security
+- [ ] No Firebase API keys or secrets are committed to public git history
+- [ ] Only authenticated users can access their own data in Firestore/Storage
+- [ ] No analytics or tracking enabled (unless user consents)
+
+### 5. Documentation & Support
+- [ ] `README.md` is up to date with correct setup and usage instructions
+- [ ] `FIREBASE_SETUP.md` provides step-by-step Firebase setup
+- [ ] `SECURITY.md` documents privacy and security practices
