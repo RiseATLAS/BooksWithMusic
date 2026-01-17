@@ -50,13 +50,26 @@ export class BookLibrary {
                 <h3 class="book-title">${book.title}</h3>
                 <p class="book-author">${book.author}</p>
                 ${book.progress ? `<div class="book-progress">${Math.round(book.progress * 100)}% complete</div>` : ''}
+                <button class="delete-btn" data-book-id="${book.id}" title="Delete book">🗑️</button>
             </div>
         `).join('');
         
+        // Add click handlers for book cards (to open book)
         grid.querySelectorAll('.book-card').forEach(card => {
-            card.addEventListener('click', () => {
+            card.addEventListener('click', (e) => {
+                // Don't open book if delete button was clicked
+                if (e.target.classList.contains('delete-btn')) return;
                 const bookId = card.dataset.bookId;
                 this.openBook(bookId);
+            });
+        });
+        
+        // Add click handlers for delete buttons
+        grid.querySelectorAll('.delete-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const bookId = btn.dataset.bookId;
+                await this.deleteBook(bookId);
             });
         });
     }
@@ -153,13 +166,48 @@ export class BookLibrary {
 
     async openBook(bookId) {
         const book = this.books.find(b => b.id === bookId);
-        if (!book) return;
+        if (!book) {
+            alert('Book not found');
+            return;
+        }
         
         await updateBook(bookId, {
             lastOpened: new Date().toISOString()
         });
         
-        window.location.href = `reader.html?book=${bookId}`;
+        // Store book data in sessionStorage for reader page
+        // Need to fetch the full book data including fileData to parse chapters
+        const { getBook } = await import('../storage/firestore-storage.js');
+        const fullBook = await getBook(bookId);
+        
+        if (fullBook && fullBook.fileData) {
+            // Decode base64 and parse EPUB to get chapters
+            const { EPUBParser } = await import('../core/epub-parser.js');
+            const parser = new EPUBParser();
+            
+            // Convert base64 to ArrayBuffer
+            const binaryString = atob(fullBook.fileData);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            const arrayBuffer = bytes.buffer;
+            
+            const parsed = await parser.parse(arrayBuffer);
+            
+            const bookForReader = {
+                id: bookId,
+                title: book.title || 'Unknown Title',
+                author: book.author || 'Unknown Author',
+                chapters: parsed.chapters,
+                images: parsed.images ? Array.from(parsed.images.entries()) : []
+            };
+            
+            sessionStorage.setItem('currentBook', JSON.stringify(bookForReader));
+            window.location.href = 'reader.html';
+        } else {
+            alert('Book data not found. Please re-import the book.');
+        }
     }
 
     async deleteBook(bookId) {

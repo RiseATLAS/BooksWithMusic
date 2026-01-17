@@ -152,6 +152,24 @@ export async function saveBook(userId, bookId, metadata, fileBase64) {
 }
 
 /**
+ * Get a single book by ID
+ * @param {string} bookId - Book's unique ID
+ * @returns {Promise<Object|null>} Book data or null if not found
+ */
+export async function getBook(bookId) {
+  const userId = auth.currentUser?.uid;
+  if (!userId) throw new Error('User not authenticated');
+  
+  const bookRef = doc(db, 'users', userId, 'books', bookId);
+  const docSnap = await getDoc(bookRef);
+  
+  if (docSnap.exists()) {
+    return { id: docSnap.id, ...docSnap.data() };
+  }
+  return null;
+}
+
+/**
  * Get all user's books metadata
  * @param {string} userId - User's unique ID (optional, uses current user if not provided)
  * @returns {Promise<Array>} Array of book metadata objects

@@ -107,7 +107,7 @@ export class ReaderUI {
     
     if (!bookData) {
       alert('No book selected. Redirecting to library...');
-      window.location.href = '/';
+      window.location.href = 'index.html';
       return;
     }
 
