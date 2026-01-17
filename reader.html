@@ -205,119 +205,125 @@
         </div>
 
         <div class="settings-content">
-            <div class="setting-group">
-                <label for="theme-select">Theme</label>
-                <select id="theme-select">
-                    <option value="light">Light</option>
-                    <option value="dark">Dark</option>
-                    <option value="sepia">Sepia</option>
-                </select>
-            </div>
+            <!-- Two Column Layout -->
+            <div class="settings-two-column">
+                <!-- Left Column: Text & Reading -->
+                <div class="settings-column">
+                    <h4 class="settings-section-title">Text & Reading</h4>
+                    
+                    <div class="setting-group">
+                        <label for="font-size">Font Size</label>
+                        <input type="range" id="font-size" min="12" max="24" value="18">
+                        <span id="font-size-value">18px</span>
+                    </div>
 
-            <div class="setting-group">
-                <label for="font-size">Font Size</label>
-                <input type="range" id="font-size" min="12" max="24" value="18">
-                <span id="font-size-value">18px</span>
-            </div>
+                    <div class="setting-group">
+                        <label for="line-height">Line Height</label>
+                        <input type="range" id="line-height" min="1.2" max="2.0" step="0.1" value="1.6">
+                        <span id="line-height-value">1.6</span>
+                    </div>
 
-            <div class="setting-group">
-                <label for="line-height">Line Height</label>
-                <input type="range" id="line-height" min="1.2" max="2.0" step="0.1" value="1.6">
-                <span id="line-height-value">1.6</span>
-            </div>
+                    <div class="setting-group">
+                        <label for="font-family">Font Family</label>
+                        <select id="font-family">
+                            <option value="serif">Serif (Georgia)</option>
+                            <option value="sans-serif">Sans-serif (System)</option>
+                            <option value="monospace">Monospace (Courier)</option>
+                            <option value="open-dyslexic">OpenDyslexic</option>
+                        </select>
+                    </div>
 
-            <div class="setting-group">
-                <label for="font-family">Font Family</label>
-                <select id="font-family">
-                    <option value="serif">Serif (Georgia)</option>
-                    <option value="sans-serif">Sans-serif (System)</option>
-                    <option value="monospace">Monospace (Courier)</option>
-                    <option value="open-dyslexic">OpenDyslexic</option>
-                </select>
-            </div>
+                    <div class="setting-group">
+                        <label for="text-align">Text Alignment</label>
+                        <select id="text-align">
+                            <option value="left">Left</option>
+                            <option value="justify">Justified</option>
+                        </select>
+                    </div>
 
-            <div class="setting-group">
-                <label for="text-align">Text Alignment</label>
-                <select id="text-align">
-                    <option value="left">Left</option>
-                    <option value="justify">Justified</option>
-                </select>
-            </div>
+                    <h4 class="settings-section-title">Page Layout</h4>
 
-            <div class="setting-group">
-                <label for="page-width">Page Width</label>
-                <input type="range" id="page-width" min="300" max="2000" step="50" value="800">
-                <span id="page-width-value">800px</span>
-            </div>
+                    <div class="setting-group">
+                        <label for="page-width">Page Width</label>
+                        <input type="range" id="page-width" min="300" max="2000" step="50" value="800">
+                        <span id="page-width-value">800px</span>
+                    </div>
 
-            <div class="setting-group">
-                <label for="page-density">
-                    Page Content Density
-                    <small style="display: block; opacity: 0.7; font-weight: normal; margin-top: 0.25rem;">
-                        Adjust how much text fits on each page
-                    </small>
-                </label>
-                <input type="range" id="page-density" min="600" max="10000" step="100" value="1200">
-                <span id="page-density-value">1200 chars (~200 words)</span>
-            </div>
+                    <div class="setting-group">
+                        <label for="page-density">
+                            Page Density
+                            <small class="setting-help">How much text per page</small>
+                        </label>
+                        <input type="range" id="page-density" min="600" max="10000" step="100" value="1200">
+                        <span id="page-density-value">1200 chars (~200 words)</span>
+                    </div>
 
-            <div class="setting-group">
-                <label for="brightness">Brightness</label>
-                <input type="range" id="brightness" min="60" max="120" value="100">
-                <span id="brightness-value">100%</span>
-            </div>
-
-            <div class="setting-group">
-                <label for="page-color">Page Color</label>
-                <select id="page-color">
-                    <option value="white">White</option>
-                    <option value="cream">Cream</option>
-                    <option value="gray">Gray</option>
-                    <option value="black">Black</option>
-                </select>
-            </div>
-
-            <div class="setting-group">
-                <label for="page-warmth">Page Warmth</label>
-                <input type="range" id="page-warmth" min="0" max="100" value="0">
-                <span id="page-warmth-value">0%</span>
-            </div>
-
-            <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid var(--border);">
-            <h3 style="margin-bottom: 1rem; font-size: 1.1rem;">Display Options</h3>
-            
-            <!-- Single row layout: checkboxes and calibrate button side by side -->
-            <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
-                <div class="setting-group" style="margin: 0;">
-                    <label for="show-progress">
-                        <input type="checkbox" id="show-progress" checked>
-                        Show Reading Progress Bar
-                    </label>
+                    <div class="setting-group">
+                        <button id="calibrate-pages" class="btn btn-secondary btn-full-width">
+                            Auto-Calibrate Page Settings
+                        </button>
+                    </div>
                 </div>
 
-                <div class="setting-group" style="margin: 0;">
-                    <label for="show-chapter-title">
-                        <input type="checkbox" id="show-chapter-title" checked>
-                        Show Chapter Title
-                    </label>
-                </div>
+                <!-- Right Column: Appearance & Display -->
+                <div class="settings-column">
+                    <h4 class="settings-section-title">Appearance</h4>
 
-                <div class="setting-group" style="margin: 0;">
-                    <label for="show-book-page-numbers">
-                        <input type="checkbox" id="show-book-page-numbers" checked>
-                        Show Full Book Page Numbers
-                    </label>
+                    <div class="setting-group">
+                        <label for="theme-select">Theme</label>
+                        <select id="theme-select">
+                            <option value="light">Light</option>
+                            <option value="dark">Dark</option>
+                            <option value="sepia">Sepia</option>
+                        </select>
+                    </div>
+
+                    <div class="setting-group">
+                        <label for="page-color">Page Color</label>
+                        <select id="page-color">
+                            <option value="white">White</option>
+                            <option value="cream">Cream</option>
+                            <option value="gray">Gray</option>
+                            <option value="black">Black</option>
+                        </select>
+                    </div>
+
+                    <div class="setting-group">
+                        <label for="brightness">Brightness</label>
+                        <input type="range" id="brightness" min="60" max="120" value="100">
+                        <span id="brightness-value">100%</span>
+                    </div>
+
+                    <div class="setting-group">
+                        <label for="page-warmth">Page Warmth</label>
+                        <input type="range" id="page-warmth" min="0" max="100" value="0">
+                        <span id="page-warmth-value">0%</span>
+                    </div>
+
+                    <h4 class="settings-section-title">Display Options</h4>
+
+                    <div class="setting-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="show-progress" checked>
+                            <span>Show Reading Progress Bar</span>
+                        </label>
+                    </div>
+
+                    <div class="setting-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="show-chapter-title" checked>
+                            <span>Show Chapter Title</span>
+                        </label>
+                    </div>
+
+                    <div class="setting-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="show-book-page-numbers" checked>
+                            <span>Full Book Page Numbers</span>
+                        </label>
+                        <small class="setting-help">When unchecked, shows chapter-only page numbers</small>
+                    </div>
                 </div>
-                
-                <button id="calibrate-pages" class="btn btn-secondary" style="white-space: nowrap; padding: 0.5rem 1rem; margin-left: auto;">
-                    Auto-Calibrate
-                </button>
-            </div>
-            
-            <div class="setting-group" style="margin-top: 0.5rem;">
-                <small style="display: block; opacity: 0.7; font-weight: normal;">
-                    Note: "Show Full Book Page Numbers" - when unchecked, shows chapter-only page numbers
-                </small>
             </div>
         </div>
     </div>
