@@ -1,450 +1,169 @@
-import { EPUBParser } from '../core/epub-parser.js';
-import { AIProcessor } from '../core/ai-processor.js';
-import { saveBook, getUserBooks } from '../storage/firestore-storage.js';
-import { auth } from '../config/firebase-config.js';
+import { db, auth } from '../config/firebase-config.js';
+import { FirestoreStorage } from '../storage/firestore-storage.js';
+import { BookReader } from '../core/book-reader.js';
 
 export class BookLibrary {
-  constructor(db) {
-    this.db = db;
-    this.parser = new EPUBParser();
-    this.aiProcessor = new AIProcessor();
-    this.eventHandlers = {};
-  }
-
-  async initialize() {
-    console.log('Initializing library...');
-    this.applyPageColorToLibrary(); // Apply saved page color setting
-    this.setupImportButton();
-    console.log('Import button setup complete');
-    try {
-      await this.loadBooks();
-      console.log('Books loaded');
-    } catch (error) {
-      console.error('Error loading books:', error);
-      // Continue anyway - buttons should still work
+    constructor() {
+        this.books = [];
+        this.firestoreStorage = new FirestoreStorage();
+        this.currentUser = null;
     }
-  }
 
-  applyPageColorToLibrary() {
-    try {
-      const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
-      const pageColor = settings.pageColor || 'white';
-      
-      const colorMap = {
-        'white': { bg: '#ffffff', text: '#1c1e21' },
-        'cream': { bg: '#f9f6ed', text: '#3c3022' },
-        'gray': { bg: '#e8e8e8', text: '#1c1e21' },
-        'black': { bg: '#000000', text: '#ffffff' }
-      };
-      
-      const colors = colorMap[pageColor] || colorMap['white'];
-      
-      // Apply to body and library view
-      document.body.style.backgroundColor = colors.bg;
-      document.body.style.color = colors.text;
-      
-      const libraryView = document.getElementById('library-view');
-      if (libraryView) {
-        libraryView.style.backgroundColor = colors.bg;
-        libraryView.style.color = colors.text;
-      }
-      
-      // Apply to library container (center section)
-      const libraryContainer = document.querySelector('.library-container');
-      if (libraryContainer) {
-        libraryContainer.style.backgroundColor = colors.bg;
-        libraryContainer.style.color = colors.text;
-      }
-      
-      // Apply to book cards
-      document.querySelectorAll('.book-card').forEach(card => {
-        card.style.backgroundColor = colors.bg;
-        card.style.color = colors.text;
-      });
-      
-      // Update CSS variables for consistency
-      document.documentElement.style.setProperty('--reader-bg', colors.bg);
-      document.documentElement.style.setProperty('--reader-text', colors.text);
-      document.documentElement.style.setProperty('--bg-secondary', colors.bg);
-      document.documentElement.style.setProperty('--text-primary', colors.text);
-    } catch (error) {
-      console.error('Error applying page color to library:', error);
+    async init() {
+        console.log('Initializing library...');
+        await this.loadBooks();
+        this.setupEventListeners();
+        this.displayBooks();
     }
-  }
 
-  setupImportButton() {
-    const importBtn = document.getElementById('import-book');
-    const fileInput = document.getElementById('file-input');
-
-    console.log('Setting up import button:', importBtn ? 'Found' : 'Not found');
-    console.log('File input:', fileInput ? 'Found' : 'Not found');
-
-    if (importBtn && fileInput) {
-      // Prevent duplicate event listeners
-      importBtn.onclick = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        console.log('Import button clicked!');
-        fileInput.click();
-      };
-      
-      fileInput.onchange = async (e) => {
-        const file = e.target.files[0];
-        console.log('File selected:', file?.name);
-        if (file && file.name.endsWith('.epub')) {
-          await this.importBook(file);
-          // Clear the input so the same file can be selected again
-          fileInput.value = '';
-        }
-      };
-      
-      console.log('Import button setup complete');
-    }
-  }
-
-  async importBook(file) {
-    try {
-      console.log(`File selected: ${file?.name}`);
-      
-      // Check if user is authenticated using Firebase Auth
-      if (!auth.currentUser) {
-        console.error('No authenticated user found');
-        alert('Please sign in first to import books');
-        throw new Error('User not signed in');
-      }
-      
-      const userId = auth.currentUser.uid;
-      console.log(`Importing for user: ${userId}`);
-      
-      this.showLoading('Importing book...');
-      // Check book count before import
-      const books = await getUserBooks(userId);
-      if (books.length >= 10) {
-        this.showToast('Maximum 10 books allowed per user. Delete a book to add more.', 'error');
-        this.hideLoading();
-        return;
-      }
-      // Read and parse EPUB
-      const arrayBuffer = await file.arrayBuffer();
-      const parsed = await this.parser.parse(arrayBuffer);
-      // Convert ArrayBuffer to base64
-      console.log('Converting EPUB to base64...');
-      const reader = new FileReader();
-      reader.onload = async (e) => {
+    async loadBooks() {
         try {
-          const base64Data = e.target.result.split(',')[1];
-          const base64Size = base64Data.length;
-          console.log(`Original file: ${(file.size / 1024).toFixed(2)} KB`);
-          console.log(`Base64 size: ${(base64Size / 1024).toFixed(2)} KB`);
-          
-          // Firestore document limit is 1MB, leave room for metadata
-          if (base64Size > 900000) {
-            throw new Error(`File too large: ${(base64Size / 1024).toFixed(2)} KB (max ~880 KB)`);
-          }
-          
-          // Parse EPUB to extract metadata using EPUBParser
-          console.log('Parsing EPUB file...');
-          const parsed = await this.parser.parse(file);
-          console.log('EPUB parsed successfully');
-          
-          const metadata = parsed.metadata || {};
-          const cover = parsed.coverImage || '';
-          console.log('Extracted metadata:', metadata);
-          
-          // Flatten metadata to avoid nested arrays (Firestore doesn't support them)
-          const safeMetadata = {};
-          for (const [key, value] of Object.entries(metadata)) {
-              if (Array.isArray(value)) {
-                  // Convert arrays to comma-separated strings
-                  safeMetadata[key] = value.join(', ');
-              } else if (typeof value === 'object' && value !== null) {
-                  // Skip nested objects
-                  continue;
-              } else {
-                  safeMetadata[key] = value;
-              }
-          }
-          
-          const bookData = {
-              id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-              title: safeMetadata.title || 'Unknown Title',
-              author: safeMetadata.creator || 'Unknown Author',
-              cover: cover || '',
-              addedDate: new Date().toISOString(),
-              lastOpened: null,
-              progress: 0,
-              language: safeMetadata.language || 'en',
-              publisher: safeMetadata.publisher || '',
-              description: safeMetadata.description || ''
-          };
-          
-          console.log('Book data prepared:', bookData);
-          
-          // Store book data
-          const bookId = parsed.id;
-          console.log('Saving to Firestore...');
-          await saveBook(userId, bookId, bookData, base64Data);
-          console.log('✓ Book saved to Firestore successfully');
-                    
-                    // Reload books from Firestore and refresh the UI
-                    console.log('Reloading books to refresh UI...');
-                    await this.loadBooks();
-                    this.displayBooks();
-                    
-                    alert(`✓ Book "${bookData.title}" imported successfully!`);
-                    
-                } catch (error) {
-                    console.error('❌ Failed to save book:', error);
-                    alert(`Failed to save book: ${error.message}`);
-                    throw error;
-                }
-            };
-            
-            reader.onerror = (error) => {
-              console.error('❌ Failed to read file:', error);
-              alert('Failed to read EPUB file');
-            };
-            
-            reader.readAsDataURL(file);
-    } catch (error) {
-      console.error('❌ Error importing book:', file?.name);
-      console.error('Error details:', error);
-      console.error('Stack trace:', error.stack);
-      this.hideLoading();
-      this.showToast(`Failed to import book: ${error.message}`, 'error');
-    }
-  }
-
-  async logStorageUsage(userId) {
-    const books = await getUserBooks(userId);
-    let totalBytes = 0;
-    books.forEach(book => {
-      if (book.fileData) {
-        // Each base64 char is 0.75 bytes
-        totalBytes += Math.floor(book.fileData.length * 0.75);
-      }
-    });
-    const maxBytes = 1024 * 1024 * 1024; // 1GB
-    const percent = ((totalBytes / maxBytes) * 100).toFixed(2);
-    console.log(`Firestore storage used: ${(totalBytes/1024).toFixed(2)} KB / 1,048,576 KB (${percent}%)`);
-  }
-
-  async loadBooks() {
-    const userId = window.currentUser?.uid;
-    if (userId) await this.logStorageUsage(userId);
-    const books = await this.db.getAllBooks();
-    this.renderBooks(books);
-    // Background repair for old imports (blob: URLs don't survive reload)
-    this.repairMissingCovers(books).catch((e) => console.warn('Cover repair failed:', e));
-  }
-
-  async repairMissingCovers(books) {
-    const needsFix = (b) => !b?.coverImage || (typeof b.coverImage === 'string' && b.coverImage.startsWith('blob:'));
-    const toFix = (books || []).filter(needsFix);
-    if (!toFix.length) return;
-
-    for (const book of toFix) {
-      try {
-        if (!book?.data) continue;
-        const parsed = await this.parser.parse(book.data);
-        const coverImage = parsed?.coverImage;
-        if (coverImage && typeof coverImage === 'string' && coverImage.startsWith('data:')) {
-          await this.db.updateBook(book.id, { coverImage });
+            this.books = await this.firestoreStorage.getUserBooks();
+            console.log(`Loaded ${this.books.length} books`);
+            return this.books;
+        } catch (error) {
+            console.error('Failed to load books:', error);
+            this.books = [];
+            return [];
         }
-      } catch (e) {
-        console.warn('Failed to repair cover for book', book?.id, e);
-      }
     }
 
-    // Reload after repairs so UI updates
-    const refreshed = await this.db.getAllBooks();
-    this.renderBooks(refreshed);
-  }
-
-  renderBooks(books) {
-    const bookList = document.getElementById('book-list');
-    if (!bookList) return;
-
-    if (books.length === 0) {
-      bookList.innerHTML = `
-        <div class="empty-state">
-          <p>📚 No books yet</p>
-          <p class="subtitle">Import an EPUB to get started</p>
-        </div>
-      `;
-      return;
-    }
-
-    bookList.innerHTML = books.map(book => {
-      const estimatedPages = Math.ceil((book.totalWords || 50000) / 250); // 250 words per page
-      const currentPage = Math.floor((book.progress || 0) / 100 * estimatedPages);
-      
-      // Create cover display
-      const coverDisplay = book.coverImage 
-        ? `<img src="${book.coverImage}" alt="Book cover" class="book-cover-image">` 
-        : '<div class="book-cover-placeholder">📖</div>';
-      
-      return `
-        <div class="book-card" data-book-id="${book.id}">
-          <div class="book-cover">${coverDisplay}</div>
-          <h3 class="book-title">${this.escapeHtml(book.title)}</h3>
-          <p class="book-author">${this.escapeHtml(book.author)}</p>
-          <div class="book-progress">
-            <div class="progress-bar">
-              <div class="progress-fill" style="width: ${book.progress || 0}%"></div>
-            </div>
-            <span class="progress-text">Page ${currentPage} of ${estimatedPages}</span>
-          </div>
-          <div class="book-actions">
-            <button class="btn btn-primary btn-read" data-book-id="${book.id}">Read</button>
-            <button class="btn btn-secondary btn-delete" data-book-id="${book.id}">Delete</button>
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    // Use event delegation on book-list container
-    console.log('Setting up book list event delegation');
-    console.log('Books rendered:', books.length);
-    
-    // Remove any existing listener first
-    const newBookList = bookList.cloneNode(true);
-    bookList.parentNode.replaceChild(newBookList, bookList);
-    
-    // Add single event listener to parent
-    newBookList.addEventListener('click', async (e) => {
-      console.log('📍 Click detected on book list');
-      console.log('   Target:', e.target.tagName, e.target.className);
-      
-      // Handle read button
-      const readBtn = e.target.closest('.btn-read');
-      if (readBtn) {
-        e.preventDefault();
-        e.stopPropagation();
-        const bookId = parseInt(readBtn.dataset.bookId);
-        console.log('✓ Read button clicked for book:', bookId);
-        console.log('   Book ID type:', typeof bookId, 'Value:', bookId);
-        this.emit('bookSelected', bookId);
-        return;
-      }
-      
-      // Handle delete button
-      const deleteBtn = e.target.closest('.btn-delete');
-      if (deleteBtn) {
-        e.preventDefault();
-        e.stopPropagation();
-        const bookId = parseInt(deleteBtn.dataset.bookId);
-        console.log('✓ Delete button clicked for book:', bookId);
-        if (confirm('Are you sure you want to delete this book?')) {
-          await this.deleteBook(bookId);
+    displayBooks() {
+        const grid = document.getElementById('books-grid');
+        
+        if (!grid) {
+            console.error('Books grid element not found');
+            return;
         }
-        return;
-      }
-    });
-    
-    console.log('Event delegation setup complete');
-  }
-
-  async deleteBook(bookId) {
-    try {
-      await this.db.deleteBook(bookId);
-      await this.db.deleteAnalysis(bookId);
-      this.showToast('Book deleted');
-      await this.loadBooks();
-    } catch (error) {
-      console.error('Error deleting book:', error);
-      this.showToast('Error deleting book', 'error');
-    }
-  }
-
-  // Event emitter pattern
-  on(event, handler) {
-    if (!this.eventHandlers[event]) {
-      this.eventHandlers[event] = [];
-    }
-    this.eventHandlers[event].push(handler);
-  }
-
-  emit(event, data) {
-    if (this.eventHandlers[event]) {
-      this.eventHandlers[event].forEach(handler => handler(data));
-    }
-  }
-
-  // Utility methods
-  escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
-
-  showLoading(message) {
-    const overlay = document.getElementById('loading-overlay');
-    const messageEl = document.getElementById('loading-message');
-    if (overlay && messageEl) {
-      messageEl.textContent = message;
-      overlay.classList.remove('hidden');
-    }
-  }
-
-  hideLoading() {
-    const overlay = document.getElementById('loading-overlay');
-    if (overlay) {
-      overlay.classList.add('hidden');
-    }
-  }
-
-  showToast(message, type = 'success') {
-    const container = document.getElementById('toast-container');
-    if (!container) return;
-
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    toast.textContent = message;
-    container.appendChild(toast);
-
-    setTimeout(() => {
-      toast.classList.add('show');
-    }, 10);
-
-    setTimeout(() => {
-      toast.classList.remove('show');
-      setTimeout(() => toast.remove(), 300);
-    }, 3000);
-  }
-
-  displayBooks() {
-    console.log('Displaying books:', this.books.length);
-    const grid = document.getElementById('books-grid');
-    
-    if (!grid) {
-        console.error('Books grid element not found');
-        return;
-    }
-    
-    if (this.books.length === 0) {
-        grid.innerHTML = '<p class="no-books">No books yet. Import an EPUB to get started!</p>';
-        return;
-    }
-    
-    grid.innerHTML = this.books.map(book => {
-        console.log('Rendering book:', book.title);
-        return `
+        
+        if (!this.books || this.books.length === 0) {
+            grid.innerHTML = '<p class="no-books">No books yet. Import an EPUB to get started!</p>';
+            return;
+        }
+        
+        grid.innerHTML = this.books.map(book => `
             <div class="book-card" data-book-id="${book.id}">
                 ${book.cover ? `<img src="${book.cover}" alt="${book.title}" class="book-cover">` : '<div class="book-cover-placeholder">📖</div>'}
                 <h3 class="book-title">${book.title}</h3>
                 <p class="book-author">${book.author}</p>
                 ${book.progress ? `<div class="book-progress">${Math.round(book.progress * 100)}% complete</div>` : ''}
             </div>
-        `;
-    }).join('');
-    
-    // Add click handlers to book cards
-    grid.querySelectorAll('.book-card').forEach(card => {
-        card.addEventListener('click', () => {
-            const bookId = card.dataset.bookId;
-            this.openBook(bookId);
+        `).join('');
+        
+        grid.querySelectorAll('.book-card').forEach(card => {
+            card.addEventListener('click', () => {
+                const bookId = card.dataset.bookId;
+                this.openBook(bookId);
+            });
         });
-    });        console.log('Books displayed successfully');
+    }
+
+    setupEventListeners() {
+        const importBtn = document.getElementById('import-book-btn');
+        const fileInput = document.getElementById('epub-input');
+        
+        if (importBtn && fileInput) {
+            importBtn.onclick = (e) => {
+                e.preventDefault();
+                fileInput.click();
+            };
+            
+            fileInput.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    await this.importBook(file);
+                    fileInput.value = '';
+                }
+            };
+        }
+    }
+
+    async importBook(file) {
+        try {
+            if (!auth.currentUser) {
+                alert('Please sign in first');
+                return;
+            }
+            
+            await this.loadBooks();
+            if (this.books.length >= 10) {
+                alert('Maximum 10 books allowed');
+                return;
+            }
+            
+            const arrayBuffer = await file.arrayBuffer();
+            const reader = new FileReader();
+            
+            reader.onload = async (e) => {
+                try {
+                    const base64Data = e.target.result.split(',')[1];
+                    
+                    if (base64Data.length > 900000) {
+                        alert('File too large (max 880 KB)');
+                        return;
+                    }
+                    
+                    const epubBook = ePub(arrayBuffer);
+                    await epubBook.ready;
+                    
+                    const metadata = epubBook.packaging?.metadata || {};
+                    let cover = null;
+                    try {
+                        cover = await epubBook.coverUrl();
+                    } catch (e) {}
+                    
+                    const bookData = {
+                        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                        title: metadata.title || 'Unknown Title',
+                        author: metadata.creator || 'Unknown Author',
+                        cover: cover || '',
+                        addedDate: new Date().toISOString(),
+                        lastOpened: null,
+                        progress: 0
+                    };
+                    
+                    await this.firestoreStorage.saveBook(bookData.id, {
+                        ...bookData,
+                        fileData: base64Data,
+                        fileSize: file.size
+                    });
+                    
+                    await this.loadBooks();
+                    this.displayBooks();
+                    
+                    alert(`✓ "${bookData.title}" imported!`);
+                } catch (error) {
+                    console.error('Import failed:', error);
+                    alert(`Failed: ${error.message}`);
+                }
+            };
+            
+            reader.readAsDataURL(file);
+        } catch (error) {
+            console.error('Import error:', error);
+        }
+    }
+
+    async openBook(bookId) {
+        const book = this.books.find(b => b.id === bookId);
+        if (!book) return;
+        
+        await this.firestoreStorage.updateBook(bookId, {
+            lastOpened: new Date().toISOString()
+        });
+        
+        window.location.href = `reader.html?book=${bookId}`;
+    }
+
+    async deleteBook(bookId) {
+        if (!confirm('Delete this book?')) return;
+        
+        try {
+            await this.firestoreStorage.deleteBook(bookId);
+            await this.loadBooks();
+            this.displayBooks();
+        } catch (error) {
+            alert('Failed to delete');
+        }
     }
 }
