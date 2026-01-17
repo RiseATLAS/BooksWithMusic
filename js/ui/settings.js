@@ -542,12 +542,12 @@ export class SettingsUI {
     const g = mix(base.g, tint.g);
     const b = mix(base.b, tint.b);
     return `rgb(${r}, ${g}, ${b})`;
-  }
+.  }
 
   _colorToRgb(color) {
     const c = (color || '').trim();
     // #RRGGBB
-    const hex = c.match(/^?([0-9a-f]{6})$/i);
+    const hex = c.match(/^#?([0-9a-f]{6})$/i);
     if (hex) {
       const n = parseInt(hex[1], 16);
       return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
