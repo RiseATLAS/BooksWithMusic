@@ -52,16 +52,16 @@ export class MusicAPI {
         tracks = await this.searchFreesound(tags, limit);
       }
 
-      // Fallback to free sources if no results
+      // No fallback - return empty array if no Freesound results
       if (tracks.length === 0) {
-        tracks = await this.getFallbackTracks(tags, limit);
+        console.warn(`⚠️ No CC0 tracks found for tags: ${tags.join(', ')}`);
       }
 
       this.cache.set(cacheKey, tracks);
       return tracks;
     } catch (error) {
-      console.error(' Error fetching music:', error);
-      return await this.getFallbackTracks(tags, limit);
+      console.error('❌ Error fetching music:', error);
+      return [];
     }
   }
   
@@ -73,7 +73,8 @@ export class MusicAPI {
    */
   async searchByQuery(queryTerms, limit = 10) {
     if (!this.freesoundKey) {
-      return await this.getFallbackTracks(queryTerms, limit);
+      console.warn('⚠️ No Freesound API key configured');
+      return [];
     }
 
     // Build a smart query: use OR between terms for broader results
@@ -156,7 +157,12 @@ export class MusicAPI {
         .filter(sound => {
           // FAIL-SAFE: Only use CC0 licensed sounds
           console.log(`🔍 Checking license for "${sound.name}": ${sound.license}`);
-          const isCC0 = sound.license && sound.license.includes('Creative Commons 0');
+          // Check for CC0 license (can be URL or text)
+          const isCC0 = sound.license && (
+            sound.license.includes('Creative Commons 0') ||
+            sound.license.includes('publicdomain/zero') ||
+            sound.license.includes('CC0')
+          );
           if (!isCC0) {
             console.warn(`❌ Filtered out non-CC0 sound: ${sound.name} (License: ${sound.license})`);
           } else {
@@ -248,71 +254,6 @@ export class MusicAPI {
   }
 
 
-
-  /**
-   * Get working music tracks - use Free Music Archive approach
-   * Returns tracks organized by mood that are guaranteed to work
-   */
-  async getFallbackTracks(tags, limit) {
-    // Demo tracks using royalty-free music from various sources
-    const demoTracks = [
-      {
-        id: 'demo_calm_1',
-        title: 'Peaceful Piano',
-        artist: 'Demo Artist',
-        duration: 180,
-        url: 'https://www.bensound.com/bensound-music/bensound-sunny.mp3',
-        tags: ['calm', 'piano', 'peaceful'],
-        energy: 2,
-        tempo: 'slow',
-        license: { type: 'Demo', attributionRequired: true }
-      },
-      {
-        id: 'demo_adventure_1',
-        title: 'Epic Adventure',
-        artist: 'Demo Artist',
-        duration: 200,
-        url: 'https://www.bensound.com/bensound-music/bensound-epic.mp3',
-        tags: ['epic', 'adventure', 'cinematic'],
-        energy: 4,
-        tempo: 'upbeat',
-        license: { type: 'Demo', attributionRequired: true }
-      },
-      {
-        id: 'demo_dark_1',
-        title: 'Dark Ambient',
-        artist: 'Demo Artist',
-        duration: 190,
-        url: 'https://www.bensound.com/bensound-music/bensound-acousticbreeze.mp3',
-        tags: ['dark', 'atmospheric', 'ambient'],
-        energy: 2,
-        tempo: 'slow',
-        license: { type: 'Demo', attributionRequired: true }
-      },
-      {
-        id: 'demo_happy_1',
-        title: 'Joyful Melody',
-        artist: 'Demo Artist',
-        duration: 175,
-        url: 'https://www.bensound.com/bensound-music/bensound-ukulele.mp3',
-        tags: ['happy', 'uplifting', 'cheerful'],
-        energy: 4,
-        tempo: 'upbeat',
-        license: { type: 'Demo', attributionRequired: true }
-      }
-    ];
-    
-    // Filter tracks based on tags
-    const tagSet = new Set(tags.map(t => t.toLowerCase()));
-    const filtered = demoTracks.filter(track => 
-      track.tags.some(t => tagSet.has(t.toLowerCase()))
-    );
-    
-    // Return filtered or all if no matches
-    const result = filtered.length > 0 ? filtered : demoTracks;
-    
-    return result.slice(0, limit);
-  }
 
   /**
    * Get curated track library from a working source

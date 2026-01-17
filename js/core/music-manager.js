@@ -2,6 +2,18 @@ import { CacheManager } from '../storage/cache-manager.js';
 import { AIProcessor } from './ai-processor.js';
 import { MusicAPI } from './music-api.js';
 
+/**
+ * Helper function to check if a track has CC0 license
+ * Handles both text format ('CC0') and URL format ('publicdomain/zero')
+ */
+function isCC0License(license) {
+  if (!license || !license.type) return false;
+  const licenseStr = license.type.toString().toLowerCase();
+  return licenseStr === 'cc0' || 
+         licenseStr.includes('publicdomain/zero') ||
+         licenseStr.includes('creative commons 0');
+}
+
 export class MusicManager {
   constructor(db) {
     this.db = db;
@@ -207,11 +219,11 @@ export class MusicManager {
       // Check if Freesound API key is configured
       const freesoundKey = localStorage.getItem('freesound_api_key');
       
-      // No API key - use demo tracks
+      // No API key - return empty array
       if (!freesoundKey) {
-        console.log(' No API key - using demo tracks');
-        this.availableTracks = this.getDemoTracks();
-        console.log(` Loaded ${this.availableTracks.length} demo tracks`);
+        console.warn('⚠️ No Freesound API key configured. Music will not be available.');
+        console.log('Get a free API key at: https://freesound.org/apiv2/apply');
+        this.availableTracks = [];
         return this.availableTracks;
       } else {
         console.log(' API key found, querying Freesound...');
@@ -284,10 +296,13 @@ export class MusicManager {
       console.log(`Retrieved ${this.availableTracks.length} total tracks from API`);
       
       if (this.availableTracks.length === 0) {
-        console.error(' No tracks loaded from API - check your API key and network connection');
-        console.log('�️ Falling back to demo tracks...');
-        this.availableTracks = this.getDemoTracks();
-        console.log(` Loaded ${this.availableTracks.length} demo tracks as fallback`);
+        console.error('❌ No CC0 tracks loaded from API');
+        console.error('Possible reasons:');
+        console.error('1. No CC0 tracks match your query criteria');
+        console.error('2. Network connection issue');
+        console.error('3. Freesound API rate limit reached');
+        console.log('Try adjusting your music settings or wait a few minutes and reload.');
+        return this.availableTracks;
       } else {
         // Remove duplicates
         const seen = new Set();
@@ -300,7 +315,7 @@ export class MusicManager {
         // CRITICAL: Filter out any non-CC0 tracks (fail-safe)
         const beforeCC0Filter = this.availableTracks.length;
         this.availableTracks = this.availableTracks.filter(track => {
-          const isCC0 = track.license?.type === 'CC0';
+          const isCC0 = isCC0License(track.license);
           if (!isCC0) {
             console.warn(`❌ FAIL-SAFE: Filtered non-CC0 track: ${track.title} (License: ${track.license?.type})`);
           }
@@ -329,11 +344,9 @@ export class MusicManager {
       
       return this.availableTracks;
     } catch (error) {
-      console.error(' Error loading tracks:', error);
+      console.error('❌ Error loading tracks:', error);
       console.error('Stack trace:', error.stack);
-      console.log('�️ Attempting to use demo tracks as fallback...');
-      this.availableTracks = this.getDemoTracks();
-      console.log(` Loaded ${this.availableTracks.length} demo tracks after error`);
+      this.availableTracks = [];
       return this.availableTracks;
     }
   }
@@ -347,7 +360,7 @@ export class MusicManager {
         if (Date.now() - data.timestamp < 24 * 60 * 60 * 1000) {
           // FILTER OUT NON-CC0 TRACKS FROM CACHE
           const cc0Tracks = data.tracks.filter(track => {
-            const isCC0 = track.license?.type === 'CC0';
+            const isCC0 = isCC0License(track.license);
             if (!isCC0) {
               console.warn(`❌ Filtered non-CC0 track from cache: ${track.title} (License: ${track.license?.type})`);
             }
@@ -381,7 +394,7 @@ export class MusicManager {
     try {
       // ONLY CACHE CC0 TRACKS
       const cc0Tracks = tracks.filter(track => {
-        const isCC0 = track.license?.type === 'CC0';
+        const isCC0 = isCC0License(track.license);
         if (!isCC0) {
           console.warn(`❌ Skipping non-CC0 track from cache: ${track.title} (License: ${track.license?.type})`);
         }

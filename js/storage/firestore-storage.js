@@ -262,8 +262,14 @@ export async function logTrackUsage(userId, trackInfo) {
   }
   
   // Only log CC0 tracks (fail-safe)
-  if (trackInfo.license?.type !== 'CC0') {
-    console.error(`Attempted to log non-CC0 track: ${trackInfo.title} (${trackInfo.license?.type})`);
+  // Check for both text format ('CC0') and URL format ('publicdomain/zero')
+  const licenseType = trackInfo.license?.type?.toString().toLowerCase() || '';
+  const isCC0 = licenseType === 'cc0' || 
+                licenseType.includes('publicdomain/zero') ||
+                licenseType.includes('creative commons 0');
+  
+  if (!isCC0) {
+    console.error(`❌ Attempted to log non-CC0 track: ${trackInfo.title} (${trackInfo.license?.type})`);
     return;
   }
   
