@@ -523,12 +523,12 @@ body {
 /* Page flip animations - Book-style right to left flip with rotation */
 @keyframes pageFlipNext {
   0% {
-    transform: perspective(2000px) rotateY(-90deg);
+    transform: rotateY(-90deg);
     transform-origin: right center;
-    opacity: 0.8;
+    opacity: 1;
   }
   100% {
-    transform: perspective(2000px) rotateY(0deg);
+    transform: rotateY(0deg);
     transform-origin: right center;
     opacity: 1;
   }
@@ -536,12 +536,12 @@ body {
 
 @keyframes pageFlipPrev {
   0% {
-    transform: perspective(2000px) rotateY(90deg);
+    transform: rotateY(90deg);
     transform-origin: left center;
-    opacity: 0.8;
+    opacity: 1;
   }
   100% {
-    transform: perspective(2000px) rotateY(0deg);
+    transform: rotateY(0deg);
     transform-origin: left center;
     opacity: 1;
   }
@@ -628,9 +628,10 @@ body {
   top: 0;
   left: 0;
   right: 0;
-  bottom: 0;
   z-index: 10;
   margin: 0;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
 }
 
 .chapter-text.flipping-next {
