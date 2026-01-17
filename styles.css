@@ -679,7 +679,7 @@ body {
   left: 1rem;
   display: flex;
   gap: 0.5rem;
-  z-index: 50;
+  z-index: 100; /* Overlay chapter sidebar (z-index: 40) */
 }
 
 /* Top-right controls */
@@ -689,7 +689,7 @@ body {
   right: 1rem;
   display: flex;
   gap: 0.5rem;
-  z-index: 50;
+  z-index: 100; /* Match top-left controls */
 }
 
 .reader-controls #prev-chapter {
