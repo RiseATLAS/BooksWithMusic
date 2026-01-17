@@ -59,7 +59,7 @@ class BooksWithMusicApp {
         this.setupAuthUI(true);
       } else {
         // Home page
-        await this.library.initialize();
+        await this.library.init();
         console.log("✓ Library initialized");
 
         // Setup auth UI for home page
@@ -106,7 +106,7 @@ class BooksWithMusicApp {
 
         // Refresh library if on home page
         if (this.library && !window.location.pathname.includes("reader.html")) {
-          await this.library.initialize();
+          await this.library.init();
         }
       } else {
         console.log("User signed out");
@@ -160,7 +160,7 @@ class BooksWithMusicApp {
 
             // Refresh library to show only local books
             if (this.library) {
-              await this.library.initialize();
+              await this.library.init();
             }
           } catch (error) {
             console.error("Sign-out error:", error);
