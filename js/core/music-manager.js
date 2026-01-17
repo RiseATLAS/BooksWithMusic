@@ -197,6 +197,8 @@ export class MusicManager {
       // Check cache first
       const cachedTracks = await this._loadFromCache();
       if (cachedTracks && cachedTracks.length > 0) {
+        this.availableTracks = cachedTracks;
+        console.log(`✓ Loaded ${this.availableTracks.length} tracks from cache`);
         return cachedTracks;
       }
 
@@ -206,7 +208,9 @@ export class MusicManager {
       // No API key - use demo tracks
       if (!freesoundKey) {
         console.log('⚠️ No API key - using demo tracks');
-        return this.getDemoTracks();
+        this.availableTracks = this.getDemoTracks();
+        console.log(`✓ Loaded ${this.availableTracks.length} demo tracks`);
+        return this.availableTracks;
       }
       
       // Expanded query categories: moods, genres, styles, and reading contexts
@@ -252,6 +256,7 @@ export class MusicManager {
       ];
       
       // Load all music in parallel
+      console.log(`🔎 Querying ${queryCategories.length} music categories from Freesound...`);
       const trackPromises = queryCategories.map(queryTerms => 
         this.musicAPI.searchByQuery(queryTerms, 15)
           .catch(error => {
@@ -268,8 +273,10 @@ export class MusicManager {
         }
       });
       
+      console.log(`📦 Retrieved ${this.availableTracks.length} total tracks from API`);
+      
       if (this.availableTracks.length === 0) {
-        console.warn('⚠️ No tracks loaded from API');
+        console.warn('⚠️ No tracks loaded from API - check your API key and network connection');
       } else {
         // Remove duplicates
         const seen = new Set();
