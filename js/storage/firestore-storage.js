@@ -196,6 +196,31 @@ export async function deleteBookMetadata(userId, bookId) {
 }
 
 /**
+ * Delete a book (alias for deleteBookMetadata, uses current auth user)
+ * @param {string} bookId - Book's unique ID
+ * @returns {Promise<void>}
+ */
+export async function deleteBook(bookId) {
+  const userId = auth.currentUser?.uid;
+  if (!userId) throw new Error('User not authenticated');
+  return await deleteBookMetadata(userId, bookId);
+}
+
+/**
+ * Update a book's data in Firestore
+ * @param {string} bookId - Book's unique ID
+ * @param {Object} updates - Fields to update
+ * @returns {Promise<void>}
+ */
+export async function updateBook(bookId, updates) {
+  const userId = auth.currentUser?.uid;
+  if (!userId) throw new Error('User not authenticated');
+  const bookRef = doc(db, 'users', userId, 'books', bookId);
+  await setDoc(bookRef, updates, { merge: true });
+  console.log(`✓ Book ${bookId} updated`);
+}
+
+/**
  * FirestoreStorage class - wraps Firestore functions with auth context
  */
 export class FirestoreStorage {

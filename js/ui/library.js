@@ -3,8 +3,7 @@ import {
     getUserBooks, 
     saveBook, 
     updateBook, 
-    deleteBook, 
-    calculateStorageUsage 
+    deleteBook 
 } from '../storage/firestore-storage.js';
 
 export class BookLibrary {
@@ -135,7 +134,8 @@ export class BookLibrary {
                     await this.loadBooks();
                     this.displayBooks();
                     
-                    const totalSize = await calculateStorageUsage(auth.currentUser.uid);
+                    // Calculate storage usage
+                    const totalSize = this.books.reduce((sum, b) => sum + (b.fileSize || 0), 0);
                     console.log(`Storage used: ${(totalSize / 1024).toFixed(2)} KB / 1,048,576 KB (${((totalSize / 1048576) * 100).toFixed(2)}%)`);
                     
                     alert(`✓ "${bookData.title}" imported!`);
