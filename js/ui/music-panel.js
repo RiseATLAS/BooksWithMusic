@@ -17,8 +17,32 @@ export class MusicPanelUI {
     console.log('   Music manager:', !!this.musicManager);
     this.setupEventListeners();
     this.setupMusicManagerListeners();
+    this.setupMediaSessionHandlers();
     this.renderPlaylist();
     console.log('✓ Music panel initialized');
+  }
+
+  /**
+   * Setup Media Session API handlers for hardware controls
+   */
+  setupMediaSessionHandlers() {
+    if ('mediaSession' in navigator) {
+      this.audioPlayer.setMediaSessionHandlers({
+        play: () => {
+          if (!this.audioPlayer.state.playing) {
+            this.togglePlayPause();
+          }
+        },
+        pause: () => {
+          if (this.audioPlayer.state.playing) {
+            this.togglePlayPause();
+          }
+        },
+        nextTrack: () => this.nextTrack(),
+        prevTrack: () => this.previousTrack()
+      });
+      console.log('✓ Hardware media controls enabled');
+    }
   }
 
   setupMusicManagerListeners() {
@@ -421,17 +445,42 @@ export class MusicPanelUI {
       return;
     }
 
-    playlistEl.innerHTML = this.playlist.map((track, index) => `
-      <div class="playlist-item ${index === this.currentTrackIndex ? 'active' : ''}" 
-           data-track-index="${index}">
-        <span class="track-number">${index + 1}</span>
-        <div class="track-info">
-          <div class="track-title">${this.escapeHtml(track.title)}</div>
-          <div class="track-artist">${this.escapeHtml(track.artist || 'Unknown')}</div>
+    // Get shift points to mark which tracks play at mood changes
+    const shiftPoints = this.currentShiftPoints || [];
+    
+    playlistEl.innerHTML = this.playlist.map((track, index) => {
+      const isShiftTrack = index < shiftPoints.length && shiftPoints[index]?.page;
+      
+      // Concise shift info
+      let shiftInfo = '';
+      if (isShiftTrack) {
+        const sp = shiftPoints[index];
+        shiftInfo = `Page ${sp.page}: ${sp.fromMood} → ${sp.toMood}`;
+      } else if (index === 0) {
+        shiftInfo = 'Chapter start';
+      }
+      
+      return `
+        <div class="playlist-item ${index === this.currentTrackIndex ? 'active' : ''} ${isShiftTrack ? 'shift-point' : ''}" 
+             data-track-index="${index}"
+             title="${track.title} by ${track.artist || 'Unknown'}${shiftInfo ? ' • ' + shiftInfo : ''}">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem;">
+            <div style="flex: 1; min-width: 0;">
+              <div class="track-title" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500;">
+                ${this.escapeHtml(track.title)}
+              </div>
+              <div class="track-artist" style="font-size: 0.7rem; opacity: 0.65; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 0.1rem;">
+                ${this.escapeHtml(track.artist || 'Unknown')}
+              </div>
+            </div>
+            <div class="track-duration" style="font-size: 0.7rem; opacity: 0.6; white-space: nowrap; flex-shrink: 0;">
+              ${this.formatDuration(track.duration)}
+            </div>
+          </div>
+          ${shiftInfo ? `<div class="track-play-info">${shiftInfo}</div>` : ''}
         </div>
-        <span class="track-duration">${this.formatDuration(track.duration)}</span>
-      </div>
-    `).join('');
+      `;
+    }).join('');
 
     // Add click listeners
     playlistEl.querySelectorAll('.playlist-item').forEach(item => {
@@ -525,11 +574,30 @@ export class MusicPanelUI {
       return;
     }
     
-    if (this.audioPlayer.isPlaying()) {
+    const isPlaying = this.audioPlayer.isPlaying();
+    console.log('🎵 Toggle play/pause - currently:', isPlaying ? 'playing' : 'paused');
+    
+    if (isPlaying) {
+      console.log('⏸️ Pausing...');
       this.audioPlayer.pause();
+      this.updatePlayPauseButton(false);
     } else {
+      console.log('▶️ Playing/Resuming...');
       if (this.playlist && this.playlist.length > 0) {
-        this.playTrack(this.currentTrackIndex);
+        // If audio context is suspended, resume it
+        if (this.audioPlayer.audioContext.state === 'suspended') {
+          this.audioPlayer.resume();
+        } else if (!this.audioPlayer.state.currentTrack) {
+          // No track loaded, start from current index
+          this.playTrack(this.currentTrackIndex);
+        } else {
+          // Resume paused track
+          this.audioPlayer.resume();
+        }
+        this.updatePlayPauseButton(true);
+      } else {
+        console.warn('⚠️ No playlist available');
+        this.showToast('No tracks in playlist. Music requires a Freesound API key.', 'info');
       }
     }
   }
@@ -537,7 +605,11 @@ export class MusicPanelUI {
   updatePlayPauseButton(isPlaying) {
     const btn = document.getElementById('play-pause');
     if (btn) {
-      btn.textContent = isPlaying ? '⏸' : '▶️';
+      const iconSpan = btn.querySelector('.icon');
+      if (iconSpan) {
+        iconSpan.textContent = isPlaying ? '⏸' : '▶';
+      }
+      btn.title = isPlaying ? 'Pause' : 'Play';
     }
   }
 

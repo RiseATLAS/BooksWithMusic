@@ -109,12 +109,13 @@
             <button id="next-track" class="btn btn-icon" title="Next Track">
                 <span class="icon">⏭</span>
             </button>
-        </div>
-
-        <div class="volume-control">
-            <span class="icon">♪</span>
-            <input type="range" id="volume-slider" min="0" max="100" value="70" title="Volume">
-            <span id="volume-value">70%</span>
+            
+            <!-- Volume control inline with playback buttons -->
+            <div class="volume-control-inline">
+                <span class="icon">♪</span>
+                <input type="range" id="volume-slider" min="0" max="100" value="70" title="Volume">
+                <span id="volume-value">70%</span>
+            </div>
         </div>
 
         <!-- Two Column Layout: Settings + Playlist -->

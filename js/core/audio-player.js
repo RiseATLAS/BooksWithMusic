@@ -18,6 +18,86 @@ export class AudioPlayer {
       volume: 0.7,
     };
     this.crossfadeDuration = 4;
+    
+    // Initialize Media Session API for hardware media controls
+    this.initializeMediaSession();
+  }
+
+  /**
+   * Initialize Media Session API to support hardware media controls
+   * (play/pause/next/previous buttons on keyboard, headphones, etc.)
+   */
+  initializeMediaSession() {
+    if ('mediaSession' in navigator) {
+      console.log('🎮 Media Session API available - hardware controls enabled');
+      
+      // Action handlers will be set when tracks are played
+      // They need to be connected to the music panel's controls
+      this.mediaSessionHandlers = {
+        play: null,
+        pause: null,
+        previoustrack: null,
+        nexttrack: null
+      };
+    } else {
+      console.log('⚠️ Media Session API not available in this browser');
+    }
+  }
+
+  /**
+   * Update Media Session metadata and artwork
+   */
+  updateMediaSession(track) {
+    if ('mediaSession' in navigator && track) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: track.title || 'Unknown Track',
+        artist: track.artist || 'Unknown Artist',
+        album: 'BooksWithMusic',
+        artwork: track.artwork || [
+          { src: '/BooksWithMusic/favicon.svg', sizes: '512x512', type: 'image/svg+xml' }
+        ]
+      });
+      console.log('🎵 Media Session updated:', track.title);
+    }
+  }
+
+  /**
+   * Set Media Session action handlers (connected to music panel controls)
+   */
+  setMediaSessionHandlers(handlers) {
+    if ('mediaSession' in navigator) {
+      const { play, pause, nextTrack, prevTrack } = handlers;
+      
+      if (play) {
+        navigator.mediaSession.setActionHandler('play', () => {
+          console.log('▶️ Hardware play button pressed');
+          play();
+        });
+      }
+      
+      if (pause) {
+        navigator.mediaSession.setActionHandler('pause', () => {
+          console.log('⏸️ Hardware pause button pressed');
+          pause();
+        });
+      }
+      
+      if (nextTrack) {
+        navigator.mediaSession.setActionHandler('nexttrack', () => {
+          console.log('⏭️ Hardware next button pressed');
+          nextTrack();
+        });
+      }
+      
+      if (prevTrack) {
+        navigator.mediaSession.setActionHandler('previoustrack', () => {
+          console.log('⏮️ Hardware previous button pressed');
+          prevTrack();
+        });
+      }
+      
+      console.log('✓ Media Session handlers configured');
+    }
   }
 
   async playTrack(track) {
@@ -43,6 +123,9 @@ export class AudioPlayer {
       this.state.playing = true;
       this.state.currentTrack = track;
       this.emit('playing', track);
+      
+      // Update Media Session metadata for OS controls
+      this.updateMediaSession(track);
     } catch (error) {
       console.error('Error playing track:', error);
       this.state.playing = false;
@@ -60,6 +143,11 @@ export class AudioPlayer {
       this.audioContext.suspend();
       this.state.playing = false;
       this.emit('paused');
+      
+      // Update Media Session playback state
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.playbackState = 'paused';
+      }
     }
   }
 
@@ -67,6 +155,11 @@ export class AudioPlayer {
     this.audioContext.resume();
     this.state.playing = true;
     this.emit('playing');
+    
+    // Update Media Session playback state
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.playbackState = 'playing';
+    }
   }
 
   stop() {
