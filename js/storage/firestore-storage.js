@@ -153,11 +153,18 @@ export async function saveBook(userId, bookId, metadata, fileBase64) {
 
 /**
  * Get all user's books metadata
- * @param {string} userId - User's unique ID
+ * @param {string} userId - User's unique ID (optional, uses current user if not provided)
  * @returns {Promise<Array>} Array of book metadata objects
  */
 export async function getUserBooks(userId) {
   try {
+    if (!userId) {
+      userId = auth.currentUser?.uid;
+    }
+    if (!userId) {
+      console.log('No user signed in, returning empty books array');
+      return [];
+    }
     const booksRef = collection(db, 'users', userId, 'books');
     const querySnapshot = await getDocs(booksRef);
     

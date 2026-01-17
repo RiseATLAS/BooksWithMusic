@@ -32,7 +32,7 @@ export class BookLibrary {
     }
 
     displayBooks() {
-        const grid = document.getElementById('books-grid');
+        const grid = document.getElementById('book-list');
         
         if (!grid) {
             console.error('Books grid element not found');
@@ -62,8 +62,8 @@ export class BookLibrary {
     }
 
     setupEventListeners() {
-        const importBtn = document.getElementById('import-book-btn');
-        const fileInput = document.getElementById('epub-input');
+        const importBtn = document.getElementById('import-book');
+        const fileInput = document.getElementById('file-input');
         
         if (importBtn && fileInput) {
             importBtn.onclick = (e) => {
