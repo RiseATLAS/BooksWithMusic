@@ -20,7 +20,6 @@ export class BookLibrary {
     }
 
     async init() {
-        console.log('Initializing library...');
         // Initialize local IndexedDB cache
         await this.localDb.initialize();
         this.cacheInitialized = true;
@@ -43,7 +42,6 @@ export class BookLibrary {
                 const cachedBooks = await this.localDb.getAllBooks();
                 if (cachedBooks && cachedBooks.length > 0) {
                     this.books = cachedBooks;
-                    console.log(`Loaded ${this.books.length} books from cache`);
                     this.displayBooks(); // Show cached books immediately
                     
                     // Show friendly message if signed out but have cached books
@@ -65,7 +63,6 @@ export class BookLibrary {
             const userId = auth.currentUser?.uid;
             if (userId) {
                 const firestoreBooks = await getUserBooks();
-                console.log(`Synced ${firestoreBooks.length} books from Firestore`);
                 
                 // Update local cache with Firestore data
                 if (this.cacheInitialized) {
@@ -81,7 +78,6 @@ export class BookLibrary {
             // Fall back to cache if Firestore fails
             if (this.cacheInitialized) {
                 this.books = await this.localDb.getAllBooks() || [];
-                console.log(`Using ${this.books.length} cached books (Firestore unavailable)`);
             } else {
                 this.books = [];
             }
@@ -105,7 +101,6 @@ export class BookLibrary {
             for (const cachedBook of cachedBooks) {
                 if (!firestoreIds.has(cachedBook.id)) {
                     await this.localDb.deleteBook(cachedBook.id);
-                    console.log(`Removed deleted book from cache: ${cachedBook.id}`);
                 }
             }
         } catch (error) {
@@ -189,10 +184,8 @@ export class BookLibrary {
             }
             
             // Parse EPUB using EPUBParser
-            console.log('Parsing EPUB...');
             const arrayBuffer = await file.arrayBuffer();
             const parsed = await this.parser.parse(arrayBuffer);
-            console.log('Parsed:', parsed.title, 'by', parsed.author);
             
             // Convert to base64 for storage
             const reader = new FileReader();
@@ -223,17 +216,10 @@ export class BookLibrary {
                     // Also save to local cache (without fileData to save space)
                     if (this.cacheInitialized) {
                         await this.localDb.saveBook(bookData);
-                        console.log('Book added to local cache');
                     }
                     
                     await this.loadBooks();
                     this.displayBooks();
-                    
-                    // Calculate storage usage
-                    const totalSize = this.books.reduce((sum, b) => sum + (b.fileSize || 0), 0);
-                    console.log(`Storage used: ${(totalSize / 1024).toFixed(2)} KB / 1,048,576 KB (${((totalSize / 1048576) * 100).toFixed(2)}%)`);
-                    
-                    console.log(`✓ "${bookData.title}" imported successfully!`);
                 } catch (error) {
                     console.error('Import failed:', error);
                     alert(`Failed: ${error.message}`);
@@ -282,9 +268,6 @@ export class BookLibrary {
             fullBook = book;
         }
         
-        console.log('Full book data:', fullBook ? 'Found' : 'Not found');
-        console.log('Has fileData:', fullBook?.fileData ? 'Yes (' + fullBook.fileData.length + ' chars)' : 'No');
-        
         if (fullBook && fullBook.fileData) {
             // Decode base64 and parse EPUB to get chapters
             const { EPUBParser } = await import('../core/epub-parser.js');
@@ -319,18 +302,14 @@ export class BookLibrary {
         if (!confirm('Delete this book?')) return;
         
         try {
-            console.log('Deleting book:', bookId);
-            
             // Delete from Firestore if signed in
             if (auth.currentUser) {
                 await deleteBook(bookId);
-                console.log('Book deleted from Firestore');
             }
             
             // Also delete from local cache
             if (this.cacheInitialized) {
                 await this.localDb.deleteBook(bookId);
-                console.log('Book deleted from cache');
             }
             
             // Reload the library

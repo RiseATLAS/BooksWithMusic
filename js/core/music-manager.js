@@ -53,7 +53,6 @@ export class MusicManager {
         this.chapterMappings[mapping.chapterId] = mapping;
       });
       
-      console.log(`✓ Music ready: ${this.availableTracks.length} tracks loaded`);
     } catch (error) {
       console.error('❌ Error initializing music manager:', error);
       console.error('Stack trace:', error.stack);
@@ -74,8 +73,6 @@ export class MusicManager {
     const mapping = this.chapterMappings[chapter.id || chapter.title];
     
     if (analysis && mapping) {
-      console.log(`🎵 Ch.${chapterIndex + 1}: ${analysis.primaryMood} (${mapping.trackCount} tracks)`);
-      
       // Emit event that music panel can listen to
       this.emit('chapterMusicChanged', {
         chapterIndex,
@@ -134,8 +131,6 @@ export class MusicManager {
       }
     }
     
-    console.log(`💾 Cache: ${cachedCount}/${totalTracks} tracks (${Math.round(cachedCount/totalTracks*100)}%)`);
-    
     // Emit caching status for UI updates
     this.emit('cachingStatusUpdated', { 
       cachedCount, 
@@ -182,8 +177,7 @@ export class MusicManager {
         cached++;
       }
     }
-    
-    console.log(`✅ Pre-cached ${cached} new tracks`);
+
     await this.verifyCaching(); // Update status
   }
   
@@ -199,18 +193,16 @@ export class MusicManager {
       // Check cache first
       const cachedTracks = await this._loadFromCache();
       if (cachedTracks && cachedTracks.length > 0) {
-        console.log(`✓ Loaded ${cachedTracks.length} tracks from cache`);
-        this.availableTracks = cachedTracks;
-        return;
+        return cachedTracks;
       }
 
       // Check if Freesound API key is configured
       const freesoundKey = localStorage.getItem('freesound_api_key');
       
+      // No API key - use demo tracks
       if (!freesoundKey) {
         console.log('⚠️ No API key - using demo tracks');
-        this.availableTracks = [];
-        return;
+        return this.getDemoTracks();
       }
       
       // Expanded query categories: moods, genres, styles, and reading contexts
@@ -255,12 +247,7 @@ export class MusicManager {
         ['documentary', 'underscore', 'neutral']   // Documentary underscore
       ];
       
-      // 🔍 LOG LOADING START
-      console.group('🎼 Music Library Loading');
-      console.log('📋 Total categories:', queryCategories.length);
-      console.log('📋 Query terms:', queryCategories);
-      console.groupEnd();
-      
+      // Load all music in parallel
       const trackPromises = queryCategories.map(queryTerms => 
         this.musicAPI.searchByQuery(queryTerms, 15)
           .catch(error => {
@@ -277,61 +264,24 @@ export class MusicManager {
         }
       });
       
-      // 🔍 LOG COLLECTION SUMMARY - THIS IS THE MAIN RESULT
-      console.log('═══════════════════════════════════════════════════════');
-      console.group('📊 Track Collection Summary');
-      console.log('📦 Raw tracks collected:', this.availableTracks.length);
-      
       if (this.availableTracks.length === 0) {
         console.warn('⚠️ No tracks loaded from API');
-        console.groupEnd();
       } else {
         // Remove duplicates
         const seen = new Set();
-        const beforeDedup = this.availableTracks.length;
         this.availableTracks = this.availableTracks.filter(track => {
           if (seen.has(track.id)) return false;
           seen.add(track.id);
           return true;
         });
         
-        console.log('🔄 After deduplication:', this.availableTracks.length, `(removed ${beforeDedup - this.availableTracks.length} duplicates)`);
-        
         // Apply energy level filter to all tracks
         const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
         const maxEnergyLevel = settings.maxEnergyLevel || 5;
         
         if (maxEnergyLevel < 5) {
-          const beforeCount = this.availableTracks.length;
           this.availableTracks = this.availableTracks.filter(track => track.energy <= maxEnergyLevel);
-          console.log(`🎚️ Energy filter: ${beforeCount} tracks → ${this.availableTracks.length} tracks (max energy: ${maxEnergyLevel})`);
         }
-        
-        console.log('✅ Final library size:', this.availableTracks.length);
-        
-        // Show energy distribution
-        const energyDist = [0, 0, 0, 0, 0];
-        this.availableTracks.forEach(t => energyDist[t.energy - 1]++);
-        console.log('📊 Energy distribution:', {
-          'Very Calm (1)': energyDist[0],
-          'Calm (2)': energyDist[1],
-          'Moderate (3)': energyDist[2],
-          'Energetic (4)': energyDist[3],
-          'Very Energetic (5)': energyDist[4]
-        });
-        
-        // Show most common tags across all tracks
-        const allTags = this.availableTracks.flatMap(t => t.tags);
-        const tagCounts = {};
-        allTags.forEach(tag => tagCounts[tag] = (tagCounts[tag] || 0) + 1);
-        const topTags = Object.entries(tagCounts)
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 15)
-          .map(([tag, count]) => `${tag}(${count})`);
-        console.log('🏷️ Top 15 tags across library:', topTags.join(', '));
-        
-        console.groupEnd();
-        console.log('═══════════════════════════════════════════════════════');
         
         // Cache tracks for future use
         await this._saveToCache(this.availableTracks);

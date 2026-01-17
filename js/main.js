@@ -33,7 +33,6 @@ class BooksWithMusicApp {
       // Initialize Firebase Authentication
       initAuth();
       this.setupAuthStateListener();
-      console.log("✓ Firebase Auth initialized");
 
       // Check if we're on reader page
       if (window.location.pathname.includes("reader.html")) {
@@ -53,14 +52,12 @@ class BooksWithMusicApp {
         this.reader.musicManager.onChapterChange(
           this.reader.currentChapterIndex,
         );
-        console.log("✓ Reader initialized");
 
         // Setup auth UI for reader page
         this.setupAuthUI(true);
       } else {
         // Home page
         await this.library.init();
-        console.log("✓ Library initialized");
 
         // Setup auth UI for home page
         this.setupAuthUI(false);
@@ -68,7 +65,6 @@ class BooksWithMusicApp {
 
       this.setupEventListeners();
       await this.registerServiceWorker();
-      console.log("✓ App ready");
     } catch (error) {
       console.error("❌ Init error:", error);
       alert("Failed to initialize app. Check console for details.");
@@ -80,8 +76,6 @@ class BooksWithMusicApp {
       this.currentUser = user;
 
       if (user) {
-        console.log("✓ User signed in:", user.email);
-
         // Load user settings from Firestore
         try {
           const cloudSettings = await getUserSettings(user.uid);
@@ -98,14 +92,11 @@ class BooksWithMusicApp {
               this.settings.loadSettings(); // Reload settings from storage
               this.settings.applySettings();
             }
-
-            console.log("✓ User settings loaded from Firestore");
           } else {
             // No cloud settings, save local settings to cloud
             const localSettings = localStorage.getItem('booksWithMusic-settings');
             if (localSettings) {
                 await saveUserSettings(user.uid, JSON.parse(localSettings));
-                console.log('✓ Local settings saved to Firestore');
             }
           }
         } catch (error) {
@@ -117,8 +108,6 @@ class BooksWithMusicApp {
           await this.library.loadBooks();
           this.library.displayBooks();
         }
-      } else {
-        console.log("User signed out");
       }
 
       // Update UI
@@ -341,14 +330,12 @@ class BooksWithMusicApp {
     // Book selection (on home page)
     if (this.library && this.library.on) {
       this.library.on("bookSelected", (bookId) => {
-        console.log("📚 Book selected event received:", bookId);
         this.showReader(bookId);
       });
     }
   }
 
   async showReader(bookId) {
-    console.log("📖 Opening book with ID:", bookId);
     try {
       await this.reader.openBook(bookId);
     } catch (error) {
@@ -369,7 +356,6 @@ class BooksWithMusicApp {
         // Use correct path for GitHub Pages (with repo name in URL)
         const swPath = "/BooksWithMusic/service-worker.js";
         const registration = await navigator.serviceWorker.register(swPath);
-        console.log("✓ Service Worker registered");
       } catch (error) {
         console.warn("Service Worker registration failed:", error);
       }

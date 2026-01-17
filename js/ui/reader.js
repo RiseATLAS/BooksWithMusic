@@ -121,30 +121,22 @@ export class ReaderUI {
 
   async openBook(bookId) {
     try {
-      console.log('📖 Opening book with ID:', bookId);
       this.showLoading('Loading book...');
       
       const book = await this.db.getBook(bookId);
       if (!book) {
         throw new Error('Book not found in database');
       }
-      console.log('✅ Book found:', book.title);
 
       // Parse EPUB
-      console.log('📄 Parsing EPUB data...');
       const parsed = await this.parser.parse(book.data);
-      console.log('✅ EPUB parsed, chapters:', parsed.chapters.length);
       
       // Check if book has been analyzed
       let analysis = await this.db.getAnalysis(bookId);
       if (!analysis) {
-        console.log('⚠️ Book not analyzed yet. Running AI analysis...');
         const bookForAnalysis = { id: bookId, title: book.title, chapters: parsed.chapters };
         analysis = await this.aiProcessor.analyzeBook(bookForAnalysis);
         await this.db.saveAnalysis(bookId, analysis);
-        console.log('✓ AI analysis complete and saved');
-      } else {
-        console.log('✓ Using cached AI analysis from database');
       }
       
       // Store book data in sessionStorage for reader page
@@ -158,13 +150,11 @@ export class ReaderUI {
         images: book.images // Store images for reader
       };
       
-      console.log('💾 Storing book data in sessionStorage...');
       sessionStorage.setItem('currentBook', JSON.stringify(bookDataForSession));
 
       this.hideLoading();
       
       // Navigate to reader page
-      console.log('🔄 Navigating to reader page...');
       window.location.href = '/reader.html';
       
     } catch (error) {
@@ -255,8 +245,6 @@ export class ReaderUI {
           }
         })
         .catch((e) => console.warn('Music init failed:', e));
-      
-      console.log('✓ Reader ready');
       
     } catch (error) {
       console.error('❌ Reader init failed:', error);
@@ -660,7 +648,6 @@ export class ReaderUI {
           chapter.content,
           chapter.title
         );
-        console.log(`✓ Split into ${this.chapterPages[index].length} pages`);
       }
       
       // Update pages count
@@ -781,7 +768,6 @@ export class ReaderUI {
           // Prevent external links from navigating away
           if (href && (href.startsWith('http') || href.startsWith('//'))) {
             e.preventDefault();
-            console.log('External link blocked:', href);
           }
         });
       });
@@ -843,7 +829,7 @@ export class ReaderUI {
     
     // Log summary only
     if (sectionAnalysis.totalShifts > 0) {
-      console.log(`📊 Ch.${chapterIndex + 1}: ${sectionAnalysis.totalShifts} mood shifts detected`);
+      // Mood shifts detected and stored
     }
   }
 
@@ -997,14 +983,6 @@ export class ReaderUI {
     let shiftInfo = null;
     if (this.currentChapterShiftPoints && this.currentChapterShiftPoints.shiftPoints) {
       shiftInfo = this.currentChapterShiftPoints.shiftPoints.find(sp => sp.page === newPage);
-      
-      if (shiftInfo) {
-        console.log(`🎵 Page ${newPage}: SHIFT POINT! (${shiftInfo.fromMood} → ${shiftInfo.toMood})`);
-      } else {
-        console.log(`📖 Page ${oldPage} → ${newPage} (no shift)`);
-      }
-    } else {
-      console.log(`📖 Page ${oldPage} → ${newPage} (no shift points available)`);
     }
     
     // Emit page change event that music panel can listen to
