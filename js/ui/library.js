@@ -142,29 +142,49 @@ export class BookLibrary {
             throw new Error(`File too large: ${(base64Size / 1024).toFixed(2)} KB (max ~880 KB)`);
           }
           
+          // Extract book metadata
+          const metadata = await parsed.loaded.metadata;
+          const cover = await parsed.coverUrl();
+          
+          // Flatten metadata to avoid nested arrays (Firestore doesn't support them)
+          const safeMetadata = {};
+          for (const [key, value] of Object.entries(metadata)) {
+              if (Array.isArray(value)) {
+                  // Convert arrays to comma-separated strings
+                  safeMetadata[key] = value.join(', ');
+              } else if (typeof value === 'object' && value !== null) {
+                  // Skip nested objects
+                  continue;
+              } else {
+                  safeMetadata[key] = value;
+              }
+          }
+          
+          const bookData = {
+              id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              title: safeMetadata.title || 'Unknown Title',
+              author: safeMetadata.creator || 'Unknown Author',
+              cover: cover || '',
+              addedDate: new Date().toISOString(),
+              lastOpened: null,
+              progress: 0,
+              language: safeMetadata.language || 'en',
+              publisher: safeMetadata.publisher || '',
+              description: safeMetadata.description || ''
+          };
+          
+          console.log('Book data prepared:', bookData);
+          
           // Store book data
           const bookId = parsed.id;
-          const metadata = {
-            title: parsed.metadata?.title || parsed.title || file.name.replace('.epub', ''),
-            author: parsed.author || parsed.metadata?.author || 'Unknown Author',
-            coverImage: parsed.coverImage,
-            images: parsed.images ? Array.from(parsed.images.entries()) : [],
-            importDate: new Date(),
-            progress: 0,
-            currentChapter: 0,
-            totalWords: parsed.chapters.reduce((total, chapter) => {
-              const textContent = chapter.content.replace(/<[^>]*>/g, '');
-              return total + textContent.split(/\s+/).filter(word => word.length > 0).length;
-            }, 0)
-          };
           console.log('Saving to Firestore...');
-          await saveBook(userId, bookId, metadata, base64Data);
+          await saveBook(userId, bookId, bookData, base64Data);
           console.log('✓ Book saved to Firestore successfully');
           // Log current storage usage
           await this.logStorageUsage(userId);
           // Run AI analysis on import
           console.log('🤖 Analyzing book with AI...');
-          const book = { id: bookId, title: metadata.title, chapters: parsed.chapters };
+          const book = { id: bookId, title: bookData.title, chapters: parsed.chapters };
           const analysis = await this.aiProcessor.analyzeBook(book);
           // Optionally save analysis in Firestore if needed
           this.hideLoading();
