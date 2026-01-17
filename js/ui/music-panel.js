@@ -10,6 +10,7 @@ export class MusicPanelUI {
     this.currentShiftPoints = []; // Track mood shift points in current chapter
     this.pageTrackHistory = new Map(); // Track which track was playing at each page
     this.currentChapter = null;
+    this.isToggling = false; // Prevent multiple simultaneous toggles
   }
 
   initialize() {
@@ -221,6 +222,53 @@ export class MusicPanelUI {
     const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
     if (instrumentalOnlyCheckbox && settings.instrumentalOnly !== undefined) {
       instrumentalOnlyCheckbox.checked = settings.instrumentalOnly;
+    }
+
+    // Auto-play music checkbox
+    const autoPlayCheckbox = document.getElementById('auto-play-panel');
+    autoPlayCheckbox?.addEventListener('change', (e) => {
+      const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
+      settings.autoPlay = e.target.checked;
+      localStorage.setItem('booksWithMusic-settings', JSON.stringify(settings));
+      console.log('🎵 Auto-play music:', e.target.checked ? 'ON' : 'OFF');
+      this.showToast(`Auto-play ${e.target.checked ? 'enabled' : 'disabled'}`, 'success');
+    });
+
+    // Load auto-play setting on startup
+    if (autoPlayCheckbox && settings.autoPlay !== undefined) {
+      autoPlayCheckbox.checked = settings.autoPlay;
+    }
+
+    // Music enabled checkbox
+    const musicEnabledCheckbox = document.getElementById('music-enabled-panel');
+    musicEnabledCheckbox?.addEventListener('change', (e) => {
+      const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
+      settings.musicEnabled = e.target.checked;
+      localStorage.setItem('booksWithMusic-settings', JSON.stringify(settings));
+      console.log('🎵 Background music:', e.target.checked ? 'ON' : 'OFF');
+      
+      if (!e.target.checked && this.audioPlayer.isPlaying()) {
+        this.audioPlayer.pause();
+      }
+    });
+
+    // Load music enabled setting on startup
+    if (musicEnabledCheckbox && settings.musicEnabled !== undefined) {
+      musicEnabledCheckbox.checked = settings.musicEnabled;
+    }
+
+    // Page-based music switch checkbox
+    const pageBasedMusicCheckbox = document.getElementById('page-based-music-switch');
+    pageBasedMusicCheckbox?.addEventListener('change', (e) => {
+      const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
+      settings.pageBasedMusicSwitch = e.target.checked;
+      localStorage.setItem('booksWithMusic-settings', JSON.stringify(settings));
+      console.log('🎵 Page-based music switching:', e.target.checked ? 'ON' : 'OFF');
+    });
+
+    // Load page-based music switch setting on startup
+    if (pageBasedMusicCheckbox && settings.pageBasedMusicSwitch !== undefined) {
+      pageBasedMusicCheckbox.checked = settings.pageBasedMusicSwitch;
     }
 
     // Freesound API key (music panel)
@@ -568,37 +616,69 @@ export class MusicPanelUI {
     });
   }
 
-  togglePlayPause() {
+  async togglePlayPause() {
     if (!this.audioPlayer) {
       console.warn('Audio player not initialized');
       return;
     }
     
-    const isPlaying = this.audioPlayer.isPlaying();
-    console.log('🎵 Toggle play/pause - currently:', isPlaying ? 'playing' : 'paused');
+    // Prevent multiple simultaneous toggles
+    if (this.isToggling) {
+      console.log('⏸️ Already toggling, ignoring click');
+      return;
+    }
     
-    if (isPlaying) {
-      console.log('⏸️ Pausing...');
-      this.audioPlayer.pause();
-      this.updatePlayPauseButton(false);
-    } else {
-      console.log('▶️ Playing/Resuming...');
-      if (this.playlist && this.playlist.length > 0) {
-        // If audio context is suspended, resume it
-        if (this.audioPlayer.audioContext.state === 'suspended') {
-          this.audioPlayer.resume();
-        } else if (!this.audioPlayer.state.currentTrack) {
-          // No track loaded, start from current index
-          this.playTrack(this.currentTrackIndex);
-        } else {
-          // Resume paused track
-          this.audioPlayer.resume();
-        }
-        this.updatePlayPauseButton(true);
+    this.isToggling = true;
+    
+    try {
+      const isPlaying = this.audioPlayer.isPlaying();
+      const audioContextState = this.audioPlayer.audioContext.state;
+      const hasCurrentTrack = this.audioPlayer.state.currentTrack;
+      
+      console.log('🎵 Toggle play/pause - State:', {
+        isPlaying,
+        audioContextState,
+        hasCurrentTrack,
+        playlistLength: this.playlist.length,
+        currentTrackIndex: this.currentTrackIndex
+      });
+      
+      if (isPlaying) {
+        // Currently playing - pause it
+        console.log('⏸️ Pausing...');
+        this.audioPlayer.pause();
+        this.updatePlayPauseButton(false);
       } else {
-        console.warn('⚠️ No playlist available');
-        this.showToast('No tracks in playlist. Music requires a Freesound API key.', 'info');
+        // Not playing - start or resume
+        console.log('▶️ Starting/Resuming...');
+        
+        if (!this.playlist || this.playlist.length === 0) {
+          console.warn('⚠️ No playlist available');
+          this.showToast('No tracks in playlist. Music requires a Freesound API key.', 'info');
+          return;
+        }
+        
+        // Check if we need to resume or start fresh
+        if (audioContextState === 'suspended' && hasCurrentTrack) {
+          // Resume paused track
+          console.log('▶️ Resuming paused track...');
+          await this.audioPlayer.resume();
+          this.updatePlayPauseButton(true);
+        } else {
+          // Start playing from current track index
+          console.log('▶️ Starting new track...');
+          await this.playTrack(this.currentTrackIndex);
+          // Note: playTrack will update the button via the 'playing' event
+        }
       }
+    } catch (error) {
+      console.error('❌ Error toggling play/pause:', error);
+      this.updatePlayPauseButton(false);
+    } finally {
+      // Release the lock after a short delay
+      setTimeout(() => {
+        this.isToggling = false;
+      }, 300);
     }
   }
 
