@@ -199,6 +199,89 @@ export class MusicPanelUI {
       instrumentalOnlyCheckbox.checked = settings.instrumentalOnly;
     }
 
+    // Freesound API key (music panel)
+    const freesoundKeyInput = document.getElementById('freesound-key-panel');
+    const saveFreesoundBtn = document.getElementById('save-freesound-key-panel');
+    
+    if (freesoundKeyInput) {
+      const savedKey = localStorage.getItem('freesound_api_key');
+      if (savedKey) {
+        freesoundKeyInput.value = savedKey;
+      }
+    }
+
+    saveFreesoundBtn?.addEventListener('click', (e) => {
+      e.preventDefault();
+      const key = freesoundKeyInput?.value.trim();
+      if (key) {
+        localStorage.setItem('freesound_api_key', key);
+        this.showToast('Freesound API key saved! Reload page to fetch music.', 'success');
+      } else {
+        this.showToast('Please enter a valid API key', 'error');
+      }
+    });
+
+    // Crossfade duration (music panel)
+    const crossfadeInput = document.getElementById('crossfade-duration-panel');
+    const crossfadeValue = document.getElementById('crossfade-value-panel');
+    
+    crossfadeInput?.addEventListener('input', (e) => {
+      const duration = parseInt(e.target.value);
+      if (crossfadeValue) {
+        crossfadeValue.textContent = `${duration}s`;
+      }
+      
+      // Save to settings
+      const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
+      settings.crossfadeDuration = duration;
+      localStorage.setItem('booksWithMusic-settings', JSON.stringify(settings));
+      
+      // Update audio player crossfade
+      if (this.audioPlayer) {
+        this.audioPlayer.crossfadeDuration = duration;
+      }
+    });
+    
+    // Load crossfade setting on startup
+    if (crossfadeInput && settings.crossfadeDuration !== undefined) {
+      crossfadeInput.value = settings.crossfadeDuration;
+      if (crossfadeValue) {
+        crossfadeValue.textContent = `${settings.crossfadeDuration}s`;
+      }
+      if (this.audioPlayer) {
+        this.audioPlayer.crossfadeDuration = settings.crossfadeDuration;
+      }
+    }
+
+    // Max energy level (music panel)
+    const maxEnergyInput = document.getElementById('max-energy-level');
+    const maxEnergyValue = document.getElementById('max-energy-value');
+    
+    maxEnergyInput?.addEventListener('input', (e) => {
+      const level = parseInt(e.target.value);
+      if (maxEnergyValue) {
+        const labels = ['1 (Very Calm)', '2 (Calm)', '3 (Moderate)', '4 (Energetic)', '5 (All)'];
+        maxEnergyValue.textContent = labels[level - 1] || `${level}`;
+      }
+      
+      // Save to settings
+      const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
+      settings.maxEnergyLevel = level;
+      localStorage.setItem('booksWithMusic-settings', JSON.stringify(settings));
+      
+      console.log('🎚️ Max energy level:', level);
+      this.showToast(`Energy limit: ${level}/5`, 'info');
+    });
+    
+    // Load max energy setting on startup
+    if (maxEnergyInput && settings.maxEnergyLevel !== undefined) {
+      maxEnergyInput.value = settings.maxEnergyLevel;
+      if (maxEnergyValue) {
+        const labels = ['1 (Very Calm)', '2 (Calm)', '3 (Moderate)', '4 (Energetic)', '5 (All)'];
+        maxEnergyValue.textContent = labels[settings.maxEnergyLevel - 1] || `${settings.maxEnergyLevel}`;
+      }
+    }
+
     // Audio player events
     this.audioPlayer.on('trackEnded', () => {
       this.nextTrack();
@@ -274,7 +357,7 @@ export class MusicPanelUI {
     }
   }
   
-  handleBackwardNavigation(newPage, oldPage) {
+  async handleBackwardNavigation(newPage, oldPage) {
     // Check if we have history for this page
     if (this.pageTrackHistory.has(newPage)) {
       const historicalTrackIndex = this.pageTrackHistory.get(newPage);
@@ -293,57 +376,9 @@ export class MusicPanelUI {
       if (crossedShiftPoint && this.currentTrackIndex > 0) {
         console.log(`⏮️ Page ${newPage}: Crossed shift point backward at page ${crossedShiftPoint.page}`);
         console.log(`   Reverting: ${crossedShiftPoint.toMood} → ${crossedShiftPoint.fromMood}`);
-        this.previousTrack();
-        this.pageTrackHistory.set(newPage, this.currentTrackIndex);
+        await this.previousTrack();
       }
     }
-  }
-  
-  updateNextShiftDisplay(currentPage) {
-    const displayEl = document.getElementById('next-shift-info');
-    if (!displayEl || !this.currentShiftPoints) return;
-    
-    // Find next shift point after current page (for forward navigation)
-    const nextShift = this.currentShiftPoints.find(sp => sp.page > currentPage);
-    
-    // Find previous shift point before current page (for backward navigation)
-    const prevShift = [...this.currentShiftPoints].reverse().find(sp => sp.page < currentPage);
-    
-    let html = '';
-    
-    if (nextShift) {
-      const pagesUntilShift = nextShift.page - currentPage;
-      html = `
-        <div class="shift-indicator">
-          <span class="shift-icon">🎵</span>
-          <span class="shift-text">
-            Next change in ${pagesUntilShift} page${pagesUntilShift !== 1 ? 's' : ''}<br>
-            <small>${nextShift.fromMood} → ${nextShift.toMood}</small>
-          </span>
-        </div>
-      `;
-    } else if (prevShift) {
-      // No more forward shifts, but show previous shift info
-      html = `
-        <div class="shift-indicator">
-          <span class="shift-icon">📖</span>
-          <span class="shift-text">
-            No more changes ahead<br>
-            <small>Last shift at page ${prevShift.page}</small>
-          </span>
-        </div>
-      `;
-    } else {
-      html = `
-        <div class="shift-indicator">
-          <span class="shift-icon">📖</span>
-          <span class="shift-text">No music changes in this chapter</span>
-        </div>
-      `;
-    }
-    
-    displayEl.innerHTML = html;
-    displayEl.style.display = 'block';
   }
 
   togglePanel() {
