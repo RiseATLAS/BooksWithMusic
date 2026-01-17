@@ -1112,22 +1112,29 @@ export class ReaderUI {
       return;
     }
     
-    // Update page number and render new content FIRST
-    this.currentPageInChapter = targetPage;
-    this.renderCurrentPage();
+    // Create a new page element for animation
+    const pageContainer = chapterText.parentElement;
+    const newPageDiv = document.createElement('div');
+    newPageDiv.className = 'chapter-text';
     
-    // Update progress and navigation
+    // Set the new page content
+    const pageIndex = targetPage - 1;
+    const pageContent = pages[pageIndex] || pages[0];
+    newPageDiv.innerHTML = pageContent;
+    
+    // Add animation class based on direction (NEW page slides in)
+    const animClass = direction === 'next' ? 'flipping-next' : 'flipping-prev';
+    newPageDiv.classList.add(animClass);
+    
+    // Add new page on top of old page
+    pageContainer.appendChild(newPageDiv);
+    
+    // Update page number immediately
+    this.currentPageInChapter = targetPage;
     this.currentPage = this.calculateCurrentPageNumber();
     this.totalPages = this.calculateTotalPages();
     this.updatePageIndicator();
     this._updateNavButtons();
-    
-    // Add animation class based on direction (NEW page flips in)
-    const animClass = direction === 'next' ? 'flipping-next' : 'flipping-prev';
-    const newChapterText = document.querySelector('.chapter-text');
-    if (newChapterText) {
-      newChapterText.classList.add(animClass);
-    }
     
     // Notify music manager about page change
     this._notifyPageChange(oldPage, targetPage);
@@ -1141,9 +1148,10 @@ export class ReaderUI {
     // Wait for animation to complete (600ms)
     await new Promise(resolve => setTimeout(resolve, 600));
     
-    // Remove animation class
-    if (newChapterText) {
-      newChapterText.classList.remove(animClass);
+    // Remove animation class and old page
+    newPageDiv.classList.remove(animClass);
+    if (chapterText && chapterText.parentElement) {
+      chapterText.remove();
     }
   }
 
