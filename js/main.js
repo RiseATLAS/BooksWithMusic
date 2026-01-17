@@ -5,7 +5,7 @@ import { MusicPanelUI } from './ui/music-panel.js';
 import { DatabaseManager } from './storage/indexeddb.js';
 import { initAuth, onAuthStateChanged, signInWithGoogle, signOut } from './auth/auth.js';
 import { getUserSettings, saveUserSettings } from './storage/firestore-storage.js';
-import { app, auth, db, storage } from './config/firebase-config.js';
+import { auth, db, storage } from './config/firebase-config.js';
 
 class BooksWithMusicApp {
   constructor() {
@@ -301,5 +301,5 @@ class BooksWithMusicApp {
   }
 }
 
-const app = new BooksWithMusicApp();
-app.initialize().catch(console.error);
+const booksWithMusicApp = new BooksWithMusicApp();
+booksWithMusicApp.initialize().catch(console.error);
