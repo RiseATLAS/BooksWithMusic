@@ -204,7 +204,7 @@ export class SettingsUI {
     });
 
     // Auto-play
-    document.getElementById('auto-play')?.addEventListener('change', (e) => {
+    document.getElementById('auto-play-panel')?.addEventListener('change', (e) => {
       this.settings.autoPlay = e.target.checked;
       this.saveSettings();
     });
@@ -687,7 +687,7 @@ export class SettingsUI {
     const musicEnabledCheckbox = document.getElementById('music-enabled');
     if (musicEnabledCheckbox) musicEnabledCheckbox.checked = this.settings.musicEnabled;
 
-    const autoPlayCheckbox = document.getElementById('auto-play');
+    const autoPlayCheckbox = document.getElementById('auto-play-panel');
     if (autoPlayCheckbox) autoPlayCheckbox.checked = this.settings.autoPlay;
   }
 }

@@ -80,13 +80,8 @@ export class MusicPanelUI {
       const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
       const autoPlay = settings.autoPlay === true; // Must explicitly enable
       
-      console.log('Auto-play enabled:', autoPlay);
-      console.log('Playlist length:', this.playlist.length);
-      console.log('Currently playing:', this.audioPlayer.state.playing);
-      
       // Auto-play disabled by default - show message to user
       if (!autoPlay) {
-        console.log('⏸️ Auto-play disabled. Click play button to start music.');
         // Show friendly notice on first load
         if (data.chapterIndex === 0) {
           setTimeout(() => {
@@ -95,14 +90,9 @@ export class MusicPanelUI {
         }
       } else if (autoPlay && this.playlist.length > 0 && !this.audioPlayer.state.playing) {
         // Only auto-play if not already playing
-        console.log('▶️ Auto-playing recommended track...');
         setTimeout(async () => {
           await this.playTrack(0);
         }, 500);
-      } else if (this.audioPlayer.state.playing) {
-        console.log('🎵 Music already playing, not auto-starting');
-      } else {
-        console.log('⚠️ No tracks in playlist');
       }
     });
   }
@@ -243,17 +233,13 @@ export class MusicPanelUI {
       const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
       settings.autoPlay = e.target.checked;
       localStorage.setItem('booksWithMusic-settings', JSON.stringify(settings));
-      console.log('🎵 Auto-play music:', e.target.checked ? 'ON' : 'OFF');
       this.showToast(`Auto-play ${e.target.checked ? 'enabled' : 'disabled'}`, 'success');
     });
 
-    // Load auto-play setting on startup (check both true and false values)
+    // Load auto-play setting on startup
     if (autoPlayCheckbox) {
       const isAutoPlay = settings.autoPlay === true;
       autoPlayCheckbox.checked = isAutoPlay;
-      console.log('📖 Loaded auto-play setting:', settings.autoPlay, '→ checkbox:', isAutoPlay);
-    } else {
-      console.warn('⚠️ Auto-play checkbox not found!');
     }
 
     // Music enabled checkbox
