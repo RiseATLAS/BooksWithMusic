@@ -90,17 +90,17 @@ export class MusicPanelUI {
     try {
       
       if (!this.musicManager) {
-        console.warn('No music manager available');
+        console.warn('⚠️ No music manager available');
         return;
       }
       
       // Get available tracks from music manager
-      console.log('   Fetching tracks from music manager...');
+      console.log('🎵 Fetching tracks from music manager...');
       const allTracks = await this.musicManager.getAllAvailableTracks();
       
-      console.log('✓ Available tracks:', allTracks.length);
+      console.log(`📊 Available tracks: ${allTracks.length}`);
       if (allTracks.length === 0) {
-        console.warn('No tracks available');
+        console.warn('⚠️ No tracks available - check if music is enabled and API key is set');
         this.playlist = [];
         this.renderPlaylist();
         return;

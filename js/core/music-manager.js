@@ -32,8 +32,12 @@ export class MusicManager {
       this.currentBookId = bookId;
       this.chapters = chapters;
       
+      console.log('🎵 Loading music tracks...');
+      
       // Load available tracks from API
       await this.loadTracksFromAPI();
+      
+      console.log(`✓ Loaded ${this.availableTracks.length} tracks`);
       
       // Check and report caching status
       await this.verifyCaching();
