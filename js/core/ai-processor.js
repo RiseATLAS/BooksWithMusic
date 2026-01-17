@@ -442,17 +442,23 @@ export class AIProcessor {
 
     // Calculate mood shift score (0-100)
     // Higher score = more significant mood change
+    // More nuanced scoring to avoid everything being 100
     let shiftScore = 0;
     
-    if (pageMood !== currentMood && moodStrength > 2) {
-      // Strong mood shift detected
-      shiftScore = 75 + Math.min(25, moodStrength * 5);
+    if (pageMood !== currentMood && moodStrength > 0) {
+      // Base score increases with mood strength (logarithmic curve)
+      const baseScore = Math.min(60, 20 + (moodStrength * 8));
+      
+      // Bonus for very strong signals (diminishing returns)
+      const strengthBonus = Math.min(30, Math.sqrt(moodStrength) * 10);
+      
+      // Penalty for weak signals
+      const weaknessPenalty = moodStrength < 3 ? 20 : 0;
+      
+      shiftScore = Math.max(0, Math.min(100, baseScore + strengthBonus - weaknessPenalty));
     } else if (pageMood === currentMood) {
       // Same mood, no shift needed
       shiftScore = 0;
-    } else {
-      // Weak mood shift
-      shiftScore = 30 + (moodStrength * 10);
     }
 
     return {
