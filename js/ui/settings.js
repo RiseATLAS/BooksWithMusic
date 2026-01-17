@@ -542,7 +542,7 @@ export class SettingsUI {
     const g = mix(base.g, tint.g);
     const b = mix(base.b, tint.b);
     return `rgb(${r}, ${g}, ${b})`;
-.  }
+  }
 
   _colorToRgb(color) {
     const c = (color || '').trim();
