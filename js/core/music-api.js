@@ -153,12 +153,27 @@ export class MusicAPI {
    * Estimate energy level from tags (1-5)
    */
   _estimateEnergy(tags) {
-    const highEnergy = ['energetic', 'fast', 'intense', 'epic', 'dramatic', 'aggressive'];
-    const lowEnergy = ['calm', 'peaceful', 'slow', 'ambient', 'quiet', 'gentle'];
+    // Energy levels 1-5:
+    // 1 = Very Calm (ambient, meditation, sleep)
+    // 2 = Calm (peaceful, gentle, slow)
+    // 3 = Moderate (neutral, background)
+    // 4 = Energetic (upbeat, dynamic)
+    // 5 = Very Energetic (intense, epic, dramatic)
+    
+    const veryHighEnergy = ['intense', 'dramatic', 'aggressive', 'powerful', 'action'];
+    const highEnergy = ['energetic', 'fast', 'epic', 'upbeat', 'dynamic'];
+    const lowEnergy = ['calm', 'peaceful', 'gentle', 'soft', 'relaxing'];
+    const veryLowEnergy = ['ambient', 'meditation', 'sleep', 'quiet', 'serene', 'minimal'];
     
     const tagString = tags.join(' ').toLowerCase();
-    if (highEnergy.some(t => tagString.includes(t))) return 4;
+    
+    // Check from extremes to middle
+    if (veryLowEnergy.some(t => tagString.includes(t))) return 1;
+    if (veryHighEnergy.some(t => tagString.includes(t))) return 5;
     if (lowEnergy.some(t => tagString.includes(t))) return 2;
+    if (highEnergy.some(t => tagString.includes(t))) return 4;
+    
+    // Default to moderate
     return 3;
   }
 
