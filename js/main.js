@@ -5,7 +5,7 @@ import { MusicPanelUI } from './ui/music-panel.js';
 import { DatabaseManager } from './storage/indexeddb.js';
 import { initAuth, onAuthStateChanged, signInWithGoogle, signOut } from './auth/auth.js';
 import { getUserSettings, saveUserSettings } from './storage/firestore-storage.js';
-import { isFirebaseConfigured } from './config/firebase-config.js';
+import { app, auth, db, storage } from './config/firebase-config.js';
 
 class BooksWithMusicApp {
   constructor() {
@@ -23,11 +23,9 @@ class BooksWithMusicApp {
       await this.db.initialize();
       
       // Initialize Firebase Authentication
-      if (isFirebaseConfigured()) {
-        initAuth();
-        this.setupAuthStateListener();
-        console.log('✓ Firebase Auth initialized');
-      }
+      initAuth();
+      this.setupAuthStateListener();
+      console.log('✓ Firebase Auth initialized');
       
       // Check if we're on reader page
       if (window.location.pathname.includes('reader.html')) {

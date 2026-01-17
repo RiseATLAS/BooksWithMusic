@@ -128,6 +128,30 @@ export async function saveBookMetadata(userId, bookId, metadata) {
 }
 
 /**
+ * Save a new book (EPUB as base64 + metadata) to Firestore, enforcing 10-book limit
+ * @param {string} userId - User's unique ID
+ * @param {string} bookId - Book's unique ID
+ * @param {Object} metadata - Book metadata (title, author, etc.)
+ * @param {string} fileBase64 - EPUB file as base64 string
+ * @returns {Promise<string>} Book ID if saved, throws error if limit reached
+ */
+export async function saveBook(userId, bookId, metadata, fileBase64) {
+  // Check current book count
+  const books = await getUserBooks(userId);
+  if (books.length >= 10) {
+    throw new Error('Maximum 10 books allowed per user. Delete a book to add more.');
+  }
+  const bookRef = doc(db, 'users', userId, 'books', bookId);
+  await setDoc(bookRef, {
+    ...metadata,
+    fileData: fileBase64,
+    createdAt: serverTimestamp(),
+    lastRead: serverTimestamp()
+  }, { merge: true });
+  return bookId;
+}
+
+/**
  * Get all user's books metadata
  * @param {string} userId - User's unique ID
  * @returns {Promise<Array>} Array of book metadata objects

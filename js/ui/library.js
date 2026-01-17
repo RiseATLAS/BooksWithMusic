@@ -1,5 +1,6 @@
 import { EPUBParser } from '../core/epub-parser.js';
 import { AIProcessor } from '../core/ai-processor.js';
+import { saveBook, getUserBooks } from '../storage/firestore-storage.js';
 
 export class BookLibrary {
   constructor(db) {
@@ -95,43 +96,46 @@ export class BookLibrary {
   async importBook(file) {
     try {
       this.showLoading('Importing book...');
-      
+      // Check book count before import
+      const userId = window.currentUser?.uid;
+      if (!userId) throw new Error('User not signed in');
+      const books = await getUserBooks(userId);
+      if (books.length >= 10) {
+        this.showToast('Maximum 10 books allowed per user. Delete a book to add more.', 'error');
+        this.hideLoading();
+        return;
+      }
       // Read and parse EPUB
       const arrayBuffer = await file.arrayBuffer();
       const parsed = await this.parser.parse(arrayBuffer);
-      
-      // Calculate total word count for page estimation
-      const totalWords = parsed.chapters.reduce((total, chapter) => {
-        const textContent = chapter.content.replace(/<[^>]*>/g, ''); // Strip HTML
-        return total + textContent.split(/\s+/).filter(word => word.length > 0).length;
-      }, 0);
-      
+      // Convert ArrayBuffer to base64
+      const fileBase64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
       // Store book data
-      const bookData = {
+      const bookId = parsed.id;
+      const metadata = {
         title: parsed.metadata?.title || parsed.title || file.name.replace('.epub', ''),
         author: parsed.author || parsed.metadata?.author || 'Unknown Author',
-        data: arrayBuffer,
         coverImage: parsed.coverImage,
         images: parsed.images ? Array.from(parsed.images.entries()) : [],
         importDate: new Date(),
         progress: 0,
         currentChapter: 0,
-        totalWords: totalWords
+        totalWords: parsed.chapters.reduce((total, chapter) => {
+          const textContent = chapter.content.replace(/<[^>]*>/g, '');
+          return total + textContent.split(/\s+/).filter(word => word.length > 0).length;
+        }, 0)
       };
-      
-      const bookId = await this.db.saveBook(bookData);
-      
+      await saveBook(userId, bookId, metadata, fileBase64);
+      // Log current storage usage
+      await this.logStorageUsage(userId);
       // Run AI analysis on import
       console.log('🤖 Analyzing book with AI...');
-      const book = { id: bookId, title: bookData.title, chapters: parsed.chapters };
+      const book = { id: bookId, title: metadata.title, chapters: parsed.chapters };
       const analysis = await this.aiProcessor.analyzeBook(book);
-      await this.db.saveAnalysis(bookId, analysis);
-      console.log('✓ AI analysis saved to database');
-
+      // Optionally save analysis in Firestore if needed
       this.hideLoading();
       this.showToast('Book imported successfully!');
       await this.loadBooks();
-      
     } catch (error) {
       console.error('❌ Error importing book:', file?.name);
       console.error('Error details:', error);
@@ -141,7 +145,23 @@ export class BookLibrary {
     }
   }
 
+  async logStorageUsage(userId) {
+    const books = await getUserBooks(userId);
+    let totalBytes = 0;
+    books.forEach(book => {
+      if (book.fileData) {
+        // Each base64 char is 0.75 bytes
+        totalBytes += Math.floor(book.fileData.length * 0.75);
+      }
+    });
+    const maxBytes = 1024 * 1024 * 1024; // 1GB
+    const percent = ((totalBytes / maxBytes) * 100).toFixed(2);
+    console.log(`Firestore storage used: ${(totalBytes/1024).toFixed(2)} KB / 1,048,576 KB (${percent}%)`);
+  }
+
   async loadBooks() {
+    const userId = window.currentUser?.uid;
+    if (userId) await this.logStorageUsage(userId);
     const books = await this.db.getAllBooks();
     this.renderBooks(books);
     // Background repair for old imports (blob: URLs don't survive reload)
