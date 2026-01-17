@@ -245,6 +245,16 @@ export class MusicManager {
           return true;
         });
         
+        // Apply energy level filter to all tracks
+        const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
+        const maxEnergyLevel = settings.maxEnergyLevel || 5;
+        
+        if (maxEnergyLevel < 5) {
+          const beforeCount = this.availableTracks.length;
+          this.availableTracks = this.availableTracks.filter(track => track.energy <= maxEnergyLevel);
+          console.log(`🎚️ Energy filter: ${beforeCount} tracks → ${this.availableTracks.length} tracks (max energy: ${maxEnergyLevel})`);
+        }
+        
         console.log(`✓ ${this.availableTracks.length} tracks loaded from API`);
         
         // Cache tracks for future use
