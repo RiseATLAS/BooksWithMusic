@@ -1104,17 +1104,13 @@ export class ReaderUI {
    * Flip to a specific page within the current chapter with animation
    */
   async _flipToPage(targetPage, direction = 'next') {
-    if (this._isFlipping) return;
-    
     const pages = this.chapterPages[this.currentChapterIndex];
     if (!pages || targetPage < 1 || targetPage > pages.length) return;
     
-    this._isFlipping = true;
     const oldPage = this.currentPageInChapter;
     
     const chapterText = document.querySelector('.chapter-text');
     if (!chapterText) {
-      this._isFlipping = false;
       return;
     }
     
@@ -1122,8 +1118,8 @@ export class ReaderUI {
     const animClass = direction === 'next' ? 'flipping-next' : 'flipping-prev';
     chapterText.classList.add(animClass);
     
-    // Wait for animation to reach midpoint (when page is hidden)
-    await new Promise(resolve => setTimeout(resolve, 300));
+    // Quick animation (reduced from 300ms to 100ms)
+    await new Promise(resolve => setTimeout(resolve, 100));
     
     // Update page number and render new content
     this.currentPageInChapter = targetPage;
@@ -1144,23 +1140,18 @@ export class ReaderUI {
       this.saveProgress().catch(() => {});
     }, 400);
     
-    // Wait for animation to complete
-    await new Promise(resolve => setTimeout(resolve, 300));
+    // Quick animation completion (reduced from 300ms to 100ms)
+    await new Promise(resolve => setTimeout(resolve, 100));
     
     // Remove animation class
     const newChapterText = document.querySelector('.chapter-text');
     if (newChapterText) {
       newChapterText.classList.remove(animClass);
     }
-    
-    this._isFlipping = false;
   }
 
   async goToNextPage() {
     try {
-      // Prevent multiple simultaneous flips
-      if (this._isFlipping) return;
-      
       const currentPagesInChapter = this.pagesPerChapter[this.currentChapterIndex] || 1;
       
       // If at end of chapter, go to next chapter
@@ -1173,16 +1164,12 @@ export class ReaderUI {
     } catch (error) {
       console.error(' Error navigating to next page:', error);
       console.error('Stack trace:', error.stack);
-      this._isFlipping = false; // Reset flip lock
       this.showToast('Failed to navigate to next page', 'error');
     }
   }
 
   async goToPreviousPage() {
     try {
-      // Prevent multiple simultaneous flips
-      if (this._isFlipping) return;
-      
       // If at start of chapter, go to previous chapter
       if (this.currentPageInChapter <= 1) {
         await this.goToPreviousChapter();
@@ -1193,7 +1180,6 @@ export class ReaderUI {
     } catch (error) {
       console.error(' Error navigating to previous page:', error);
       console.error('Stack trace:', error.stack);
-      this._isFlipping = false; // Reset flip lock
       this.showToast('Failed to navigate to previous page', 'error');
     }
   }
@@ -1201,7 +1187,6 @@ export class ReaderUI {
   async goToNextChapter() {
     try {
       if (this.currentChapterIndex >= this.chapters.length - 1) return;
-      if (this._isFlipping) return;
       
       this.currentPageInChapter = 1;
       await this.loadChapter(this.currentChapterIndex + 1, { pageInChapter: 1, preservePage: false });
@@ -1221,7 +1206,6 @@ export class ReaderUI {
   async goToPreviousChapter() {
     try {
       if (this.currentChapterIndex <= 0) return;
-      if (this._isFlipping) return;
       
       const prevChapterIndex = this.currentChapterIndex - 1;
       // Jump to the end of the previous chapter; page is clamped after pagination.

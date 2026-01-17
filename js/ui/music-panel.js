@@ -414,12 +414,17 @@ export class MusicPanelUI {
     saveFreesoundBtn?.addEventListener('click', (e) => {
       e.preventDefault();
       const key = freesoundKeyInput?.value.trim();
+      
+      // Allow saving blank values (to clear/remove API key)
       if (key) {
         localStorage.setItem('freesound_api_key', key);
         updateFreesoundHelp();
         this.showToast('Freesound API key saved! Reload page to fetch music.', 'success');
       } else {
-        this.showToast('Please enter a valid API key', 'error');
+        // Save blank value to clear the key
+        localStorage.removeItem('freesound_api_key');
+        updateFreesoundHelp();
+        this.showToast('Freesound API key cleared. You will need to add a key to use music.', 'info');
       }
     });
 
