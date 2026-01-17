@@ -1,14 +1,22 @@
-const CACHE_NAME = 'booksWithMusic-v2';
+// Cache version
+const CACHE_VERSION = 'v1';
+const CACHE_NAME = `books-with-music-${CACHE_VERSION}`;
 const AUDIO_CACHE = 'booksWithMusic-audio-v2';
+
+// Files to cache - updated for GitHub Pages deployment
+const urlsToCache = [
+  '/BooksWithMusic/',
+  '/BooksWithMusic/index.html',
+  '/BooksWithMusic/reader.html',
+  '/BooksWithMusic/styles.css',
+  '/BooksWithMusic/js/main.js',
+  '/BooksWithMusic/favicon.svg'
+];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll([
-        '/',
-        '/index.html',
-        '/styles.css',
-      ]);
+      return cache.addAll(urlsToCache);
     })
   );
 });

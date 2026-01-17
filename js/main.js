@@ -1,11 +1,19 @@
-import { BookLibrary } from './ui/library.js';
-import { ReaderUI } from './ui/reader.js';
-import { SettingsUI } from './ui/settings.js';
-import { MusicPanelUI } from './ui/music-panel.js';
-import { DatabaseManager } from './storage/indexeddb.js';
-import { initAuth, onAuthStateChanged, signInWithGoogle, signOut } from './auth/auth.js';
-import { getUserSettings, saveUserSettings } from './storage/firestore-storage.js';
-import { auth, db, storage } from './config/firebase-config.js';
+import { BookLibrary } from "./ui/library.js";
+import { ReaderUI } from "./ui/reader.js";
+import { SettingsUI } from "./ui/settings.js";
+import { MusicPanelUI } from "./ui/music-panel.js";
+import { DatabaseManager } from "./storage/indexeddb.js";
+import {
+  initAuth,
+  onAuthStateChanged,
+  signInWithGoogle,
+  signOut,
+} from "./auth/auth.js";
+import {
+  getUserSettings,
+  saveUserSettings,
+} from "./storage/firestore-storage.js";
+import { auth, db, storage } from "./config/firebase-config.js";
 
 class BooksWithMusicApp {
   constructor() {
@@ -21,142 +29,152 @@ class BooksWithMusicApp {
   async initialize() {
     try {
       await this.db.initialize();
-      
+
       // Initialize Firebase Authentication
       initAuth();
       this.setupAuthStateListener();
-      console.log('✓ Firebase Auth initialized');
-      
+      console.log("✓ Firebase Auth initialized");
+
       // Check if we're on reader page
-      if (window.location.pathname.includes('reader.html')) {
+      if (window.location.pathname.includes("reader.html")) {
         await this.reader.initializeReader();
 
         // Apply settings ASAP
         this.settings.initialize();
-        
+
         // Initialize music panel with reader's music manager
         this.musicPanel = new MusicPanelUI(this.db, this.reader.musicManager);
         this.musicPanel.initialize();
-        
+
         // Trigger initial chapter music
         if (this.reader._musicInitPromise) {
           await this.reader._musicInitPromise;
         }
-        this.reader.musicManager.onChapterChange(this.reader.currentChapterIndex);
-        console.log('✓ Reader initialized');
-        
+        this.reader.musicManager.onChapterChange(
+          this.reader.currentChapterIndex,
+        );
+        console.log("✓ Reader initialized");
+
         // Setup auth UI for reader page
         this.setupAuthUI(true);
       } else {
         // Home page
         await this.library.initialize();
-        console.log('✓ Library initialized');
-        
+        console.log("✓ Library initialized");
+
         // Setup auth UI for home page
         this.setupAuthUI(false);
       }
-      
+
       this.setupEventListeners();
       await this.registerServiceWorker();
-      console.log('✓ App ready');
+      console.log("✓ App ready");
     } catch (error) {
-      console.error('❌ Init error:', error);
-      alert('Failed to initialize app. Check console for details.');
+      console.error("❌ Init error:", error);
+      alert("Failed to initialize app. Check console for details.");
     }
   }
 
   setupAuthStateListener() {
     onAuthStateChanged(async (user) => {
       this.currentUser = user;
-      
+
       if (user) {
-        console.log('✓ User signed in:', user.email);
-        
+        console.log("✓ User signed in:", user.email);
+
         // Load user settings from Firestore
         try {
           const cloudSettings = await getUserSettings(user.uid);
           if (cloudSettings) {
             // Merge cloud settings with local settings
-            const localSettings = JSON.parse(localStorage.getItem('settings') || '{}');
+            const localSettings = JSON.parse(
+              localStorage.getItem("settings") || "{}",
+            );
             const mergedSettings = { ...localSettings, ...cloudSettings };
-            localStorage.setItem('settings', JSON.stringify(mergedSettings));
-            
+            localStorage.setItem("settings", JSON.stringify(mergedSettings));
+
             // Apply settings if settings UI is initialized
             if (this.settings && this.settings.applySettings) {
               this.settings.applySettings(mergedSettings);
             }
-            
-            console.log('✓ User settings loaded from Firestore');
+
+            console.log("✓ User settings loaded from Firestore");
           }
         } catch (error) {
-          console.error('Error loading user settings:', error);
+          console.error("Error loading user settings:", error);
         }
-        
+
         // Refresh library if on home page
-        if (this.library && !window.location.pathname.includes('reader.html')) {
+        if (this.library && !window.location.pathname.includes("reader.html")) {
           await this.library.initialize();
         }
       } else {
-        console.log('User signed out');
+        console.log("User signed out");
       }
-      
+
       // Update UI
       this.updateAuthUI(user);
     });
   }
 
   setupAuthUI(isReaderPage) {
-    const signInBtn = document.getElementById(isReaderPage ? 'sign-in-btn-reader' : 'sign-in-btn');
-    const userProfile = document.getElementById(isReaderPage ? 'user-profile-reader' : 'user-profile');
-    
+    const signInBtn = document.getElementById(
+      isReaderPage ? "sign-in-btn-reader" : "sign-in-btn",
+    );
+    const userProfile = document.getElementById(
+      isReaderPage ? "user-profile-reader" : "user-profile",
+    );
+
     if (!signInBtn || !userProfile) return;
-    
+
     // Sign in button click handler
-    signInBtn.addEventListener('click', async () => {
+    signInBtn.addEventListener("click", async () => {
       try {
         this.showLoading(isReaderPage);
         await signInWithGoogle();
         // Auth state listener will handle the rest
       } catch (error) {
-        console.error('Sign-in error:', error);
-        this.showToast('Sign-in failed: ' + error.message, 'error');
+        console.error("Sign-in error:", error);
+        this.showToast("Sign-in failed: " + error.message, "error");
       } finally {
         this.hideLoading(isReaderPage);
       }
     });
-    
+
     // Sign out button (only on home page)
     if (!isReaderPage) {
-      const signOutBtn = document.getElementById('sign-out-btn');
+      const signOutBtn = document.getElementById("sign-out-btn");
       if (signOutBtn) {
-        signOutBtn.addEventListener('click', async () => {
+        signOutBtn.addEventListener("click", async () => {
           try {
             // Save current settings to Firestore before signing out
             if (this.currentUser) {
-              const settings = JSON.parse(localStorage.getItem('settings') || '{}');
+              const settings = JSON.parse(
+                localStorage.getItem("settings") || "{}",
+              );
               await saveUserSettings(this.currentUser.uid, settings);
             }
-            
+
             await signOut();
-            this.showToast('Signed out successfully', 'success');
-            
+            this.showToast("Signed out successfully", "success");
+
             // Refresh library to show only local books
             if (this.library) {
               await this.library.initialize();
             }
           } catch (error) {
-            console.error('Sign-out error:', error);
-            this.showToast('Sign-out failed: ' + error.message, 'error');
+            console.error("Sign-out error:", error);
+            this.showToast("Sign-out failed: " + error.message, "error");
           }
         });
       }
     }
-    
+
     // Reader page - clicking user photo shows a tooltip or opens settings
     if (isReaderPage && userProfile) {
-      userProfile.addEventListener('click', () => {
+      userProfile.addEventListener("click", () => {
         // Show user info or open settings panel
-        const settingsBtn = document.getElementById('settings-btn');
+        const settingsBtn = document.getElementById("settings-btn");
         if (settingsBtn) {
           settingsBtn.click();
         }
@@ -165,116 +183,126 @@ class BooksWithMusicApp {
   }
 
   updateAuthUI(user) {
-    const isReaderPage = window.location.pathname.includes('reader.html');
-    const signInBtn = document.getElementById(isReaderPage ? 'sign-in-btn-reader' : 'sign-in-btn');
-    const userProfile = document.getElementById(isReaderPage ? 'user-profile-reader' : 'user-profile');
-    
+    const isReaderPage = window.location.pathname.includes("reader.html");
+    const signInBtn = document.getElementById(
+      isReaderPage ? "sign-in-btn-reader" : "sign-in-btn",
+    );
+    const userProfile = document.getElementById(
+      isReaderPage ? "user-profile-reader" : "user-profile",
+    );
+
     if (!signInBtn || !userProfile) return;
-    
+
     if (user) {
       // Show user profile, hide sign in button
-      signInBtn.style.display = 'none';
-      userProfile.style.display = isReaderPage ? 'inline-flex' : 'flex';
-      
+      signInBtn.style.display = "none";
+      userProfile.style.display = isReaderPage ? "inline-flex" : "flex";
+
       // Update user info
-      const userPhoto = document.getElementById(isReaderPage ? 'user-photo-reader' : 'user-photo');
-      const userName = document.getElementById('user-name');
-      
+      const userPhoto = document.getElementById(
+        isReaderPage ? "user-photo-reader" : "user-photo",
+      );
+      const userName = document.getElementById("user-name");
+
       if (userPhoto) {
-        userPhoto.src = user.photoURL || 'https://via.placeholder.com/40';
+        userPhoto.src = user.photoURL || "https://via.placeholder.com/40";
         userPhoto.alt = user.displayName || user.email;
         if (isReaderPage) {
           userPhoto.title = user.displayName || user.email;
         }
       }
-      
+
       if (userName && !isReaderPage) {
         userName.textContent = user.displayName || user.email;
       }
     } else {
       // Show sign in button, hide user profile
-      signInBtn.style.display = isReaderPage ? 'inline-flex' : 'inline-flex';
-      userProfile.style.display = 'none';
+      signInBtn.style.display = isReaderPage ? "inline-flex" : "inline-flex";
+      userProfile.style.display = "none";
     }
   }
 
   showLoading(isReaderPage) {
-    const signInBtn = document.getElementById(isReaderPage ? 'sign-in-btn-reader' : 'sign-in-btn');
+    const signInBtn = document.getElementById(
+      isReaderPage ? "sign-in-btn-reader" : "sign-in-btn",
+    );
     if (signInBtn) {
       signInBtn.disabled = true;
-      signInBtn.style.opacity = '0.5';
+      signInBtn.style.opacity = "0.5";
     }
   }
 
   hideLoading(isReaderPage) {
-    const signInBtn = document.getElementById(isReaderPage ? 'sign-in-btn-reader' : 'sign-in-btn');
+    const signInBtn = document.getElementById(
+      isReaderPage ? "sign-in-btn-reader" : "sign-in-btn",
+    );
     if (signInBtn) {
       signInBtn.disabled = false;
-      signInBtn.style.opacity = '1';
+      signInBtn.style.opacity = "1";
     }
   }
 
-  showToast(message, type = 'info') {
-    const container = document.getElementById('toast-container');
+  showToast(message, type = "info") {
+    const container = document.getElementById("toast-container");
     if (!container) return;
-    
-    const toast = document.createElement('div');
+
+    const toast = document.createElement("div");
     toast.className = `toast toast-${type}`;
     toast.textContent = message;
     container.appendChild(toast);
-    
+
     setTimeout(() => {
-      toast.classList.add('show');
+      toast.classList.add("show");
     }, 10);
-    
+
     setTimeout(() => {
-      toast.classList.remove('show');
+      toast.classList.remove("show");
       setTimeout(() => toast.remove(), 300);
     }, 3000);
   }
 
   setupEventListeners() {
     // Back to library button (on reader page)
-    document.body.addEventListener('click', (e) => {
-      if (e.target.closest('#back-to-library')) {
+    document.body.addEventListener("click", (e) => {
+      if (e.target.closest("#back-to-library")) {
         e.preventDefault();
         this.showLibrary();
       }
     });
-    
+
     // Book selection (on home page)
     if (this.library && this.library.on) {
-      this.library.on('bookSelected', (bookId) => {
-        console.log('📚 Book selected event received:', bookId);
+      this.library.on("bookSelected", (bookId) => {
+        console.log("📚 Book selected event received:", bookId);
         this.showReader(bookId);
       });
     }
   }
 
   async showReader(bookId) {
-    console.log('📖 Opening book with ID:', bookId);
+    console.log("📖 Opening book with ID:", bookId);
     try {
       await this.reader.openBook(bookId);
     } catch (error) {
-      console.error('Error opening book:', error);
-      alert('Failed to open book: ' + error.message);
+      console.error("Error opening book:", error);
+      alert("Failed to open book: " + error.message);
     }
   }
 
   showLibrary() {
-    window.location.href = '/';
+    window.location.href = "/";
   }
 
   async registerServiceWorker() {
     // Register service worker for offline support
-    if ('serviceWorker' in navigator) {
+    if ("serviceWorker" in navigator) {
       try {
         // Use correct path for GitHub Pages (with repo name in URL)
-        const swPath = '/BooksWithMusic/service-worker.js';
+        const swPath = "/BooksWithMusic/service-worker.js";
         const registration = await navigator.serviceWorker.register(swPath);
-        console.log('✓ Service Worker registered');
+        console.log("✓ Service Worker registered");
       } catch (error) {
-        console.warn('Service Worker registration failed:', error);
+        console.warn("Service Worker registration failed:", error);
       }
     }
   }
