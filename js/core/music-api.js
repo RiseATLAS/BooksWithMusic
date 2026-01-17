@@ -13,6 +13,9 @@ export class MusicAPI {
     this.lastRequestTime = 0;
     this.minRequestInterval = 1000; // 1 second between requests
     this.rateLimitedUntil = 0; // Timestamp when rate limit expires
+    
+    // Max duration for tracks (6 minutes = 360 seconds)
+    this.maxDuration = 360;
   }
 
   /**
@@ -97,7 +100,7 @@ export class MusicAPI {
     const maxEnergyLevel = settings.maxEnergyLevel || 5;
 
     // Build filter to get high-quality, conventional music (not weird sound effects)
-    let filter = 'duration:[30 TO *] tag:music';
+    let filter = 'duration:[30 TO 360] tag:music';
     
     // Require soundtrack/background music tags for better quality
     // This dramatically reduces weird experimental sounds
@@ -165,10 +168,17 @@ export class MusicAPI {
         }
       }));
       
+      // Filter by max duration (6 minutes)
+      let filteredTracks = tracks.filter(track => track.duration <= this.maxDuration);
+      
       // Filter by max energy level if set
-      const filteredTracks = maxEnergyLevel < 5 
-        ? tracks.filter(track => track.energy <= maxEnergyLevel)
-        : tracks;
+      filteredTracks = maxEnergyLevel < 5 
+        ? filteredTracks.filter(track => track.energy <= maxEnergyLevel)
+        : filteredTracks;
+      
+      if (filteredTracks.length < tracks.length) {
+        console.log(` Filtered ${tracks.length - filteredTracks.length} tracks (duration or energy constraints)`);
+      }
       
       return filteredTracks;
     } catch (error) {
@@ -206,9 +216,9 @@ export class MusicAPI {
     const query = tags.join(' ');
     
     // Build filter string (using Lucene query syntax)
-    // duration:[30 TO *] = 30 seconds or longer (avoids short sound effects)
+    // duration:[30 TO 360] = 30 seconds to 6 minutes (avoids short sound effects and very long tracks)
     // tag:music = must be tagged as music (not sound effects)
-    let filter = 'duration:[30 TO *] tag:music';
+    let filter = 'duration:[30 TO 360] tag:music';
     
     // Add background music filter if enabled
     // Require conventional instrument/genre tags to avoid weird sounds
@@ -267,13 +277,16 @@ export class MusicAPI {
         }
       }));
       
+      // Filter by max duration (6 minutes)
+      let filteredTracks = tracks.filter(track => track.duration <= this.maxDuration);
+      
       // Filter by max energy level if set
-      const filteredTracks = maxEnergyLevel < 5 
-        ? tracks.filter(track => track.energy <= maxEnergyLevel)
-        : tracks;
+      filteredTracks = maxEnergyLevel < 5 
+        ? filteredTracks.filter(track => track.energy <= maxEnergyLevel)
+        : filteredTracks;
       
       if (filteredTracks.length < tracks.length) {
-        console.log(` Filtered ${tracks.length - filteredTracks.length} tracks above energy level ${maxEnergyLevel}`);
+        console.log(` Filtered ${tracks.length - filteredTracks.length} tracks (duration or energy constraints)`);
       }
       
       return filteredTracks;

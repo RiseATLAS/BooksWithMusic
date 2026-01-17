@@ -180,9 +180,20 @@
                         <label for="freesound-key-panel">Freesound API Key</label>
                         <input type="text" id="freesound-key-panel" placeholder="Enter your API key">
                         <button id="save-freesound-key-panel" class="btn btn-primary" style="margin-top: 0.5rem;">Save Key</button>
-                        <small style="opacity: 0.7; display: block; margin-top: 0.5rem;">
-                            Get free key at <a href="https://freesound.org/apiv2/apply/" target="_blank" rel="noopener">freesound.org/apiv2/apply</a>
-                        </small>
+                        <div id="freesound-key-help" style="margin-top: 0.75rem; padding: 0.75rem; background: rgba(99, 102, 241, 0.1); border-radius: 8px; font-size: 0.85rem; line-height: 1.5;">
+                            <strong style="display: block; margin-bottom: 0.5rem;">How to get a free Freesound API key:</strong>
+                            <ol style="margin: 0; padding-left: 1.5rem;">
+                                <li style="margin-bottom: 0.25rem;">Visit <a href="https://freesound.org/apiv2/apply/" target="_blank" rel="noopener" style="color: var(--accent); text-decoration: underline;">freesound.org/apiv2/apply</a></li>
+                                <li style="margin-bottom: 0.25rem;">Create a free Freesound account (or sign in)</li>
+                                <li style="margin-bottom: 0.25rem;">Fill out the API application form</li>
+                                <li style="margin-bottom: 0.25rem;">You'll receive your API key instantly</li>
+                                <li>Paste the key above and click "Save Key"</li>
+                            </ol>
+                            <small style="display: block; margin-top: 0.5rem; opacity: 0.7;">
+                                ℹ️ Freesound is a free, community-driven database of Creative Commons licensed sounds. 
+                                The API key is completely free and allows you to access thousands of high-quality music tracks.
+                            </small>
+                        </div>
                     </div>
                 </div>
             </div>

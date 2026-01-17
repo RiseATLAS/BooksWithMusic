@@ -19,6 +19,104 @@ export class MusicPanelUI {
     this.setupMusicManagerListeners();
     this.setupMediaSessionHandlers();
     this.renderPlaylist();
+    this.checkApiKeyOnLoad();
+  }
+
+  /**
+   * Check if Freesound API key is configured on load
+   */
+  checkApiKeyOnLoad() {
+    const freesoundKey = localStorage.getItem('freesound_api_key');
+    if (!freesoundKey || freesoundKey.trim() === '') {
+      // Show error message after a short delay to ensure UI is loaded
+      setTimeout(() => {
+        this.showApiKeyWarning();
+      }, 1500);
+    }
+  }
+
+  /**
+   * Show warning about missing API key
+   */
+  showApiKeyWarning() {
+    const existingWarning = document.getElementById('api-key-warning');
+    if (existingWarning) {
+      return; // Don't show duplicate warnings
+    }
+
+    const warning = document.createElement('div');
+    warning.id = 'api-key-warning';
+    warning.style.cssText = `
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(220, 38, 38, 0.95);
+      color: white;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      z-index: 10000;
+      max-width: 500px;
+      text-align: center;
+      backdrop-filter: blur(10px);
+    `;
+    
+    warning.innerHTML = `
+      <div style="font-size: 3rem; margin-bottom: 1rem;">⚠️</div>
+      <h3 style="margin: 0 0 1rem 0; font-size: 1.5rem;">Music Feature Unavailable</h3>
+      <p style="margin: 0 0 1.5rem 0; line-height: 1.6;">
+        BooksWithMusic requires a <strong>free Freesound API key</strong> to function. 
+        Without it, background music will not work.
+      </p>
+      <p style="margin: 0 0 1.5rem 0; line-height: 1.6; font-size: 0.9rem; opacity: 0.9;">
+        Don't worry - it's completely free and takes less than 2 minutes to get!
+      </p>
+      <button id="open-music-settings-btn" style="
+        background: white;
+        color: #dc2626;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        font-size: 1rem;
+        margin-right: 0.5rem;
+      ">Open Music Settings</button>
+      <button id="dismiss-warning-btn" style="
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        font-size: 1rem;
+      ">Dismiss</button>
+    `;
+    
+    document.body.appendChild(warning);
+    
+    // Open music panel when button clicked
+    document.getElementById('open-music-settings-btn')?.addEventListener('click', () => {
+      const panel = document.getElementById('music-panel');
+      if (panel) {
+        panel.classList.add('show');
+      }
+      warning.remove();
+    });
+    
+    // Dismiss button
+    document.getElementById('dismiss-warning-btn')?.addEventListener('click', () => {
+      warning.remove();
+    });
+    
+    // Auto-dismiss after 15 seconds
+    setTimeout(() => {
+      if (warning.parentNode) {
+        warning.remove();
+      }
+    }, 15000);
   }
 
   /**
@@ -146,12 +244,26 @@ export class MusicPanelUI {
     // Open/close music panel
     document.getElementById('music-toggle')?.addEventListener('click', (e) => {
       e.preventDefault();
+      e.stopPropagation();
       this.togglePanel();
     });
 
     document.getElementById('close-music-panel')?.addEventListener('click', (e) => {
       e.preventDefault();
       this.hidePanel();
+    });
+
+    // Click outside to close music panel
+    document.addEventListener('click', (e) => {
+      const panel = document.getElementById('music-panel');
+      const musicToggle = document.getElementById('music-toggle');
+      
+      if (panel && panel.classList.contains('show')) {
+        // Check if click is outside the panel and not on the music toggle button
+        if (!panel.contains(e.target) && !musicToggle?.contains(e.target)) {
+          this.hidePanel();
+        }
+      }
     });
 
     // Music tab switching - REMOVED (now using two-column layout)
@@ -277,12 +389,26 @@ export class MusicPanelUI {
     // Freesound API key (music panel)
     const freesoundKeyInput = document.getElementById('freesound-key-panel');
     const saveFreesoundBtn = document.getElementById('save-freesound-key-panel');
+    const freesoundKeyHelp = document.getElementById('freesound-key-help');
+    
+    // Show/hide help text based on whether key is saved
+    const updateFreesoundHelp = () => {
+      const savedKey = localStorage.getItem('freesound_api_key');
+      if (freesoundKeyHelp) {
+        if (savedKey) {
+          freesoundKeyHelp.style.display = 'none';
+        } else {
+          freesoundKeyHelp.style.display = 'block';
+        }
+      }
+    };
     
     if (freesoundKeyInput) {
       const savedKey = localStorage.getItem('freesound_api_key');
       if (savedKey) {
         freesoundKeyInput.value = savedKey;
       }
+      updateFreesoundHelp();
     }
 
     saveFreesoundBtn?.addEventListener('click', (e) => {
@@ -290,6 +416,7 @@ export class MusicPanelUI {
       const key = freesoundKeyInput?.value.trim();
       if (key) {
         localStorage.setItem('freesound_api_key', key);
+        updateFreesoundHelp();
         this.showToast('Freesound API key saved! Reload page to fetch music.', 'success');
       } else {
         this.showToast('Please enter a valid API key', 'error');
@@ -524,9 +651,6 @@ export class MusicPanelUI {
       
       const categories = [energy, tempo, tags].filter(c => c).join(' • ');
       
-      // License info
-      const license = track.license ? track.license.type : '';
-      
       return `
         <div class="playlist-item ${index === this.currentTrackIndex ? 'active' : ''} ${isShiftTrack ? 'shift-point' : ''}" 
              data-track-index="${index}"
@@ -542,11 +666,6 @@ export class MusicPanelUI {
               ${categories ? `
                 <div class="track-categories" style="font-size: 0.65rem; opacity: 0.5; margin-top: 0.25rem; line-height: 1.3;">
                   ${this.escapeHtml(categories)}
-                </div>
-              ` : ''}
-              ${license ? `
-                <div class="track-license" style="font-size: 0.6rem; opacity: 0.4; margin-top: 0.15rem;">
-                  ${this.escapeHtml(license)}
                 </div>
               ` : ''}
             </div>

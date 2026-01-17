@@ -44,12 +44,26 @@ export class SettingsUI {
     // Open/close settings panel
     document.getElementById('settings-btn')?.addEventListener('click', (e) => {
       e.preventDefault();
+      e.stopPropagation();
       this.showSettings();
     });
 
     document.getElementById('close-settings')?.addEventListener('click', (e) => {
       e.preventDefault();
       this.hideSettings();
+    });
+
+    // Click outside to close settings panel
+    document.addEventListener('click', (e) => {
+      const panel = document.getElementById('settings-panel');
+      const settingsBtn = document.getElementById('settings-btn');
+      
+      if (panel && panel.classList.contains('show')) {
+        // Check if click is outside the panel and not on the settings button
+        if (!panel.contains(e.target) && !settingsBtn?.contains(e.target)) {
+          this.hideSettings();
+        }
+      }
     });
 
     // Theme selection
@@ -267,8 +281,6 @@ export class SettingsUI {
     this.syncToFirestore();
   }
     
-  // ...existing code...
-
   applySettings() {
     this.applyTheme();
     this.applyFontSize();
