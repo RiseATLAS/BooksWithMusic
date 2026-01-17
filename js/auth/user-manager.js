@@ -25,6 +25,10 @@ const USER_COUNT_DOC = 'userCount';
  */
 export async function checkUserRegistration(userId, userName, userEmail) {
   try {
+    // FOR TESTING: Always simulate max users reached
+    // To revert to normal behavior, uncomment the real check below
+    
+    /*
     // Check if user already exists
     const userRef = doc(db, 'users', userId);
     const userDoc = await getDoc(userRef);
@@ -56,6 +60,16 @@ export async function checkUserRegistration(userId, userName, userEmail) {
       allowed: true, 
       isExisting: false 
     };
+    */
+    
+    // TEST MODE: Simulate max users reached
+    console.log('🔍 [TEST MODE] Simulating max users reached');
+    console.warn('❌ User limit reached (TEST MODE)');
+    return { 
+      allowed: false, 
+      reason: `Registration closed: Maximum ${MAX_USERS} users allowed. This app is for friends & family only.`
+    };
+    
   } catch (error) {
     console.error('Error checking user registration:', error);
     throw error;
