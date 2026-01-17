@@ -155,9 +155,12 @@ export class MusicAPI {
       const tracks = data.results
         .filter(sound => {
           // FAIL-SAFE: Only use CC0 licensed sounds
+          console.log(`🔍 Checking license for "${sound.name}": ${sound.license}`);
           const isCC0 = sound.license && sound.license.includes('Creative Commons 0');
           if (!isCC0) {
-            console.warn(`Filtered out non-CC0 sound: ${sound.name} (License: ${sound.license})`);
+            console.warn(`❌ Filtered out non-CC0 sound: ${sound.name} (License: ${sound.license})`);
+          } else {
+            console.log(`✅ CC0 confirmed: ${sound.name}`);
           }
           return isCC0;
         })
@@ -197,131 +200,7 @@ export class MusicAPI {
         console.log(` Filtered ${tracks.length - filteredTracks.length} tracks (duration or energy constraints)`);
       }
       
-      return filteredTracks;
-    } catch (error) {
-      console.error(' Freesound multi-term search failed:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Search Freesound.org API for music
-   */
-  async searchFreesound(tags, limit) {
-    if (!this.freesoundKey) return [];
-
-    // Check if we're rate limited
-    const now = Date.now();
-    if (now < this.rateLimitedUntil) {
-      return [];
-    }
-
-    // Enforce minimum interval between requests
-    const timeSinceLastRequest = now - this.lastRequestTime;
-    if (timeSinceLastRequest < this.minRequestInterval) {
-      const delay = this.minRequestInterval - timeSinceLastRequest;
-      await new Promise(resolve => setTimeout(resolve, delay));
-    }
-
-    // Check if background music filter is enabled
-    const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
-    const instrumentalOnly = settings.instrumentalOnly !== false; // Default true
-    const maxEnergyLevel = settings.maxEnergyLevel || 5; // Default: all energy levels
-
-    // Build query - combine tags with AND logic for precision
-    // For multi-term queries like ['calm', 'piano', 'ambient'], all terms are required
-    const query = tags.join(' ');
-    
-    // Build filter string (using Lucene query syntax)
-    // duration:[30 TO 360] = 30 seconds to 6 minutes (avoids short sound effects and very long tracks)
-    // tag:music = must be tagged as music (not sound effects)
-    // license:"Creative Commons 0" = ONLY CC0 licensed sounds (legal requirement)
-    let filter = 'duration:[30 TO 360] tag:music license:"Creative Commons 0"';
-    
-    // Add background music filter if enabled
-    // Require conventional instrument/genre tags to avoid weird sounds
-    if (instrumentalOnly) {
-      filter += ' (tag:instrumental OR tag:soundtrack OR tag:background OR tag:ambient OR tag:cinematic OR tag:orchestral OR tag:piano OR tag:strings)';
-    }
-    
-    // Boost quality results by requiring production tags
-    // This helps filter out weird experimental/sfx stuff
-    filter += ' (tag:soundtrack OR tag:film OR tag:game OR tag:score OR tag:production OR tag:music)';
-    
-    // Explicitly exclude sound effects and weird experimental stuff
-    filter += ' -tag:fx -tag:foley -tag:sfx -tag:effect -tag:noise -tag:experimental';
-    
-    // Sort by rating to get highest quality tracks first
-    const url = `https://freesound.org/apiv2/search/text/?query=${encodeURIComponent(query)}&filter=${encodeURIComponent(filter)}&fields=id,name,username,duration,previews,tags,license&token=${this.freesoundKey}&page_size=${limit}&sort=rating_desc`;
-
-    // 🔍 LOG QUERY
-
-
-    try {
-      this.lastRequestTime = Date.now();
-      const response = await fetch(url);
-      
-      if (response.status === 429) {
-        // Rate limited - wait 60 seconds before trying again
-        console.warn(' Freesound API rate limit reached. Using cached/fallback tracks.');
-        this.rateLimitedUntil = Date.now() + 60000;
-        return [];
-      }
-      
-      if (!response.ok) {
-        console.error(' Freesound API error:', response.status, response.statusText);
-        return [];
-      }
-
-      const data = await response.json();
-      
-      // 🔍 LOG RAW RESPONSE
-
-      
-      const tracks = data.results
-        .filter(sound => {
-          // FAIL-SAFE: Only use CC0 licensed sounds
-          const isCC0 = sound.license && sound.license.includes('Creative Commons 0');
-          if (!isCC0) {
-            console.warn(`Filtered out non-CC0 sound: ${sound.name} (License: ${sound.license})`);
-          }
-          return isCC0;
-        })
-        .map(sound => ({
-          // Core identifiers
-          id: `freesound_${sound.id}`,
-          freesoundId: sound.id, // Store original Freesound ID for documentation
-          
-          // Display info
-          title: sound.name,
-          artist: sound.username,
-          duration: Math.round(sound.duration),
-          url: sound.previews['preview-hq-mp3'] || sound.previews['preview-lq-mp3'],
-          
-          // Categorization
-          tags: sound.tags,
-          energy: this._estimateEnergy(sound.tags),
-          tempo: this._estimateTempo(sound.tags),
-          
-          // Legal documentation (stored but not displayed in UI)
-          license: {
-            type: 'CC0', // Only CC0 sounds pass the filter
-            sourceUrl: `https://freesound.org/people/${sound.username}/sounds/${sound.id}/`,
-            fetchedAt: new Date().toISOString() // Timestamp of retrieval
-          }
-        }));
-      
-      // Filter by max duration (6 minutes)
-      let filteredTracks = tracks.filter(track => track.duration <= this.maxDuration);
-      
-      // Filter by max energy level if set
-      filteredTracks = maxEnergyLevel < 5 
-        ? filteredTracks.filter(track => track.energy <= maxEnergyLevel)
-        : filteredTracks;
-      
-      if (filteredTracks.length < tracks.length) {
-        console.log(` Filtered ${tracks.length - filteredTracks.length} tracks (duration or energy constraints)`);
-      }
+      console.log(`✅ Final result: ${filteredTracks.length} CC0-licensed tracks ready for playback`);
       
       return filteredTracks;
     } catch (error) {
