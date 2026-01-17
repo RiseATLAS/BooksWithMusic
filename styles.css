@@ -636,29 +636,35 @@ body {
 .chapter-text.flipping-next,
 .chapter-text.flipping-prev {
   position: absolute;
-  top: var(--page-gap, 120px);
+  top: 0;
   left: 0;
   right: 0;
-  bottom: var(--page-gap, 120px);
-  margin: 0;
-  padding: 60px 80px;
+  bottom: 0;
+  width: 100%;
+  margin: 0 auto;
+  padding: 48px 48px 96px; /* Match regular chapter-text padding exactly */
+  font-size: var(--reader-font-size, 18px);
+  line-height: var(--reader-line-height, 1.8);
+  font-family: var(--reader-font-family, Georgia, "Times New Roman", serif);
   background: var(--page-paper-bg, var(--reader-bg));
   color: var(--page-paper-text, var(--reader-text));
   box-shadow: 0 0 30px rgba(0, 0, 0, 0.15);
   transform-style: preserve-3d;
   backface-visibility: visible;
-  border-radius: 2px;
-  overflow: hidden;
+  overflow: visible;
+  height: auto;
+  min-height: 100%;
+  box-sizing: border-box;
 }
 
 .chapter-text.flipping-next {
   animation: pageFlipNext 0.7s cubic-bezier(0.4, 0.0, 0.2, 1);
-  transform-origin: left center;
+  transform-origin: right center;
 }
 
 .chapter-text.flipping-prev {
   animation: pageFlipPrev 0.7s cubic-bezier(0.4, 0.0, 0.2, 1);
-  transform-origin: right center;
+  transform-origin: left center;
 }
 
 .chapter-text.sliding-next {
