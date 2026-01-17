@@ -270,7 +270,10 @@ export class MusicPanelUI {
       localStorage.setItem('booksWithMusic-settings', JSON.stringify(settings));
       
       console.log('🎚️ Max energy level:', level);
-      this.showToast(`Energy limit: ${level}/5`, 'info');
+      this.showToast(`Energy limit: ${level}/5 - Reloading music...`, 'info');
+      
+      // Reload music with new energy filter
+      this.reloadMusicWithFilter();
     });
     
     // Load max energy setting on startup
@@ -601,6 +604,38 @@ export class MusicPanelUI {
     } catch (error) {
       console.error('Error reloading music:', error);
       this.showToast('❌ Failed to reload music', 'error');
+    }
+  }
+
+  /**
+   * Update the display showing when the next music shift will occur
+   */
+  updateNextShiftDisplay(currentPage) {
+    const nextShiftInfo = document.getElementById('next-shift-info');
+    if (!nextShiftInfo) return;
+    
+    if (!this.currentShiftPoints || this.currentShiftPoints.length === 0) {
+      nextShiftInfo.style.display = 'none';
+      return;
+    }
+    
+    // Find the next shift point after current page
+    const nextShift = this.currentShiftPoints.find(sp => sp.page > currentPage);
+    
+    if (nextShift) {
+      const pagesUntil = nextShift.page - currentPage;
+      nextShiftInfo.innerHTML = `
+        <div class="shift-indicator">
+          <span class="shift-icon">🎵</span>
+          <div class="shift-text">
+            <strong>Next music shift in ${pagesUntil} page${pagesUntil > 1 ? 's' : ''}</strong>
+            <small>${nextShift.fromMood} → ${nextShift.toMood}</small>
+          </div>
+        </div>
+      `;
+      nextShiftInfo.style.display = 'block';
+    } else {
+      nextShiftInfo.style.display = 'none';
     }
   }
 
