@@ -6,10 +6,10 @@ export const TEST_CONFIG = {
   ALWAYS_SHOW_TOS: false,  // PRODUCTION MODE: Only show to new users or on version update
   
   // Simulate max users reached (blocks all new registrations)
-  SIMULATE_MAX_USERS: false,
+  SIMULATE_MAX_USERS: true,  // TEST MODE: Simulate max users to test denial
   
   // Allow existing users to bypass max users check
-  ALLOW_EXISTING_USERS: true
+  ALLOW_EXISTING_USERS: false  // TEST MODE: Block even existing users to test modal
 };
 
 /**

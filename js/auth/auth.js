@@ -8,7 +8,7 @@ import {
   signOut as firebaseSignOut,
   onAuthStateChanged as firebaseOnAuthStateChanged
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-import { checkUserRegistration, registerUser, updateLastLogin } from './user-manager.js';
+import { checkUserRegistration, registerUser, updateLastLogin, showMaxUsersModal } from './user-manager.js';
 import { checkAndPromptTerms } from './terms-of-service.js';
 
 /**
@@ -34,8 +34,20 @@ export async function signInWithGoogle() {
     const result = await signInWithPopup(auth, provider);
     const user = result.user;
     
-    // FOR TESTING: Check terms FIRST so we can test the ToS modal
-    // In production, you might want registration check first
+    // Check if user registration is allowed FIRST (to test max users modal)
+    const registrationCheck = await checkUserRegistration(
+      user.uid, 
+      user.displayName || 'Unknown User', 
+      user.email
+    );
+    
+    if (!registrationCheck.allowed) {
+      // Show max users modal
+      await showMaxUsersModal();
+      // Sign out immediately
+      await firebaseSignOut(auth);
+      throw new Error(registrationCheck.reason);
+    }
     
     // Check terms acceptance (new and existing users)
     const termsAccepted = await checkAndPromptTerms(user.uid);
@@ -44,19 +56,6 @@ export async function signInWithGoogle() {
       // User declined terms - sign them out
       await firebaseSignOut(auth);
       throw new Error('You must accept the Terms of Use to continue.');
-    }
-    
-    // Check if user registration is allowed (after ToS)
-    const registrationCheck = await checkUserRegistration(
-      user.uid, 
-      user.displayName || 'Unknown User', 
-      user.email
-    );
-    
-    if (!registrationCheck.allowed) {
-      // Sign out immediately if not allowed
-      await firebaseSignOut(auth);
-      throw new Error(registrationCheck.reason);
     }
     
     // Register or update user

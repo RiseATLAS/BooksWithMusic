@@ -163,6 +163,123 @@ export async function getUserCount() {
 }
 
 /**
+ * Show max users reached modal
+ * @returns {Promise<void>}
+ */
+export function showMaxUsersModal() {
+  return new Promise((resolve) => {
+    // Create modal overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'max-users-modal-overlay';
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      backdrop-filter: blur(4px);
+    `;
+    
+    // Create modal
+    const modal = document.createElement('div');
+    modal.className = 'max-users-modal';
+    modal.style.cssText = `
+      background: white;
+      border-radius: 12px;
+      max-width: 500px;
+      width: 90%;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    `;
+    
+    // Modal content
+    modal.innerHTML = `
+      <div style="padding: 24px; border-bottom: 1px solid #e0e0e0;">
+        <h2 style="margin: 0; color: #d32f2f; font-size: 24px;">❌ Registration Closed</h2>
+      </div>
+      <div style="padding: 24px;">
+        <p style="margin: 0 0 16px 0; color: #333; font-size: 16px; line-height: 1.6;">
+          This app has reached its maximum capacity of <strong>${MAX_USERS} users</strong>.
+        </p>
+        <p style="margin: 0; color: #666; font-size: 14px; line-height: 1.6;">
+          BooksWithMusic is a private service for friends & family only. 
+          If you believe you should have access, please contact the administrator.
+        </p>
+      </div>
+      <div style="padding: 24px; border-top: 1px solid #e0e0e0; display: flex; justify-content: flex-end;">
+        <button class="max-users-ok" style="
+          padding: 12px 32px;
+          border: none;
+          background: #2196F3;
+          color: white;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 500;
+          transition: all 0.2s;
+        ">OK</button>
+      </div>
+    `;
+    
+    // Add hover effects
+    const style = document.createElement('style');
+    style.textContent = `
+      .max-users-ok:hover {
+        background: #1976D2;
+      }
+      .max-users-ok:active {
+        transform: scale(0.98);
+      }
+    `;
+    document.head.appendChild(style);
+    
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    
+    // Prevent body scroll
+    document.body.style.overflow = 'hidden';
+    
+    // Handle button
+    const okBtn = modal.querySelector('.max-users-ok');
+    
+    const cleanup = () => {
+      document.body.removeChild(overlay);
+      document.head.removeChild(style);
+      document.body.style.overflow = '';
+    };
+    
+    okBtn.addEventListener('click', () => {
+      cleanup();
+      resolve();
+    });
+    
+    // Allow closing by clicking overlay
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        cleanup();
+        resolve();
+      }
+    });
+    
+    // Allow closing with Escape key
+    const escapeHandler = (e) => {
+      if (e.key === 'Escape') {
+        cleanup();
+        document.removeEventListener('keydown', escapeHandler);
+        resolve();
+      }
+    };
+    document.addEventListener('keydown', escapeHandler);
+  });
+}
+
+/**
  * Check if registration is open
  * @returns {Promise<boolean>} True if registration is still open
  */
