@@ -88,8 +88,9 @@ export class MusicPanelUI {
             this.showToast('🎵 Click the play button to start music! (Requires Freesound API key - see Settings)', 'info');
           }, 1000);
         }
-      } else if (autoPlay && this.playlist.length > 0 && !this.audioPlayer.state.playing) {
-        // Only auto-play if not already playing
+      } else if (autoPlay && this.playlist.length > 0) {
+        // Auto-play the first track of the new playlist
+        // (We just loaded a new playlist for this chapter, so start it regardless of previous playing state)
         setTimeout(async () => {
           await this.playTrack(0);
         }, 500);
