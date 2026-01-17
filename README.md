@@ -10,20 +10,31 @@ A modern web-based EPUB reader with **AI-powered music selection** that automati
 
 ## 🚀 Quick Start
 
-### Installation
+### Running Locally
+
+**This app runs as pure static HTML/JavaScript - no build step required!**
 
 ```bash
-# Install dependencies
+# Option 1: Using npm (recommended)
 npm install
+npm start
+# Opens at http://localhost:8080
 
-# Start development server
-npm run dev
+# Option 2: Using Python
+python3 -m http.server 8080
+# Then open http://localhost:8080
 
-# Or on Windows, double-click:
-start.bat
+# Option 3: VS Code Live Server
+# Right-click index.html → "Open with Live Server"
 ```
 
-The app will open automatically at `http://localhost:5173/`
+⚠️ **Important**: Don't open `index.html` directly in browser - ES6 modules require a server!
+
+### Deployed Version
+
+**Live Site**: https://riseatlas.github.io/BooksWithMusic/
+
+The app is deployed on GitHub Pages and works immediately - no installation needed!
 
 ### First Steps
 
@@ -31,6 +42,30 @@ The app will open automatically at `http://localhost:5173/`
 2. **Start Reading**: The book opens with the first chapter
 3. **Enjoy Music**: Music automatically plays based on chapter mood
 4. **Customize**: Click ⚙️ Settings to adjust fonts, themes, page density, and music
+
+## 📦 Project Structure
+
+```
+BooksWithMusic/
+├── index.html          # Main library page
+├── reader.html         # Book reader page
+├── styles.css          # All styles
+├── service-worker.js   # Offline support
+├── js/
+│   ├── main.js         # App entry point
+│   ├── auth/           # Firebase authentication
+│   ├── config/         # Configuration
+│   ├── core/           # Core functionality (EPUB, music, AI)
+│   ├── storage/        # IndexedDB, Firebase storage
+│   └── ui/             # UI components
+└── package.json        # Dependencies (only for local dev server)
+```
+
+**Tech Stack:**
+- Pure JavaScript (ES6 modules)
+- JSZip from CDN (for EPUB parsing)
+- Firebase SDK from CDN (optional, for cloud features)
+- No build tools, no compilation needed!
 
 ## ✨ Features
 
@@ -91,6 +126,52 @@ BooksWithMusic can work entirely offline with local storage, or you can enable c
 - ✅ App works offline - cloud features are progressive enhancements
 
 **Note:** Firebase is completely optional. The app works perfectly without it using local storage (IndexedDB).
+
+## 🌐 Deployment
+
+### GitHub Pages (Current Setup)
+
+**Live URL**: https://riseatlas.github.io/BooksWithMusic/
+
+The project is already deployed! To update:
+
+```bash
+# Make your changes, then:
+git add .
+git commit -m "Your commit message"
+git push origin main
+```
+
+GitHub Pages will automatically rebuild (takes 1-2 minutes).
+
+**Verify deployment:**
+- Settings: https://github.com/RiseATLAS/BooksWithMusic/settings/pages
+- Actions: https://github.com/RiseATLAS/BooksWithMusic/actions
+
+### Deploy to Your Own GitHub Pages
+
+1. **Fork this repository**
+2. **Go to Settings → Pages**
+3. **Set source:**
+   - Branch: `main`
+   - Folder: `/ (root)`
+4. **Save and wait 1-2 minutes**
+5. **Access at**: `https://YOUR-USERNAME.github.io/BooksWithMusic/`
+
+### Other Deployment Options
+
+**Netlify / Vercel / Cloudflare Pages:**
+- Just connect your GitHub repo
+- Set build command: (leave empty - no build needed!)
+- Set publish directory: `/`
+- Deploy!
+
+**Static File Hosting:**
+- Upload all files to any web server
+- No special configuration needed
+- Just serve the root folder
+
+
 
 ## 🎵 Music Setup
 
