@@ -749,8 +749,12 @@ export class MusicPanelUI {
       
       if (mapping && mapping.tracks && mapping.tracks.length > 0) {
         await this.loadPlaylistForChapter(chapterIndex, mapping.tracks);
+        // Force UI update
+        this.renderPlaylist();
         this.showToast('✓ Music tracks reloaded!', 'success');
       } else {
+        this.playlist = [];
+        this.renderPlaylist();
         this.showToast('⚠️ No tracks match your filter', 'warning');
       }
     } catch (error) {

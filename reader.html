@@ -262,15 +262,6 @@
             </div>
 
             <div class="setting-group">
-                <button id="calibrate-pages" class="btn btn-secondary" style="width: 100%;">
-                    Auto-Calibrate Page Size
-                </button>
-                <small style="opacity: 0.7; display: block; margin-top: 0.5rem; text-align: center;">
-                    Automatically calculate optimal page size based on current font settings
-                </small>
-            </div>
-
-            <div class="setting-group">
                 <label for="brightness">Brightness</label>
                 <input type="range" id="brightness" min="60" max="120" value="100">
                 <span id="brightness-value">100%</span>
@@ -293,28 +284,40 @@
             </div>
 
             <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid var(--border);">
-            <h3 style="margin-bottom: 1rem; font-size: 1.1rem;">Display Options</h3>            <div class="setting-group">
-                <label for="show-progress">
-                    <input type="checkbox" id="show-progress" checked>
-                    Show Reading Progress Bar
-                </label>
-            </div>
+            <h3 style="margin-bottom: 1rem; font-size: 1.1rem;">Display Options</h3>
+            
+            <!-- Single row layout: checkboxes and calibrate button side by side -->
+            <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                <div class="setting-group" style="margin: 0;">
+                    <label for="show-progress">
+                        <input type="checkbox" id="show-progress" checked>
+                        Show Reading Progress Bar
+                    </label>
+                </div>
 
-            <div class="setting-group">
-                <label for="show-chapter-title">
-                    <input type="checkbox" id="show-chapter-title" checked>
-                    Show Chapter Title
-                </label>
-            </div>
+                <div class="setting-group" style="margin: 0;">
+                    <label for="show-chapter-title">
+                        <input type="checkbox" id="show-chapter-title" checked>
+                        Show Chapter Title
+                    </label>
+                </div>
 
-            <div class="setting-group">
-                <label for="show-book-page-numbers">
-                    <input type="checkbox" id="show-book-page-numbers" checked>
-                    Show Full Book Page Numbers
-                    <small style="display: block; opacity: 0.7; font-weight: normal; margin-top: 0.25rem;">
-                        When unchecked, shows chapter-only page numbers
-                    </small>
-                </label>
+                <div class="setting-group" style="margin: 0;">
+                    <label for="show-book-page-numbers">
+                        <input type="checkbox" id="show-book-page-numbers" checked>
+                        Show Full Book Page Numbers
+                    </label>
+                </div>
+                
+                <button id="calibrate-pages" class="btn btn-secondary" style="white-space: nowrap; padding: 0.5rem 1rem; margin-left: auto;">
+                    Auto-Calibrate
+                </button>
+            </div>
+            
+            <div class="setting-group" style="margin-top: 0.5rem;">
+                <small style="display: block; opacity: 0.7; font-weight: normal;">
+                    Note: "Show Full Book Page Numbers" - when unchecked, shows chapter-only page numbers
+                </small>
             </div>
         </div>
     </div>
