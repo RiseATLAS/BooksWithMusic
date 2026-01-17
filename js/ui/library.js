@@ -47,7 +47,7 @@ export class BookLibrary {
                     
                     // Show friendly message if signed out but have cached books
                     if (!auth.currentUser && cachedBooks.length > 0) {
-                        this.showToast('📚 We stored your books so you can continue reading while offline, enjoy!', 'info', 5000);
+                        this.showToast('📚 We stored your books so you can continue reading while not logged in, enjoy!', 'info', 5000);
                     }
                 }
             }
@@ -312,22 +312,53 @@ export class BookLibrary {
         try {
             console.log('Deleting book:', bookId);
             
-            // Delete from Firestore
-            await deleteBook(bookId);
-            console.log('Book deleted from Firestore');
+            // Delete from Firestore if signed in
+            if (auth.currentUser) {
+                await deleteBook(bookId);
+                console.log('Book deleted from Firestore');
+            }
             
             // Also delete from local cache
             if (this.cacheInitialized) {
                 await this.localDb.deleteBook(bookId);
-                console.log('Book deleted from local cache');
+                console.log('Book deleted from cache');
             }
             
-            // Reload books and update UI
+            // Reload the library
             await this.loadBooks();
             this.displayBooks();
+            
+            this.showToast('Book deleted successfully', 'success');
         } catch (error) {
-            console.error('Delete failed:', error);
-            alert('Failed to delete: ' + error.message);
+            console.error('Delete error:', error);
+            this.showToast('Failed to delete book: ' + error.message, 'error');
         }
+    }
+
+    showToast(message, type = 'info', duration = 3000) {
+        const container = document.getElementById('toast-container') || this.createToastContainer();
+        
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.textContent = message;
+        
+        container.appendChild(toast);
+        
+        // Trigger animation
+        setTimeout(() => toast.classList.add('show'), 10);
+        
+        // Remove after duration
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 300);
+        }, duration);
+    }
+
+    createToastContainer() {
+        const container = document.createElement('div');
+        container.id = 'toast-container';
+        container.className = 'toast-container';
+        document.body.appendChild(container);
+        return container;
     }
 }
