@@ -464,7 +464,7 @@ body {
   display: flex;
   justify-content: center;
   align-items: flex-start; /* Align to top */
-  perspective: 2000px; /* 3D perspective for page flips */
+  /* Perspective handled by .page-viewport */
 }
 
 /* Page indicator overlay (bottom-left) */
@@ -500,6 +500,9 @@ body {
   padding: var(--page-gap, 120px) 0; /* Top and bottom padding for gaps */
   box-sizing: content-box; /* Padding adds to height, not included */
   transform-style: preserve-3d;
+  /* Shallower perspective = less distortion/scaling effect */
+  perspective: calc(var(--page-width, 800px) * 4);
+  perspective-origin: center center;
 }
 
 /* Show minimal scrollbar for long pages */
@@ -520,30 +523,38 @@ body {
   background: rgba(0, 0, 0, 0.3);
 }
 
-/* Page flip animations - Book-style right to left flip with rotation */
+/* Page flip animations - Simple perpendicular to flat flip */
 @keyframes pageFlipNext {
   0% {
     transform: rotateY(-90deg);
-    transform-origin: right center;
+    transform-origin: left center;
     opacity: 1;
+    z-index: 20;
+    box-shadow: -20px 0 40px rgba(0, 0, 0, 0.4);
   }
   100% {
     transform: rotateY(0deg);
-    transform-origin: right center;
+    transform-origin: left center;
     opacity: 1;
+    z-index: 20;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.15);
   }
 }
 
 @keyframes pageFlipPrev {
   0% {
     transform: rotateY(90deg);
-    transform-origin: left center;
+    transform-origin: right center;
     opacity: 1;
+    z-index: 20;
+    box-shadow: 20px 0 40px rgba(0, 0, 0, 0.4);
   }
   100% {
     transform: rotateY(0deg);
-    transform-origin: left center;
+    transform-origin: right center;
     opacity: 1;
+    z-index: 20;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.15);
   }
 }
 
@@ -625,21 +636,29 @@ body {
 .chapter-text.flipping-next,
 .chapter-text.flipping-prev {
   position: absolute;
-  top: 0;
+  top: var(--page-gap, 120px);
   left: 0;
   right: 0;
-  z-index: 10;
+  bottom: var(--page-gap, 120px);
   margin: 0;
+  padding: 60px 80px;
+  background: var(--page-paper-bg, var(--reader-bg));
+  color: var(--page-paper-text, var(--reader-text));
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.15);
   transform-style: preserve-3d;
-  backface-visibility: hidden;
+  backface-visibility: visible;
+  border-radius: 2px;
+  overflow: hidden;
 }
 
 .chapter-text.flipping-next {
-  animation: pageFlipNext 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  animation: pageFlipNext 0.7s cubic-bezier(0.4, 0.0, 0.2, 1);
+  transform-origin: left center;
 }
 
 .chapter-text.flipping-prev {
-  animation: pageFlipPrev 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  animation: pageFlipPrev 0.7s cubic-bezier(0.4, 0.0, 0.2, 1);
+  transform-origin: right center;
 }
 
 .chapter-text.sliding-next {

@@ -1112,8 +1112,10 @@ export class ReaderUI {
       return;
     }
     
-    // Create a new page element for animation
-    const pageContainer = chapterText.parentElement;
+    // Get container
+    const pageViewport = chapterText.parentElement;
+    
+    // Create new page element that will flip in
     const newPageDiv = document.createElement('div');
     newPageDiv.className = 'chapter-text';
     
@@ -1122,12 +1124,12 @@ export class ReaderUI {
     const pageContent = pages[pageIndex] || pages[0];
     newPageDiv.innerHTML = pageContent;
     
-    // Add animation class based on direction (NEW page slides in)
+    // Add animation class - new page flips in over old page
     const animClass = direction === 'next' ? 'flipping-next' : 'flipping-prev';
     newPageDiv.classList.add(animClass);
     
     // Add new page on top of old page
-    pageContainer.appendChild(newPageDiv);
+    pageViewport.appendChild(newPageDiv);
     
     // Update page number immediately
     this.currentPageInChapter = targetPage;
@@ -1145,8 +1147,8 @@ export class ReaderUI {
       this.saveProgress().catch(() => {});
     }, 400);
     
-    // Wait for animation to complete (600ms)
-    await new Promise(resolve => setTimeout(resolve, 600));
+    // Wait for animation to complete (700ms)
+    await new Promise(resolve => setTimeout(resolve, 700));
     
     // Remove animation class and old page
     newPageDiv.classList.remove(animClass);
