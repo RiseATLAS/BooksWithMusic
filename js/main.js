@@ -86,16 +86,17 @@ class BooksWithMusicApp {
         try {
           const cloudSettings = await getUserSettings(user.uid);
           if (cloudSettings) {
-            // Merge cloud settings with local settings
+            // Merge cloud settings with local settings (use correct key)
             const localSettings = JSON.parse(
-              localStorage.getItem("settings") || "{}",
+              localStorage.getItem("booksWithMusic-settings") || "{}",
             );
             const mergedSettings = { ...localSettings, ...cloudSettings };
-            localStorage.setItem("settings", JSON.stringify(mergedSettings));
+            localStorage.setItem("booksWithMusic-settings", JSON.stringify(mergedSettings));
 
             // Apply settings if settings UI is initialized
             if (this.settings && this.settings.applySettings) {
-              this.settings.applySettings(mergedSettings);
+              this.settings.loadSettings(); // Reload settings from storage
+              this.settings.applySettings();
             }
 
             console.log("✓ User settings loaded from Firestore");
@@ -104,9 +105,10 @@ class BooksWithMusicApp {
           console.error("Error loading user settings:", error);
         }
 
-        // Refresh library if on home page
+        // Refresh library if on home page (only sync, don't fully reinitialize)
         if (this.library && !window.location.pathname.includes("reader.html")) {
-          await this.library.init();
+          await this.library.loadBooks();
+          this.library.displayBooks();
         }
       } else {
         console.log("User signed out");
@@ -150,7 +152,7 @@ class BooksWithMusicApp {
             // Save current settings to Firestore before signing out
             if (this.currentUser) {
               const settings = JSON.parse(
-                localStorage.getItem("settings") || "{}",
+                localStorage.getItem("booksWithMusic-settings") || "{}",
               );
               await saveUserSettings(this.currentUser.uid, settings);
             }
@@ -160,7 +162,8 @@ class BooksWithMusicApp {
 
             // Refresh library to show only local books
             if (this.library) {
-              await this.library.init();
+              await this.library.loadBooks();
+              this.library.displayBooks();
             }
           } catch (error) {
             console.error("Sign-out error:", error);

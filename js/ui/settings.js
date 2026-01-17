@@ -1,3 +1,6 @@
+import { auth } from '../config/firebase-config.js';
+import { saveUserSettings } from '../storage/firestore-storage.js';
+
 export class SettingsUI {
   constructor() {
     // Detect system dark mode preference
@@ -24,6 +27,7 @@ export class SettingsUI {
     };
 
     this._layoutChangeTimer = null;
+    this._saveDebounceTimer = null;
   }
 
   initialize() {
@@ -338,6 +342,18 @@ export class SettingsUI {
       autoPlay: this.settings.autoPlay || false
     };
     localStorage.setItem('booksWithMusic-settings', JSON.stringify(settingsToSave));
+    
+    // Sync to Firestore if user is signed in (debounced to avoid excessive writes)
+    if (auth.currentUser) {
+      clearTimeout(this._saveDebounceTimer);
+      this._saveDebounceTimer = setTimeout(async () => {
+        try {
+          await saveUserSettings(auth.currentUser.uid, settingsToSave);
+        } catch (error) {
+          console.error('Failed to sync settings to Firestore:', error);
+        }
+      }, 1000); // Debounce: save after 1 second of no changes
+    }
   }
 
   applySettings() {

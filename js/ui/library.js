@@ -15,6 +15,7 @@ export class BookLibrary {
         this.parser = new EPUBParser();
         this.localDb = new DatabaseManager();
         this.cacheInitialized = false;
+        this.eventListenersSetup = false;
     }
 
     async init() {
@@ -24,7 +25,13 @@ export class BookLibrary {
         this.cacheInitialized = true;
         
         await this.loadBooks();
-        this.setupEventListeners();
+        
+        // Only setup event listeners once
+        if (!this.eventListenersSetup) {
+            this.setupEventListeners();
+            this.eventListenersSetup = true;
+        }
+        
         this.displayBooks();
     }
 
