@@ -748,17 +748,25 @@ export class MusicPanelUI {
       // Reinitialize music manager with new filter
       console.log('Reinitializing music manager with new energy filter...');
       await this.musicManager.initialize(reader.currentBook.id, reader.chapters);
+      console.log('Music manager initialization complete');
       
       // Reload playlist for current chapter
       const chapterIndex = reader.currentChapterIndex || 0;
-      const mapping = this.musicManager.chapterMappings[reader.chapters[chapterIndex]?.id || reader.chapters[chapterIndex]?.title];
+      const chapterKey = reader.chapters[chapterIndex]?.id || reader.chapters[chapterIndex]?.title;
+      console.log('Looking for mapping for chapter:', chapterIndex, 'key:', chapterKey);
+      console.log('Available mappings:', Object.keys(this.musicManager.chapterMappings));
       
+      const mapping = this.musicManager.chapterMappings[chapterKey];
+      
+      console.log('Mapping found:', !!mapping);
       console.log('Mapping tracks:', mapping?.tracks?.length || 0);
       
       if (mapping && mapping.tracks && mapping.tracks.length > 0) {
+        console.log('Loading playlist with', mapping.tracks.length, 'recommended tracks');
         await this.loadPlaylistForChapter(chapterIndex, mapping.tracks);
         // Force UI update
         this.renderPlaylist();
+        console.log('Playlist UI updated with', this.playlist.length, 'tracks');
         this.showToast('✓ Music tracks reloaded!', 'success');
       } else {
         console.log('No tracks match filter, clearing playlist');
