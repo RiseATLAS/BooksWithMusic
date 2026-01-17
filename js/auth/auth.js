@@ -1,7 +1,7 @@
 // Firebase Authentication Module
 // Handles user authentication with Google Sign-In
 
-import { auth, isFirebaseConfigured } from '../config/firebase-config.js';
+import { auth } from '../config/firebase-config.js';
 import { 
   GoogleAuthProvider, 
   signInWithPopup, 
@@ -14,11 +14,6 @@ import {
  * Sets up authentication listeners and handlers
  */
 export function initAuth() {
-  if (!isFirebaseConfigured()) {
-    console.log('Firebase not configured - authentication disabled');
-    return;
-  }
-  
   console.log('✓ Firebase Auth initialized');
 }
 
@@ -28,10 +23,6 @@ export function initAuth() {
  * @throws {Error} If sign-in fails
  */
 export async function signInWithGoogle() {
-  if (!isFirebaseConfigured()) {
-    throw new Error('Firebase not configured. Please add your Firebase configuration.');
-  }
-
   try {
     const provider = new GoogleAuthProvider();
     // Request additional scopes if needed
@@ -71,7 +62,7 @@ export async function signInWithGoogle() {
  * @throws {Error} If sign-out fails
  */
 export async function signOut() {
-  if (!isFirebaseConfigured() || !auth.currentUser) {
+  if (!auth.currentUser) {
     return;
   }
 
@@ -90,12 +81,6 @@ export async function signOut() {
  * @returns {Function} Unsubscribe function
  */
 export function onAuthStateChanged(callback) {
-  if (!isFirebaseConfigured()) {
-    // Call callback with null immediately if Firebase not configured
-    callback(null);
-    return () => {}; // Return no-op unsubscribe function
-  }
-
   return firebaseOnAuthStateChanged(auth, (user) => {
     if (user) {
       callback({
@@ -115,7 +100,7 @@ export function onAuthStateChanged(callback) {
  * @returns {Object|null} User object or null if not signed in
  */
 export function getCurrentUser() {
-  if (!isFirebaseConfigured() || !auth.currentUser) {
+  if (!auth.currentUser) {
     return null;
   }
 
@@ -133,5 +118,5 @@ export function getCurrentUser() {
  * @returns {boolean}
  */
 export function isAuthenticated() {
-  return isFirebaseConfigured() && auth.currentUser !== null;
+  return auth.currentUser !== null;
 }
