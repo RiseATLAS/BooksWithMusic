@@ -51,6 +51,53 @@ export class ReaderUI {
     }
   }
 
+  /**
+   * Calculate character offset within current chapter based on current page
+   * This allows robust page restoration when pagination changes (e.g., due to font size changes)
+   */
+  calculateCharOffset() {
+    const pages = this.chapterPages[this.currentChapterIndex];
+    if (!pages) return 0;
+    
+    // Sum up characters from all previous pages
+    let offset = 0;
+    for (let i = 0; i < this.currentPageInChapter - 1; i++) {
+      if (pages[i]) {
+        // Strip HTML and count characters
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = pages[i];
+        offset += (tempDiv.textContent || '').length;
+      }
+    }
+    
+    return offset;
+  }
+
+  /**
+   * Find which page contains the given character offset after re-pagination
+   */
+  findPageByCharOffset(chapterIndex, targetOffset) {
+    const pages = this.chapterPages[chapterIndex];
+    if (!pages || pages.length === 0) return 1;
+    
+    let currentOffset = 0;
+    for (let pageIndex = 0; pageIndex < pages.length; pageIndex++) {
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = pages[pageIndex];
+      const pageChars = (tempDiv.textContent || '').length;
+      
+      if (currentOffset + pageChars >= targetOffset) {
+        // This page contains the target offset
+        return pageIndex + 1; // Pages are 1-indexed
+      }
+      
+      currentOffset += pageChars;
+    }
+    
+    // If offset is beyond last page, return last page
+    return pages.length;
+  }
+
   async openBook(bookId) {
     try {
       console.log('📖 Opening book with ID:', bookId);
@@ -1139,7 +1186,7 @@ export class ReaderUI {
   async goToPreviousChapter() {
     try {
       if (this.currentChapterIndex <= 0) return;
-      if (this._isFlipping) return;
+      if this._isFlipping) return;
       
       const prevChapterIndex = this.currentChapterIndex - 1;
       // Jump to the end of the previous chapter; page is clamped after pagination.
