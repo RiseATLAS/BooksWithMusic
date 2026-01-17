@@ -515,6 +515,18 @@ export class MusicPanelUI {
         shiftInfo = 'Chapter start';
       }
       
+      // Build categorization info
+      const energy = track.energy ? `Energy: ${track.energy}/5` : '';
+      const tempo = track.tempo ? `Tempo: ${track.tempo}` : '';
+      const tags = track.tags && track.tags.length > 0 
+        ? `Tags: ${track.tags.slice(0, 5).join(', ')}${track.tags.length > 5 ? '...' : ''}` 
+        : '';
+      
+      const categories = [energy, tempo, tags].filter(c => c).join(' • ');
+      
+      // License info
+      const license = track.license ? track.license.type : '';
+      
       return `
         <div class="playlist-item ${index === this.currentTrackIndex ? 'active' : ''} ${isShiftTrack ? 'shift-point' : ''}" 
              data-track-index="${index}"
@@ -527,6 +539,16 @@ export class MusicPanelUI {
               <div class="track-artist" style="font-size: 0.7rem; opacity: 0.65; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 0.1rem;">
                 ${this.escapeHtml(track.artist || 'Unknown')}
               </div>
+              ${categories ? `
+                <div class="track-categories" style="font-size: 0.65rem; opacity: 0.5; margin-top: 0.25rem; line-height: 1.3;">
+                  ${this.escapeHtml(categories)}
+                </div>
+              ` : ''}
+              ${license ? `
+                <div class="track-license" style="font-size: 0.6rem; opacity: 0.4; margin-top: 0.15rem;">
+                  ${this.escapeHtml(license)}
+                </div>
+              ` : ''}
             </div>
             <div class="track-duration" style="font-size: 0.7rem; opacity: 0.6; white-space: nowrap; flex-shrink: 0;">
               ${this.formatDuration(track.duration)}
