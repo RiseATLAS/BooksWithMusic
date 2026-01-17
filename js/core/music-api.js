@@ -57,7 +57,7 @@ export class MusicAPI {
       this.cache.set(cacheKey, tracks);
       return tracks;
     } catch (error) {
-      console.error('❌ Error fetching music:', error);
+      console.error(' Error fetching music:', error);
       return await this.getFallbackTracks(tags, limit);
     }
   }
@@ -80,7 +80,7 @@ export class MusicAPI {
     // Check if we're rate limited
     const now = Date.now();
     if (now < this.rateLimitedUntil) {
-      console.warn('⚠️ Rate limited, skipping query for:', queryTerms);
+      console.warn(' Rate limited, skipping query for:', queryTerms);
       return [];
     }
 
@@ -121,17 +121,29 @@ export class MusicAPI {
       const response = await fetch(url);
       
       if (response.status === 429) {
-        console.warn('⚠️ Freesound API rate limit reached. Using cached/fallback tracks.');
+        console.warn(' Freesound API rate limit reached. Using cached/fallback tracks.');
         this.rateLimitedUntil = Date.now() + 60000;
         return [];
       }
       
       if (!response.ok) {
-        console.error('❌ Freesound API error:', response.status, response.statusText);
+        console.error(' Freesound API error:', response.status, response.statusText);
+        console.error('Query was:', queryTerms.join(', '));
+        console.error('Response:', await response.text().catch(() => 'Could not read response'));
         return [];
       }
 
       const data = await response.json();
+      
+      if (!data || !data.results) {
+        console.error(' Invalid response from Freesound API:', data);
+        return [];
+      }
+      
+      if (data.results.length === 0) {
+        console.warn(` Freesound returned 0 results for query: [${queryTerms.join(', ')}]`);
+        return [];
+      }
       
       // 🔍 LOG RAW RESPONSE
 
@@ -160,7 +172,7 @@ export class MusicAPI {
       
       return filteredTracks;
     } catch (error) {
-      console.error('❌ Freesound multi-term search failed:', error);
+      console.error(' Freesound multi-term search failed:', error);
       return [];
     }
   }
@@ -223,13 +235,13 @@ export class MusicAPI {
       
       if (response.status === 429) {
         // Rate limited - wait 60 seconds before trying again
-        console.warn('⚠️ Freesound API rate limit reached. Using cached/fallback tracks.');
+        console.warn(' Freesound API rate limit reached. Using cached/fallback tracks.');
         this.rateLimitedUntil = Date.now() + 60000;
         return [];
       }
       
       if (!response.ok) {
-        console.error('❌ Freesound API error:', response.status, response.statusText);
+        console.error(' Freesound API error:', response.status, response.statusText);
         return [];
       }
 
@@ -261,12 +273,12 @@ export class MusicAPI {
         : tracks;
       
       if (filteredTracks.length < tracks.length) {
-        console.log(`🎚️ Filtered ${tracks.length - filteredTracks.length} tracks above energy level ${maxEnergyLevel}`);
+        console.log(` Filtered ${tracks.length - filteredTracks.length} tracks above energy level ${maxEnergyLevel}`);
       }
       
       return filteredTracks;
     } catch (error) {
-      console.error('❌ Freesound search failed:', error);
+      console.error(' Freesound search failed:', error);
       return [];
     }
   }

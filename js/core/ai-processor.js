@@ -96,7 +96,7 @@ export class AIProcessor {
    * Analyze entire book and generate mood profiles for all chapters
    */
   async analyzeBook(book) {
-    console.log(`🤖 AI analyzing "${book.title}" (${book.chapters.length} chapters)...`);
+    console.log(`AI analyzing "${book.title}" (${book.chapters.length} chapters)...`);
     
     const chapterAnalyses = book.chapters.map((chapter, index) => {
       return this.analyzeChapter(chapter, book);
@@ -104,7 +104,7 @@ export class AIProcessor {
 
     const bookProfile = this._generateBookProfile(book, chapterAnalyses);
     
-    console.log(`✓ Mood: ${bookProfile.dominantMood} | Energy: ${bookProfile.averageEnergy}/5`);
+    console.log(` Mood: ${bookProfile.dominantMood} | Energy: ${bookProfile.averageEnergy}/5`);
     
     return {
       bookProfile,
@@ -187,7 +187,7 @@ export class AIProcessor {
         recommendedGenres: musicProps.genres || this._getGenresForMood(primaryMood)
       };
     } catch (error) {
-      console.error(`❌ Error analyzing chapter "${chapter.title}":`, error);
+      console.error(` Error analyzing chapter "${chapter.title}":`, error);
       console.error('Stack trace:', error.stack);
       // Return default peaceful mood on error
       return {
@@ -474,7 +474,7 @@ export class AIProcessor {
     const words = chapterContent.split(/\s+/);
     const wordsPerPage = Math.ceil(words.length / totalPages);
     
-    console.log(`📖 Analyzing ${totalPages} pages for mood shifts (${words.length} words, ~${wordsPerPage} words/page)`);
+    console.log(`Analyzing ${totalPages} pages for mood shifts (${words.length} words, ~${wordsPerPage} words/page)`);
     
     const sections = [];
     const potentialShifts = []; // Collect all potential shifts first
@@ -502,7 +502,7 @@ export class AIProcessor {
       }
 
       if (page % 10 === 0) {
-        console.log(`📄 Page ${page}: Mood check (current: ${currentSectionMood}, page: ${analysis.pageMood}, shift score: ${analysis.shiftScore})`);
+        console.log(`Page ${page}: Mood check (current: ${currentSectionMood}, page: ${analysis.pageMood}, shift score: ${analysis.shiftScore})`);
       }
     }
 
@@ -527,7 +527,7 @@ export class AIProcessor {
         
         if (!tooClose) {
           selectedShifts.push(shift);
-          console.log(`🎵 Page ${shift.page}: Selected shift (${shift.fromMood} → ${shift.toMood}, score: ${shift.shiftScore})`);
+          console.log(` Page ${shift.page}: Selected shift (${shift.fromMood} → ${shift.toMood}, score: ${shift.shiftScore})`);
         }
       }
       
@@ -550,7 +550,7 @@ export class AIProcessor {
       });
     }
     
-    console.log(`✓ Analysis complete: ${selectedShifts.length} shifts distributed across ${totalPages} pages`);
+    console.log(` Analysis complete: ${selectedShifts.length} shifts distributed across ${totalPages} pages`);
     if (selectedShifts.length > 0) {
       console.log(`   Shifts at pages: ${selectedShifts.map(sp => sp.page).join(', ')}`);
     }

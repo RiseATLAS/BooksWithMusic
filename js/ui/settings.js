@@ -10,8 +10,17 @@ export class SettingsUI {
     
     this.settings = {
       theme: prefersDark ? 'dark' : 'light',
-      fontSize: 16,
-      lineHeight: 1.6,
+      fontSize    // Show feedback
+    console.log('Page Calibration:');
+    console.log(`  Viewport: ${viewportActualWidth}px × ${viewportHeight}px`);
+    console.log(`  Optimal page width: ${calibratedPageWidth}px (${Math.round(calibratedPageWidth/viewportActualWidth*100)}% of viewport)`);
+    console.log(`  Text area: ${textWidth}px × ${textHeight}px`);
+    console.log(`  Font: ${fontSize}px, Line height: ${lineHeight.toFixed(2)}px`);
+    console.log(`  Lines per page: ${linesPerPage}`);
+    console.log(`  Chars per line: ${avgCharsPerLine}`);
+    console.log(`  Calibrated density: ${calibratedDensity} chars/page`);
+    
+    this.showToast(`Calibrated: ${calibratedPageWidth}px width, ${calibratedDensity} chars/page (~${Math.round(calibratedDensity / 6)} words)`, 'success'); lineHeight: 1.6,
       fontFamily: 'serif',
       textAlign: 'left',
       pageWidth: 650,
@@ -375,7 +384,7 @@ export class SettingsUI {
     const containerHeight = pageContainer.clientHeight;
     const containerWidth = pageContainer.clientWidth;
     
-    console.log('📏 Calibration dimensions:', {
+    console.log('Calibration dimensions:', {
       containerWidth,
       containerHeight,
       fontSize,
@@ -424,7 +433,7 @@ export class SettingsUI {
     // Calculate total chars per page with conservative estimate (reduce by 15% for better UX)
     const calculatedChars = Math.floor((linesPerPage * avgCharsPerLine) * 0.85);
     
-    console.log('📐 Calibration results:', {
+    console.log('� Calibration results:', {
       linesPerPage,
       avgCharsPerLine,
       calculatedChars,
@@ -466,7 +475,7 @@ export class SettingsUI {
     }));
     
     // Show feedback
-    console.log('📐 Page Calibration:');
+    console.log('� Page Calibration:');
     console.log(`  Viewport: ${viewportActualWidth}px × ${viewportHeight}px`);
     console.log(`  ✓ Optimal page width: ${calibratedPageWidth}px (${Math.round(calibratedPageWidth/viewportActualWidth*100)}% of viewport)`);
     console.log(`  Text area: ${textWidth}px × ${textHeight}px`);

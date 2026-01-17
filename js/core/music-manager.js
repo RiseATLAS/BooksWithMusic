@@ -23,7 +23,7 @@ export class MusicManager {
       const musicEnabled = settings.musicEnabled !== false; // Default true for backward compatibility
       
       if (!musicEnabled) {
-        console.log('🔇 Music disabled by user - skipping initialization');
+        console.log(' Music disabled by user - skipping initialization');
         this.availableTracks = [];
         this.chapterMappings = {};
         return;
@@ -32,12 +32,12 @@ export class MusicManager {
       this.currentBookId = bookId;
       this.chapters = chapters;
       
-      console.log('🎵 Loading music tracks...');
+      console.log(' Loading music tracks...');
       
       // Load available tracks from API
       await this.loadTracksFromAPI();
       
-      console.log(`✓ Loaded ${this.availableTracks.length} tracks`);
+      console.log(` Loaded ${this.availableTracks.length} tracks`);
       
       // Check and report caching status
       await this.verifyCaching();
@@ -58,7 +58,7 @@ export class MusicManager {
       });
       
     } catch (error) {
-      console.error('❌ Error initializing music manager:', error);
+      console.error(' Error initializing music manager:', error);
       console.error('Stack trace:', error.stack);
       // Continue with empty track list - app should still work without music
       this.availableTracks = [];
@@ -116,7 +116,7 @@ export class MusicManager {
       track.cached = true;
       await this.db.addTrack(track);
     } catch (error) {
-      console.error(`❌ Failed to cache track ${track.title}:`, error);
+      console.error(` Failed to cache track ${track.title}:`, error);
       track.cached = false;
     }
   }
@@ -171,7 +171,7 @@ export class MusicManager {
     const mapping = this.chapterMappings[chapter.id || chapter.title];
     if (!mapping || !mapping.tracks) return;
     
-    console.log(`📥 Pre-caching ${mapping.tracks.length} tracks for chapter ${chapterIndex + 1}...`);
+    console.log(` Pre-caching ${mapping.tracks.length} tracks for chapter ${chapterIndex + 1}...`);
     let cached = 0;
     
     for (const trackMapping of mapping.tracks) {
@@ -198,8 +198,10 @@ export class MusicManager {
       const cachedTracks = await this._loadFromCache();
       if (cachedTracks && cachedTracks.length > 0) {
         this.availableTracks = cachedTracks;
-        console.log(`✓ Loaded ${this.availableTracks.length} tracks from cache`);
+        console.log(` Loaded ${this.availableTracks.length} tracks from cache`);
         return cachedTracks;
+      } else {
+        console.log('�️ No cached tracks found, fetching from API...');
       }
 
       // Check if Freesound API key is configured
@@ -207,10 +209,12 @@ export class MusicManager {
       
       // No API key - use demo tracks
       if (!freesoundKey) {
-        console.log('⚠️ No API key - using demo tracks');
+        console.log(' No API key - using demo tracks');
         this.availableTracks = this.getDemoTracks();
-        console.log(`✓ Loaded ${this.availableTracks.length} demo tracks`);
+        console.log(` Loaded ${this.availableTracks.length} demo tracks`);
         return this.availableTracks;
+      } else {
+        console.log(' API key found, querying Freesound...');
       }
       
       // Expanded query categories: moods, genres, styles, and reading contexts
@@ -256,11 +260,11 @@ export class MusicManager {
       ];
       
       // Load all music in parallel
-      console.log(`🔎 Querying ${queryCategories.length} music categories from Freesound...`);
+      console.log(` Querying ${queryCategories.length} music categories from Freesound...`);
       const trackPromises = queryCategories.map(queryTerms => 
         this.musicAPI.searchByQuery(queryTerms, 15)
           .catch(error => {
-            console.error(`❌ Failed to load tracks for [${queryTerms.join(', ')}]:`, error);
+            console.error(` Failed to load tracks for [${queryTerms.join(', ')}]:`, error);
             return [];
           })
       );
@@ -270,13 +274,20 @@ export class MusicManager {
       results.forEach((result, index) => {
         if (result.status === 'fulfilled' && result.value.length > 0) {
           this.availableTracks.push(...result.value);
+        } else if (result.status === 'rejected') {
+          console.error(` Query ${index + 1} rejected:`, result.reason);
+        } else if (result.status === 'fulfilled' && result.value.length === 0) {
+          console.warn(` Query ${index + 1} [${queryCategories[index].join(', ')}] returned 0 tracks`);
         }
       });
       
-      console.log(`📦 Retrieved ${this.availableTracks.length} total tracks from API`);
+      console.log(`Retrieved ${this.availableTracks.length} total tracks from API`);
       
       if (this.availableTracks.length === 0) {
-        console.warn('⚠️ No tracks loaded from API - check your API key and network connection');
+        console.error(' No tracks loaded from API - check your API key and network connection');
+        console.log('�️ Falling back to demo tracks...');
+        this.availableTracks = this.getDemoTracks();
+        console.log(` Loaded ${this.availableTracks.length} demo tracks as fallback`);
       } else {
         // Remove duplicates
         const seen = new Set();
@@ -291,15 +302,24 @@ export class MusicManager {
         const maxEnergyLevel = settings.maxEnergyLevel || 5;
         
         if (maxEnergyLevel < 5) {
+          const beforeFilter = this.availableTracks.length;
           this.availableTracks = this.availableTracks.filter(track => track.energy <= maxEnergyLevel);
+          console.log(` Energy filter applied: ${beforeFilter} → ${this.availableTracks.length} tracks (max energy: ${maxEnergyLevel})`);
         }
         
         // Cache tracks for future use
         await this._saveToCache(this.availableTracks);
+        console.log(` Final track count: ${this.availableTracks.length}`);
       }
+      
+      return this.availableTracks;
     } catch (error) {
-      console.error('Error loading tracks:', error);
-      this.availableTracks = [];
+      console.error(' Error loading tracks:', error);
+      console.error('Stack trace:', error.stack);
+      console.log('�️ Attempting to use demo tracks as fallback...');
+      this.availableTracks = this.getDemoTracks();
+      console.log(` Loaded ${this.availableTracks.length} demo tracks after error`);
+      return this.availableTracks;
     }
   }
 
@@ -326,7 +346,7 @@ export class MusicManager {
         timestamp: Date.now()
       };
       localStorage.setItem('music_tracks_cache', JSON.stringify(cacheData));
-      console.log('✓ Tracks cached to localStorage');
+      console.log(' Tracks cached to localStorage');
     } catch (error) {
       console.warn('Error saving tracks to cache:', error);
     }

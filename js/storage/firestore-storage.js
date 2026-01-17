@@ -23,20 +23,20 @@ import {
  */
 export async function saveUserSettings(userId, settings) {
   if (!userId) {
-    console.error('❌ saveUserSettings: No user ID provided');
+    console.error(' saveUserSettings: No user ID provided');
     throw new Error('User ID required to save settings');
   }
   if (!settings) {
-    console.error('❌ saveUserSettings: No settings provided');
+    console.error(' saveUserSettings: No settings provided');
     throw new Error('Settings required');
   }
   
   try {
     const settingsRef = doc(db, 'users', userId, 'settings', 'preferences');
     await setDoc(settingsRef, settings, { merge: true });
-    console.log('✓ Settings saved to Firestore');
+    console.log(' Settings saved to Firestore');
   } catch (error) {
-    console.error('❌ Failed to save settings to Firestore:', error);
+    console.error(' Failed to save settings to Firestore:', error);
     throw error;
   }
 }
@@ -52,10 +52,10 @@ export async function getUserSettings(userId) {
     const docSnap = await getDoc(userSettingsRef);
     
     if (docSnap.exists()) {
-      console.log('✓ User settings loaded from Firestore');
+      console.log('User settings loaded from Firestore');
       return docSnap.data();
     } else {
-      console.log('No settings found in Firestore');
+      console.log('No settings found in Firestore, will use defaults');
       return null;
     }
   } catch (error) {
@@ -80,7 +80,7 @@ export async function saveBookProgress(userId, bookId, progress) {
       lastRead: serverTimestamp()
     }, { merge: true });
     
-    console.log(`✓ Progress saved for book ${bookId}`);
+    console.log(` Progress saved for book ${bookId}`);
   } catch (error) {
     console.error('Error saving book progress:', error);
     throw new Error(`Failed to save progress: ${error.message}`);
@@ -125,7 +125,7 @@ export async function saveBookMetadata(userId, bookId, metadata) {
       lastRead: serverTimestamp()
     }, { merge: true });
     
-    console.log(`✓ Metadata saved for book ${bookId}`);
+    console.log(` Metadata saved for book ${bookId}`);
   } catch (error) {
     console.error('Error saving book metadata:', error);
     throw new Error(`Failed to save metadata: ${error.message}`);
@@ -199,7 +199,7 @@ export async function getUserBooks(userId) {
       });
     });
     
-    console.log(`✓ Loaded ${books.length} books from Firestore`);
+    console.log(` Loaded ${books.length} books from Firestore`);
     return books;
   } catch (error) {
     console.error('Error getting user books:', error);
@@ -218,7 +218,7 @@ export async function deleteBookMetadata(userId, bookId) {
     const bookRef = doc(db, 'users', userId, 'books', bookId);
     await deleteDoc(bookRef);
     
-    console.log(`✓ Metadata deleted for book ${bookId}`);
+    console.log(` Metadata deleted for book ${bookId}`);
   } catch (error) {
     console.error('Error deleting book metadata:', error);
     throw new Error(`Failed to delete metadata: ${error.message}`);
@@ -247,7 +247,7 @@ export async function updateBook(bookId, updates) {
   if (!userId) throw new Error('User not authenticated');
   const bookRef = doc(db, 'users', userId, 'books', bookId);
   await setDoc(bookRef, updates, { merge: true });
-  console.log(`✓ Book ${bookId} updated`);
+  console.log(` Book ${bookId} updated`);
 }
 
 /**

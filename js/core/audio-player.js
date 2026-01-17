@@ -29,7 +29,7 @@ export class AudioPlayer {
    */
   initializeMediaSession() {
     if ('mediaSession' in navigator) {
-      console.log('🎮 Media Session API available - hardware controls enabled');
+      console.log(' Media Session API available - hardware controls enabled');
       
       // Action handlers will be set when tracks are played
       // They need to be connected to the music panel's controls
@@ -40,7 +40,7 @@ export class AudioPlayer {
         nexttrack: null
       };
     } else {
-      console.log('⚠️ Media Session API not available in this browser');
+      console.log(' Media Session API not available in this browser');
     }
   }
 
@@ -57,7 +57,7 @@ export class AudioPlayer {
           { src: '/BooksWithMusic/favicon.svg', sizes: '512x512', type: 'image/svg+xml' }
         ]
       });
-      console.log('🎵 Media Session updated:', track.title);
+      console.log(' Media Session updated:', track.title);
     }
   }
 
@@ -70,33 +70,33 @@ export class AudioPlayer {
       
       if (play) {
         navigator.mediaSession.setActionHandler('play', () => {
-          console.log('▶️ Hardware play button pressed');
+          console.log(' Hardware play button pressed');
           play();
         });
       }
       
       if (pause) {
         navigator.mediaSession.setActionHandler('pause', () => {
-          console.log('⏸️ Hardware pause button pressed');
+          console.log(' Hardware pause button pressed');
           pause();
         });
       }
       
       if (nextTrack) {
         navigator.mediaSession.setActionHandler('nexttrack', () => {
-          console.log('⏭️ Hardware next button pressed');
+          console.log(' Hardware next button pressed');
           nextTrack();
         });
       }
       
       if (prevTrack) {
         navigator.mediaSession.setActionHandler('previoustrack', () => {
-          console.log('⏮️ Hardware previous button pressed');
+          console.log(' Hardware previous button pressed');
           prevTrack();
         });
       }
       
-      console.log('✓ Media Session handlers configured');
+      console.log(' Media Session handlers configured');
     }
   }
 
@@ -206,7 +206,7 @@ export class AudioPlayer {
 
       return await this.audioContext.decodeAudioData(audioData);
     } catch (error) {
-      console.error('❌ Error loading audio track:', track.title || track.id);
+      console.error(' Error loading audio track:', track.title || track.id);
       console.error('Track URL:', track.url);
       console.error('Error details:', error);
       console.error('Stack trace:', error.stack);
@@ -223,7 +223,7 @@ export class AudioPlayer {
     source.onended = () => {
       // Only emit if this was the current playing source (not from crossfade cleanup)
       if (source === this.currentSource && this.state.playing) {
-        console.log('🎵 Track ended naturally');
+        console.log(' Track ended naturally');
         this.emit('trackEnded');
       }
     };

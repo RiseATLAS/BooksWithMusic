@@ -49,7 +49,7 @@ export class MusicPanelUI {
 
   setupMusicManagerListeners() {
     if (!this.musicManager) {
-      console.warn('⚠️ No music manager available');
+      console.warn(' No music manager available');
       return;
     }
     
@@ -90,17 +90,17 @@ export class MusicPanelUI {
     try {
       
       if (!this.musicManager) {
-        console.warn('⚠️ No music manager available');
+        console.warn(' No music manager available');
         return;
       }
       
       // Get available tracks from music manager
-      console.log('🎵 Fetching tracks from music manager...');
+      console.log(' Fetching tracks from music manager...');
       const allTracks = await this.musicManager.getAllAvailableTracks();
       
-      console.log(`📊 Available tracks: ${allTracks.length}`);
+      console.log(` Available tracks: ${allTracks.length}`);
       if (allTracks.length === 0) {
-        console.warn('⚠️ No tracks available - check if music is enabled and API key is set');
+        console.warn(' No tracks available - check if music is enabled and API key is set');
         this.playlist = [];
         this.renderPlaylist();
         return;
@@ -128,7 +128,7 @@ export class MusicPanelUI {
         const remainingTracks = allTracks.filter(t => !usedIds.has(t.id));
         this.playlist = [...orderedPlaylist, ...remainingTracks];
         
-        console.log(`✓ Playlist: ${orderedPlaylist.length} chapter tracks + ${remainingTracks.length} fallback tracks`);
+        console.log(` Playlist: ${orderedPlaylist.length} chapter tracks + ${remainingTracks.length} fallback tracks`);
       } else {
         console.log('No specific recommendations, using all tracks');
         this.playlist = allTracks;
@@ -199,7 +199,7 @@ export class MusicPanelUI {
       settings.instrumentalOnly = e.target.checked;
       localStorage.setItem('booksWithMusic-settings', JSON.stringify(settings));
       
-      console.log('🎼 Background music filter:', e.target.checked ? 'ON' : 'OFF');
+      console.log('� Background music filter:', e.target.checked ? 'ON' : 'OFF');
       this.showToast(`${e.target.checked ? '🎹' : '🎤'} ${e.target.checked ? 'Background' : 'All'} music - Reloading tracks...`, 'info');
       
       // Reload music with new filter
@@ -266,7 +266,7 @@ export class MusicPanelUI {
       const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
       settings.pageBasedMusicSwitch = e.target.checked;
       localStorage.setItem('booksWithMusic-settings', JSON.stringify(settings));
-      console.log('🎵 Page-based music switching:', e.target.checked ? 'ON' : 'OFF');
+      console.log(' Page-based music switching:', e.target.checked ? 'ON' : 'OFF');
     });
 
     // Load page-based music switch setting on startup
@@ -391,7 +391,7 @@ export class MusicPanelUI {
     
     // Check if we changed chapters - reset history
     if (this.currentChapter !== chapterIndex) {
-      console.log(`📖 Chapter changed to ${chapterIndex}, resetting page history`);
+      console.log(`Chapter changed to ${chapterIndex}, resetting page history`);
       this.currentChapter = chapterIndex;
       this.pageTrackHistory.clear();
       this.pageTrackHistory.set(1, 0); // Start at first track
@@ -417,7 +417,7 @@ export class MusicPanelUI {
   handleForwardNavigation(newPage, oldPage, shiftInfo) {
     // Check if this page is a designated shift point (based on content analysis)
     if (shiftInfo && this.playlist && this.playlist.length > 1) {
-      console.log(`🎵 Page ${newPage}: Mood shift detected (${shiftInfo.fromMood} → ${shiftInfo.toMood})`);
+      console.log(` Page ${newPage}: Mood shift detected (${shiftInfo.fromMood} → ${shiftInfo.toMood})`);
       console.log(`   Confidence: ${shiftInfo.confidence}%, Score: ${shiftInfo.shiftScore}`);
       
       // Record current page with track before advancing
@@ -441,7 +441,7 @@ export class MusicPanelUI {
       
       // If different from current track, switch back
       if (historicalTrackIndex !== this.currentTrackIndex && this.playlist.length > 0) {
-        console.log(`⏮️ Page ${newPage}: Restoring track ${historicalTrackIndex} (was: ${this.currentTrackIndex})`);
+        console.log(`Page ${newPage}: Restoring track ${historicalTrackIndex} (was: ${this.currentTrackIndex})`);
         this.playTrack(historicalTrackIndex);
       }
     } else {
@@ -451,7 +451,7 @@ export class MusicPanelUI {
       );
       
       if (crossedShiftPoint && this.currentTrackIndex > 0) {
-        console.log(`⏮️ Page ${newPage}: Crossed shift point backward at page ${crossedShiftPoint.page}`);
+        console.log(`Page ${newPage}: Crossed shift point backward at page ${crossedShiftPoint.page}`);
         console.log(`   Reverting: ${crossedShiftPoint.toMood} → ${crossedShiftPoint.fromMood}`);
         await this.previousTrack();
       }
@@ -574,16 +574,16 @@ export class MusicPanelUI {
     // Play audio with AudioPlayer.playTrack()
     try {
       await this.audioPlayer.playTrack(track);
-      console.log('▶️ Now playing:', track.title);
+      console.log(' Now playing:', track.title);
     } catch (error) {
-      console.error('❌ Error playing track:', error);
-      console.log('⏭️ Skipping to next track...');
+      console.error(' Error playing track:', error);
+      console.log(' Skipping to next track...');
       
       // Try next track if available
       if (index + 1 < this.playlist.length) {
         setTimeout(() => this.playTrack(index + 1), 1000);
       } else {
-        console.warn('⚠️ No more tracks to play');
+        console.warn(' No more tracks to play');
         // Only show error message if we've tried all tracks
         const freesoundKey = localStorage.getItem('freesound_api_key');
         if (!freesoundKey) {
@@ -625,13 +625,15 @@ export class MusicPanelUI {
 
   async togglePlayPause() {
     if (!this.audioPlayer) {
-      console.warn('Audio player not initialized');
+      console.error('Audio player not initialized');
       return;
+    } else {
+      console.log('Toggling play/pause');
     }
     
     // Prevent multiple simultaneous toggles
     if (this.isToggling) {
-      console.log('⏸️ Already toggling, ignoring click');
+      console.log('Already toggling, ignoring click');
       return;
     }
     
@@ -642,7 +644,7 @@ export class MusicPanelUI {
       const audioContextState = this.audioPlayer.audioContext.state;
       const hasCurrentTrack = this.audioPlayer.state.currentTrack;
       
-      console.log('🎵 Toggle play/pause - State:', {
+      console.log('Toggle play/pause - State:', {
         isPlaying,
         audioContextState,
         hasCurrentTrack,
@@ -652,34 +654,37 @@ export class MusicPanelUI {
       
       if (isPlaying) {
         // Currently playing - pause it
-        console.log('⏸️ Pausing...');
+        console.log('Pausing...');
         this.audioPlayer.pause();
         this.updatePlayPauseButton(false);
       } else {
         // Not playing - start or resume
-        console.log('▶️ Starting/Resuming...');
+        console.log('Starting/Resuming...');
         
         if (!this.playlist || this.playlist.length === 0) {
-          console.warn('⚠️ No playlist available');
+          console.warn('No playlist available');
           this.showToast('No tracks in playlist. Music requires a Freesound API key.', 'info');
           return;
+        } else {
+          console.log('Playlist available with', this.playlist.length, 'tracks');
         }
         
         // Check if we need to resume or start fresh
         if (audioContextState === 'suspended' && hasCurrentTrack) {
           // Resume paused track
-          console.log('▶️ Resuming paused track...');
+          console.log('Resuming paused track...');
           await this.audioPlayer.resume();
           this.updatePlayPauseButton(true);
         } else {
           // Start playing from current track index
-          console.log('▶️ Starting new track...');
+          console.log('Starting new track...');
           await this.playTrack(this.currentTrackIndex);
           // Note: playTrack will update the button via the 'playing' event
         }
       }
     } catch (error) {
-      console.error('❌ Error toggling play/pause:', error);
+      console.error('Error toggling play/pause:', error);
+      console.error('Stack trace:', error.stack);
       this.updatePlayPauseButton(false);
     } finally {
       // Release the lock after a short delay
@@ -729,6 +734,8 @@ export class MusicPanelUI {
       if (!this.musicManager) {
         console.error('Music manager not available');
         return;
+      } else {
+        console.log('Reloading music with new filter');
       }
 
       // Stop current playback
@@ -741,8 +748,10 @@ export class MusicPanelUI {
       const reader = window.app?.reader || this.reader;
       if (!reader || !reader.currentBook || !reader.chapters) {
         console.error('Reader not available for music reload');
-        this.showToast('❌ Unable to reload - reader not found', 'error');
+        this.showToast('Unable to reload - reader not found', 'error');
         return;
+      } else {
+        console.log('Reader available, proceeding with reload');
       }
 
       // Reinitialize music manager with new filter

@@ -27,7 +27,7 @@ export async function uploadEpub(userId, bookId, file, progressCallback = null) 
     // Create reference to storage location: users/{userId}/books/{bookId}.epub
     const storageRef = ref(storage, `users/${userId}/books/${bookId}.epub`);
     
-    console.log(`⬆️ Uploading EPUB: ${bookId}...`);
+    console.log(`��️ Uploading EPUB: ${bookId}...`);
     
     // Upload file
     const snapshot = await uploadBytes(storageRef, file, {
@@ -40,7 +40,7 @@ export async function uploadEpub(userId, bookId, file, progressCallback = null) 
     // Get download URL
     const downloadURL = await getDownloadURL(snapshot.ref);
     
-    console.log(`✓ EPUB uploaded successfully: ${bookId}`);
+    console.log(` EPUB uploaded successfully: ${bookId}`);
     return downloadURL;
   } catch (error) {
     console.error('Error uploading EPUB:', error);
@@ -73,7 +73,7 @@ export async function downloadEpub(userId, bookId) {
     // Get download URL
     const downloadURL = await getEpubUrl(userId, bookId);
     
-    console.log(`⬇️ Downloading EPUB: ${bookId}...`);
+    console.log(`��️ Downloading EPUB: ${bookId}...`);
     
     // Fetch the file
     const response = await fetch(downloadURL);
@@ -82,7 +82,7 @@ export async function downloadEpub(userId, bookId) {
     }
     
     const blob = await response.blob();
-    console.log(`✓ EPUB downloaded successfully: ${bookId}`);
+    console.log(` EPUB downloaded successfully: ${bookId}`);
     
     return blob;
   } catch (error) {
@@ -113,7 +113,7 @@ export async function deleteEpub(userId, bookId) {
     const storageRef = ref(storage, `users/${userId}/books/${bookId}.epub`);
     await deleteObject(storageRef);
     
-    console.log(`✓ EPUB deleted successfully: ${bookId}`);
+    console.log(` EPUB deleted successfully: ${bookId}`);
   } catch (error) {
     console.error('Error deleting EPUB:', error);
     

@@ -66,7 +66,7 @@ class BooksWithMusicApp {
       this.setupEventListeners();
       await this.registerServiceWorker();
     } catch (error) {
-      console.error("❌ Init error:", error);
+      console.error("Init error:", error);
       alert("Failed to initialize app. Check console for details.");
     }
   }

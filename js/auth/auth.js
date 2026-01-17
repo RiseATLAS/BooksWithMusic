@@ -14,7 +14,7 @@ import {
  * Sets up authentication listeners and handlers
  */
 export function initAuth() {
-  console.log('✓ Firebase Auth initialized');
+  console.log(' Firebase Auth initialized');
 }
 
 /**
@@ -32,7 +32,7 @@ export async function signInWithGoogle() {
     const result = await signInWithPopup(auth, provider);
     const user = result.user;
     
-    console.log('✓ User signed in:', user.email);
+    console.log(' User signed in:', user.email);
     
     return {
       uid: user.uid,
@@ -68,7 +68,7 @@ export async function signOut() {
 
   try {
     await firebaseSignOut(auth);
-    console.log('✓ User signed out');
+    console.log(' User signed out');
   } catch (error) {
     console.error('Sign-out error:', error);
     throw new Error(`Sign-out failed: ${error.message}`);

@@ -158,7 +158,7 @@ export class ReaderUI {
       window.location.href = '/reader.html';
       
     } catch (error) {
-      console.error('❌ Error opening book:', error);
+      console.error(' Error opening book:', error);
       this.hideLoading();
       this.showToast('Error opening book: ' + error.message, 'error');
       throw error; // Re-throw so main.js can handle it
@@ -223,7 +223,7 @@ export class ReaderUI {
       if (savedCharOffset > 0) {
         const correctPage = this.findPageByCharOffset(this.currentChapterIndex, savedCharOffset);
         if (correctPage !== this.currentPageInChapter) {
-          console.log(`📍 Restoring reading position: page ${this.currentPageInChapter} → ${correctPage} (based on character offset ${savedCharOffset})`);
+          console.log(`� Restoring reading position: page ${this.currentPageInChapter} → ${correctPage} (based on character offset ${savedCharOffset})`);
           this.currentPageInChapter = correctPage;
           this.renderCurrentPage();
           this.currentPage = this.calculateCurrentPageNumber();
@@ -247,7 +247,7 @@ export class ReaderUI {
         .catch((e) => console.warn('Music init failed:', e));
       
     } catch (error) {
-      console.error('❌ Reader init failed:', error);
+      console.error(' Reader init failed:', error);
       alert('Failed to load book: ' + error.message);
       window.location.href = '/';
     }
@@ -597,7 +597,7 @@ export class ReaderUI {
       
       return finalPages;
     } catch (error) {
-      console.error(`❌ Error splitting chapter "${chapterTitle}":`, error);
+      console.error(` Error splitting chapter "${chapterTitle}":`, error);
       console.error('Stack trace:', error.stack);
       // Return a fallback page with error message
       return [`<div class="error-page">
@@ -620,11 +620,11 @@ export class ReaderUI {
   async loadChapter(index, { pageInChapter = 1, preservePage = false } = {}) {
     try {
       if (index < 0 || index >= this.chapters.length) {
-        console.error('❌ Invalid chapter index:', index, '(total chapters:', this.chapters.length, ')');
+        console.error(' Invalid chapter index:', index, '(total chapters:', this.chapters.length, ')');
         return;
       }
 
-      console.log(`📖 Loading chapter ${index + 1}/${this.chapters.length}`);
+      console.log(`Loading chapter ${index + 1}/${this.chapters.length}`);
       this.currentChapterIndex = index;
       const chapter = this.chapters[index];
       
@@ -690,7 +690,7 @@ export class ReaderUI {
       this.totalPages = this.calculateTotalPages();
       this.updatePageIndicator();
     } catch (error) {
-      console.error(`❌ Error loading chapter ${index}:`, error);
+      console.error(` Error loading chapter ${index}:`, error);
       console.error('Stack trace:', error.stack);
       this.showToast(`Failed to load chapter: ${error.message}`, 'error');
     }
@@ -703,14 +703,16 @@ export class ReaderUI {
     try {
       const contentEl = document.getElementById('reader-content');
       if (!contentEl) {
-        console.warn('⚠️ #reader-content not found');
+        console.warn(' #reader-content not found');
         return;
       }
       
       const pages = this.chapterPages[this.currentChapterIndex];
       if (!pages || pages.length === 0) {
-        console.warn('⚠️ No pages found for chapter:', this.currentChapterIndex);
+        console.warn('No pages found for chapter:', this.currentChapterIndex);
         return;
+      } else {
+        console.log('Rendering page', this.currentPageInChapter, 'of', pages.length);
       }
       
       const pageIndex = this.currentPageInChapter - 1;
@@ -718,7 +720,7 @@ export class ReaderUI {
       
       // Safety check - if pageContent is empty/undefined, show error page
       if (!pageContent || pageContent.trim().length === 0) {
-        console.error('❌ Page content is empty!');
+        console.error('Page content is empty!');
         contentEl.innerHTML = `
           <div class="page-container">
             <div class="page-viewport">
@@ -775,7 +777,7 @@ export class ReaderUI {
       // Update progress indicator
       this.updatePageIndicator();
     } catch (error) {
-      console.error('❌ Error rendering page:', error);
+      console.error(' Error rendering page:', error);
       console.error('Context:', {
         chapterIndex: this.currentChapterIndex,
         pageInChapter: this.currentPageInChapter,
@@ -975,7 +977,7 @@ export class ReaderUI {
     const pageBasedMusicSwitch = settings.pageBasedMusicSwitch !== false; // Default true
     
     if (!pageBasedMusicSwitch) {
-      console.log(`⏭️ Page ${oldPage} → ${newPage} (music switching disabled)`);
+      console.log(`Page ${oldPage} → ${newPage} (music switching disabled)`);
       return; // User disabled this feature
     }
     
@@ -1079,10 +1081,10 @@ export class ReaderUI {
           }
         }
       } catch (error) {
-        console.warn('⚠️ Failed to sync sessionStorage:', error.message);
+        console.warn(' Failed to sync sessionStorage:', error.message);
       }
     } catch (error) {
-      console.error('❌ Error saving progress:', error);
+      console.error(' Error saving progress:', error);
       console.error('Book ID:', this.currentBook?.id);
       console.error('Stack trace:', error.stack);
       // Don't show toast for save errors as they happen frequently
@@ -1169,7 +1171,7 @@ export class ReaderUI {
       
       await this._flipToPage(this.currentPageInChapter + 1, 'next');
     } catch (error) {
-      console.error('❌ Error navigating to next page:', error);
+      console.error(' Error navigating to next page:', error);
       console.error('Stack trace:', error.stack);
       this._isFlipping = false; // Reset flip lock
       this.showToast('Failed to navigate to next page', 'error');
@@ -1189,7 +1191,7 @@ export class ReaderUI {
       
       await this._flipToPage(this.currentPageInChapter - 1, 'prev');
     } catch (error) {
-      console.error('❌ Error navigating to previous page:', error);
+      console.error(' Error navigating to previous page:', error);
       console.error('Stack trace:', error.stack);
       this._isFlipping = false; // Reset flip lock
       this.showToast('Failed to navigate to previous page', 'error');
@@ -1210,7 +1212,7 @@ export class ReaderUI {
         this.musicManager.onChapterChange(this.currentChapterIndex);
       }
     } catch (error) {
-      console.error('❌ Error navigating to next chapter:', error);
+      console.error(' Error navigating to next chapter:', error);
       console.error('Stack trace:', error.stack);
       this.showToast('Failed to load next chapter', 'error');
     }
@@ -1231,7 +1233,7 @@ export class ReaderUI {
         this.musicManager.onChapterChange(this.currentChapterIndex);
       }
     } catch (error) {
-      console.error('❌ Error navigating to previous chapter:', error);
+      console.error(' Error navigating to previous chapter:', error);
       console.error('Stack trace:', error.stack);
       this.showToast('Failed to load previous chapter', 'error');
     }
@@ -1254,7 +1256,7 @@ export class ReaderUI {
         });
       }
     } catch (error) {
-      console.error('❌ Error toggling fullscreen:', error);
+      console.error(' Error toggling fullscreen:', error);
       this.showToast('Fullscreen failed', 'error');
     }
   }
