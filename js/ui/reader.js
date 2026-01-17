@@ -65,12 +65,13 @@ export class ReaderUI {
   /**
    * Calculate character offset within current chapter based on current page
    * This allows robust page restoration when pagination changes (e.g., due to font size changes)
+   * Returns the offset at the START of the current page being read
    */
   calculateCharOffset() {
     const pages = this.chapterPages[this.currentChapterIndex];
     if (!pages) return 0;
     
-    // Sum up characters from all previous pages
+    // Sum up characters from all previous pages (up to but not including current page)
     let offset = 0;
     for (let i = 0; i < this.currentPageInChapter - 1; i++) {
       if (pages[i]) {
@@ -79,6 +80,15 @@ export class ReaderUI {
         tempDiv.innerHTML = pages[i];
         offset += (tempDiv.textContent || '').length;
       }
+    }
+    
+    // Add half of the current page's characters to restore to middle of page
+    // This ensures we restore to the correct page even with slight pagination differences
+    if (pages[this.currentPageInChapter - 1]) {
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = pages[this.currentPageInChapter - 1];
+      const currentPageChars = (tempDiv.textContent || '').length;
+      offset += Math.floor(currentPageChars / 2);
     }
     
     return offset;
