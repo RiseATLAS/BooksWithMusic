@@ -1509,26 +1509,15 @@ body {
   background: rgba(255, 255, 255, 0.2);
 }
 
-.user-profile-reader {
-  display: inline-flex;
-  align-items: center;
-  cursor: pointer;
-  padding: 0.25rem;
-  border-radius: 50%;
-  transition: transform 0.2s;
+.user-profile-btn {
+  /* G button inherits btn and btn-icon styles */
+  font-weight: 600;
+  font-size: 1.1rem;
 }
 
-.user-profile-reader:hover {
-  transform: scale(1.1);
-}
-
-.user-photo-small {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 2px solid rgba(255, 255, 255, 0.5);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+.user-profile-btn:hover {
+  background: var(--accent);
+  color: white;
 }
 
 /* User Menu Dropdown */
@@ -1561,12 +1550,18 @@ body {
   padding: 16px;
 }
 
-.user-menu-photo {
+.user-menu-icon {
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  object-fit: cover;
-  border: 2px solid var(--primary);
+  background: var(--accent);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: 600;
+  flex-shrink: 0;
 }
 
 .user-menu-info {

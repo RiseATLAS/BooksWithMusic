@@ -220,34 +220,31 @@ class BooksWithMusicApp {
       signInBtn.style.display = "none";
       userProfile.style.display = isReaderPage ? "inline-flex" : "flex";
 
-      // Update user info
-      const userPhoto = document.getElementById(
-        isReaderPage ? "user-photo-reader" : "user-photo",
-      );
-      const userName = document.getElementById("user-name");
+      // Update user info (for home page only - reader uses G button)
+      if (!isReaderPage) {
+        const userPhoto = document.getElementById("user-photo");
+        const userName = document.getElementById("user-name");
 
-      if (userPhoto) {
-        userPhoto.src = user.photoURL || "https://via.placeholder.com/40";
-        userPhoto.alt = user.displayName || user.email;
-        if (isReaderPage) {
-          userPhoto.title = user.displayName || user.email;
+        if (userPhoto) {
+          userPhoto.src = user.photoURL || "https://via.placeholder.com/40";
+          userPhoto.alt = user.displayName || user.email;
         }
-      }
 
-      if (userName && !isReaderPage) {
-        userName.textContent = user.displayName || user.email;
+        if (userName) {
+          userName.textContent = user.displayName || user.email;
+        }
       }
       
       // Update user menu (reader page only)
       if (isReaderPage) {
-        const menuPhoto = document.getElementById("user-menu-photo");
         const menuName = document.getElementById("user-menu-name");
         const menuEmail = document.getElementById("user-menu-email");
         
-        if (menuPhoto) {
-          menuPhoto.src = user.photoURL || "https://via.placeholder.com/48";
-          menuPhoto.alt = user.displayName || user.email;
+        // Set title for G button
+        if (userProfile) {
+          userProfile.title = user.displayName || user.email;
         }
+        
         if (menuName) {
           menuName.textContent = user.displayName || "User";
         }

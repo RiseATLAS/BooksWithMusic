@@ -221,8 +221,10 @@ export class MusicPanelUI {
       await this.reloadMusicWithFilter();
     });
 
-    // Load background music filter setting on startup
+    // Load settings once
     const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
+    
+    // Load background music filter setting on startup
     if (instrumentalOnlyCheckbox && settings.instrumentalOnly !== undefined) {
       instrumentalOnlyCheckbox.checked = settings.instrumentalOnly;
     }
@@ -237,9 +239,10 @@ export class MusicPanelUI {
       this.showToast(`Auto-play ${e.target.checked ? 'enabled' : 'disabled'}`, 'success');
     });
 
-    // Load auto-play setting on startup
-    if (autoPlayCheckbox && settings.autoPlay !== undefined) {
-      autoPlayCheckbox.checked = settings.autoPlay;
+    // Load auto-play setting on startup (check both true and false values)
+    if (autoPlayCheckbox) {
+      autoPlayCheckbox.checked = settings.autoPlay === true;
+      console.log('📖 Loaded auto-play setting:', settings.autoPlay);
     }
 
     // Music enabled checkbox
