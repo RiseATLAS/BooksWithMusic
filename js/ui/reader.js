@@ -1,6 +1,8 @@
 import { EPUBParser } from '../core/epub-parser.js';
 import { MusicManager } from '../core/music-manager.js';
 import { AIProcessor } from '../core/ai-processor.js';
+import { saveBookProgress } from '../storage/firestore-storage.js';
+import { auth } from '../config/firebase-config.js';
 
 export class ReaderUI {
   constructor(db) {
@@ -930,11 +932,16 @@ export class ReaderUI {
       if (!this.currentBook) return;
 
       const progress = this.totalPages > 0 ? (this.currentPage / this.totalPages) * 100 : 0;
-      await this.db.updateBook(this.currentBook.id, {
-        currentChapter: this.currentChapterIndex,
-        currentPageInChapter: this.currentPageInChapter,
-        progress: progress
-      });
+      
+      // Save to Firestore if user is signed in
+      const userId = auth.currentUser?.uid;
+      if (userId) {
+        await saveBookProgress(userId, this.currentBook.id, {
+          currentChapter: this.currentChapterIndex,
+          currentPageInChapter: this.currentPageInChapter,
+          progress: progress
+        });
+      }
 
       // Keep sessionStorage in sync so refresh resumes correctly even before DB reads.
       try {

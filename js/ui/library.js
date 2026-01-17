@@ -6,16 +6,23 @@ import {
     deleteBook 
 } from '../storage/firestore-storage.js';
 import { EPUBParser } from '../core/epub-parser.js';
+import { DatabaseManager } from '../storage/indexeddb.js';
 
 export class BookLibrary {
     constructor() {
         this.books = [];
         this.currentUser = null;
         this.parser = new EPUBParser();
+        this.localDb = new DatabaseManager();
+        this.cacheInitialized = false;
     }
 
     async init() {
         console.log('Initializing library...');
+        // Initialize local IndexedDB cache
+        await this.localDb.initialize();
+        this.cacheInitialized = true;
+        
         await this.loadBooks();
         this.setupEventListeners();
         this.displayBooks();
@@ -23,16 +30,67 @@ export class BookLibrary {
 
     async loadBooks() {
         try {
-            this.books = await getUserBooks();
-            console.log(`Loaded ${this.books.length} books`);
+            // First, load from local IndexedDB cache (instant)
+            if (this.cacheInitialized) {
+                const cachedBooks = await this.localDb.getAllBooks();
+                if (cachedBooks && cachedBooks.length > 0) {
+                    this.books = cachedBooks;
+                    console.log(`Loaded ${this.books.length} books from cache`);
+                    this.displayBooks(); // Show cached books immediately
+                }
+            }
+            
+            // Then sync with Firestore if user is signed in
+            const userId = auth.currentUser?.uid;
+            if (userId) {
+                const firestoreBooks = await getUserBooks();
+                console.log(`Synced ${firestoreBooks.length} books from Firestore`);
+                
+                // Update local cache with Firestore data
+                if (this.cacheInitialized) {
+                    await this.syncLocalCache(firestoreBooks);
+                }
+                
+                this.books = firestoreBooks;
+            }
+            
             return this.books;
         } catch (error) {
             console.error('Failed to load books:', error);
-            this.books = [];
-            return [];
+            // Fall back to cache if Firestore fails
+            if (this.cacheInitialized) {
+                this.books = await this.localDb.getAllBooks() || [];
+                console.log(`Using ${this.books.length} cached books (Firestore unavailable)`);
+            } else {
+                this.books = [];
+            }
+            return this.books;
         }
     }
 
+    async syncLocalCache(firestoreBooks) {
+        try {
+            // Get current cached book IDs
+            const cachedBooks = await this.localDb.getAllBooks();
+            const cachedIds = new Set(cachedBooks.map(b => b.id));
+            const firestoreIds = new Set(firestoreBooks.map(b => b.id));
+            
+            // Add/update books from Firestore
+            for (const book of firestoreBooks) {
+                await this.localDb.saveBook(book);
+            }
+            
+            // Remove books that no longer exist in Firestore
+            for (const cachedBook of cachedBooks) {
+                if (!firestoreIds.has(cachedBook.id)) {
+                    await this.localDb.deleteBook(cachedBook.id);
+                    console.log(`Removed deleted book from cache: ${cachedBook.id}`);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to sync local cache:', error);
+        }
+    }
     displayBooks() {
         const grid = document.getElementById('book-list');
         
@@ -141,6 +199,12 @@ export class BookLibrary {
                     const userId = auth.currentUser.uid;
                     await saveBook(userId, bookData.id, bookData, base64Data);
                     
+                    // Also save to local cache (without fileData to save space)
+                    if (this.cacheInitialized) {
+                        await this.localDb.saveBook(bookData);
+                        console.log('Book added to local cache');
+                    }
+                    
                     await this.loadBooks();
                     this.displayBooks();
                     
@@ -148,7 +212,7 @@ export class BookLibrary {
                     const totalSize = this.books.reduce((sum, b) => sum + (b.fileSize || 0), 0);
                     console.log(`Storage used: ${(totalSize / 1024).toFixed(2)} KB / 1,048,576 KB (${((totalSize / 1048576) * 100).toFixed(2)}%)`);
                     
-                    alert(`✓ "${bookData.title}" imported!`);
+                    console.log(`✓ "${bookData.title}" imported successfully!`);
                 } catch (error) {
                     console.error('Import failed:', error);
                     alert(`Failed: ${error.message}`);
@@ -177,6 +241,9 @@ export class BookLibrary {
         // Need to fetch the full book data including fileData to parse chapters
         const { getBook } = await import('../storage/firestore-storage.js');
         const fullBook = await getBook(bookId);
+        
+        console.log('Full book data:', fullBook ? 'Found' : 'Not found');
+        console.log('Has fileData:', fullBook?.fileData ? 'Yes (' + fullBook.fileData.length + ' chars)' : 'No');
         
         if (fullBook && fullBook.fileData) {
             // Decode base64 and parse EPUB to get chapters
@@ -212,11 +279,24 @@ export class BookLibrary {
         if (!confirm('Delete this book?')) return;
         
         try {
+            console.log('Deleting book:', bookId);
+            
+            // Delete from Firestore
             await deleteBook(bookId);
+            console.log('Book deleted from Firestore');
+            
+            // Also delete from local cache
+            if (this.cacheInitialized) {
+                await this.localDb.deleteBook(bookId);
+                console.log('Book deleted from local cache');
+            }
+            
+            // Reload books and update UI
             await this.loadBooks();
             this.displayBooks();
         } catch (error) {
-            alert('Failed to delete');
+            console.error('Delete failed:', error);
+            alert('Failed to delete: ' + error.message);
         }
     }
 }
