@@ -1,9 +1,6 @@
 import { auth } from '../config/firebase-config.js';
 import { saveUserSettings } from '../storage/firestore-storage.js';
 
-import { auth } from '../config/firebase-config.js';
-import { saveUserSettings } from '../storage/firestore-storage.js';
-
 export class SettingsUI {
   constructor() {
     // Detect system dark mode preference
