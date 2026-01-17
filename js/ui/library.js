@@ -1,7 +1,7 @@
 import { EPUBParser } from '../core/epub-parser.js';
 import { AIProcessor } from '../core/ai-processor.js';
 import { saveBook, getUserBooks } from '../storage/firestore-storage.js';
-import { auth } from '../firebase/init.js';
+import { auth } from '../config/firebase-config.js';
 
 export class BookLibrary {
   constructor(db) {
