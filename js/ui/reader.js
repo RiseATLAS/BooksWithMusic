@@ -418,17 +418,14 @@ export class ReaderUI {
     // Listen for page density changes from settings
     window.addEventListener('pageDensityChanged', async (e) => {
       const newDensity = e.detail.charsPerPage;
-      console.log('📏 Page density changed to:', newDensity);
       
       // Skip if density hasn't actually changed (e.g., during initial settings load)
       if (newDensity === this.charsPerPage) {
-        console.log('   No change detected, skipping re-pagination');
         return;
       }
       
       // Calculate current character offset BEFORE re-pagination
       const currentOffset = this.calculateCharOffset();
-      console.log(`📍 Current position: Chapter ${this.currentChapterIndex + 1}, Page ${this.currentPageInChapter}, Char offset: ${currentOffset}`);
       
       // Update internal setting
       this.charsPerPage = newDensity;
@@ -438,7 +435,6 @@ export class ReaderUI {
       
       // Re-split and reload current chapter
       if (this.currentChapterIndex >= 0 && this.chapters.length > 0) {
-        console.log('🔄 Reloading chapter with new page density...');
         await this.loadChapter(this.currentChapterIndex, { 
           pageInChapter: this.currentPageInChapter, 
           preservePage: true 
@@ -447,7 +443,6 @@ export class ReaderUI {
         // Restore position using character offset
         const newPage = this.findPageByCharOffset(this.currentChapterIndex, currentOffset);
         if (newPage !== this.currentPageInChapter) {
-          console.log(`📍 Restoring position after pagination change: page ${this.currentPageInChapter} → ${newPage}`);
           this.currentPageInChapter = newPage;
           this.renderCurrentPage();
           this.currentPage = this.calculateCurrentPageNumber();
@@ -459,7 +454,6 @@ export class ReaderUI {
 
     // Listen for page number display preference changes from settings
     window.addEventListener('settings:pageNumbersChanged', () => {
-      console.log('📄 Page number display preference changed, updating indicator');
       this.updatePageIndicator();
     });
   }

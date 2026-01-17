@@ -252,9 +252,6 @@ export class SettingsUI {
       const savedSettings = JSON.parse(saved);
       // Merge saved settings with current defaults (in case new settings were added)
       this.settings = { ...this.settings, ...savedSettings };
-      console.log('✓ Loaded settings from localStorage:', this.settings);
-    } else {
-      console.log('⚠️ No saved settings, using defaults');
     }
   }
 
@@ -262,7 +259,6 @@ export class SettingsUI {
     if (auth.currentUser) {
       try {
         await saveUserSettings(auth.currentUser.uid, this.settings);
-        console.log('✓ Settings synced to Firestore');
       } catch (error) {
         console.error('Failed to sync settings to Firestore:', error);
       }
@@ -693,7 +689,5 @@ export class SettingsUI {
 
     const autoPlayCheckbox = document.getElementById('auto-play');
     if (autoPlayCheckbox) autoPlayCheckbox.checked = this.settings.autoPlay;
-
-    console.log('✓ UI synced with settings');
   }
 }
