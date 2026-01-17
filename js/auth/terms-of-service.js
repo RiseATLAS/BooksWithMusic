@@ -3,6 +3,7 @@
 
 import { db } from '../config/firebase-config.js';
 import { doc, getDoc, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+import { TEST_CONFIG } from './test-config.js';
 
 const TERMS_VERSION = '1.0';
 
@@ -223,18 +224,18 @@ export function showTermsModal() {
  */
 export async function checkAndPromptTerms(userId) {
   try {
-    // FOR TESTING: Always show the modal to all users
-    // To revert to normal behavior, uncomment the code below and remove the forced prompt
-    
-    /*
-    const accepted = await hasAcceptedTerms(userId);
-    
-    if (accepted) {
-      return true;
+    // Check test mode configuration
+    if (TEST_CONFIG.ALWAYS_SHOW_TOS) {
+      console.log('🔍 [TEST MODE] Showing Terms of Service to all users for testing');
+    } else {
+      // Normal mode: check if already accepted
+      const accepted = await hasAcceptedTerms(userId);
+      
+      if (accepted) {
+        console.log('✅ User has already accepted current terms');
+        return true;
+      }
     }
-    */
-    
-    console.log('🔍 [TEST MODE] Showing Terms of Service to all users for testing');
     
     // Show modal and wait for user decision
     const userAccepted = await showTermsModal();

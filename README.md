@@ -217,6 +217,28 @@ When you sign in for the first time, you'll be asked to accept the Terms of Use:
 
 **"As Is" Service**: This is an experimental service provided without guarantees.
 
+### Testing the ToS & User Cap
+
+Edit `/js/auth/test-config.js` to toggle test modes:
+
+```javascript
+export const TEST_CONFIG = {
+  // Show ToS modal to all users (even if already accepted)
+  ALWAYS_SHOW_TOS: true,      // true = test ToS, false = normal
+  
+  // Simulate max users reached (blocks all registrations)
+  SIMULATE_MAX_USERS: false,  // true = test user cap, false = normal
+  
+  // Allow existing users to bypass max users check
+  ALLOW_EXISTING_USERS: true
+};
+```
+
+**Test Scenarios:**
+- `ALWAYS_SHOW_TOS: true, SIMULATE_MAX_USERS: false` → Test ToS modal
+- `ALWAYS_SHOW_TOS: false, SIMULATE_MAX_USERS: true` → Test user cap message
+- Both `false` → Production mode
+
 ### For Developers
 - Terms acceptance is handled by `/js/auth/terms-of-service.js`
 - User acceptance is stored in Firestore `users/{userId}` with fields:
@@ -224,6 +246,7 @@ When you sign in for the first time, you'll be asked to accept the Terms of Use:
   - `termsVersion`: string (e.g., "1.0")
   - `termsAcceptedAt`: timestamp
 - Update `TERMS_VERSION` in the module when terms change to re-prompt users
+- ToS check happens BEFORE registration check in the flow
 
 ## 🧠 AI Mood Detection
 

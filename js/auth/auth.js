@@ -34,7 +34,19 @@ export async function signInWithGoogle() {
     const result = await signInWithPopup(auth, provider);
     const user = result.user;
     
-    // Check if user registration is allowed
+    // FOR TESTING: Check terms FIRST so we can test the ToS modal
+    // In production, you might want registration check first
+    
+    // Check terms acceptance (new and existing users)
+    const termsAccepted = await checkAndPromptTerms(user.uid);
+    
+    if (!termsAccepted) {
+      // User declined terms - sign them out
+      await firebaseSignOut(auth);
+      throw new Error('You must accept the Terms of Use to continue.');
+    }
+    
+    // Check if user registration is allowed (after ToS)
     const registrationCheck = await checkUserRegistration(
       user.uid, 
       user.displayName || 'Unknown User', 
@@ -45,15 +57,6 @@ export async function signInWithGoogle() {
       // Sign out immediately if not allowed
       await firebaseSignOut(auth);
       throw new Error(registrationCheck.reason);
-    }
-    
-    // Check terms acceptance (new and existing users)
-    const termsAccepted = await checkAndPromptTerms(user.uid);
-    
-    if (!termsAccepted) {
-      // User declined terms - sign them out
-      await firebaseSignOut(auth);
-      throw new Error('You must accept the Terms of Use to continue.');
     }
     
     // Register or update user

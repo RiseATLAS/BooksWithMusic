@@ -11,6 +11,7 @@ import {
   getDocs,
   serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+import { TEST_CONFIG } from './test-config.js';
 
 const MAX_USERS = 20;
 const ADMIN_COLLECTION = 'admin';
@@ -25,11 +26,17 @@ const USER_COUNT_DOC = 'userCount';
  */
 export async function checkUserRegistration(userId, userName, userEmail) {
   try {
-    // FOR TESTING: Always simulate max users reached
-    // To revert to normal behavior, uncomment the real check below
+    // Check test mode configuration
+    if (TEST_CONFIG.SIMULATE_MAX_USERS) {
+      console.log('🔍 [TEST MODE] Simulating max users reached');
+      console.warn('❌ User limit reached (TEST MODE)');
+      return { 
+        allowed: false, 
+        reason: `Registration closed: Maximum ${MAX_USERS} users allowed. This app is for friends & family only.`
+      };
+    }
     
-    /*
-    // Check if user already exists
+    // Normal mode: Check if user already exists
     const userRef = doc(db, 'users', userId);
     const userDoc = await getDoc(userRef);
     
@@ -59,15 +66,6 @@ export async function checkUserRegistration(userId, userName, userEmail) {
     return { 
       allowed: true, 
       isExisting: false 
-    };
-    */
-    
-    // TEST MODE: Simulate max users reached
-    console.log('🔍 [TEST MODE] Simulating max users reached');
-    console.warn('❌ User limit reached (TEST MODE)');
-    return { 
-      allowed: false, 
-      reason: `Registration closed: Maximum ${MAX_USERS} users allowed. This app is for friends & family only.`
     };
     
   } catch (error) {
