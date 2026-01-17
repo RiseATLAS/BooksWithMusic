@@ -230,7 +230,6 @@ export class MusicPanelUI {
       
       this.currentTrackIndex = 0;
       this.renderPlaylist();
-      console.log(`✓ Playlist: ${this.playlist.length} tracks`);
     } catch (error) {
       console.error('Error loading playlist:', error);
     }
@@ -621,8 +620,6 @@ export class MusicPanelUI {
       return;
     }
 
-    console.log('Rendering playlist with', this.playlist.length, 'tracks');
-
     if (this.playlist.length === 0) {
       playlistEl.innerHTML = '<p class="empty-playlist">No tracks available</p>';
       return;
@@ -812,8 +809,6 @@ export class MusicPanelUI {
           console.warn('No playlist available');
           this.showToast('No tracks in playlist. Music requires a Freesound API key.', 'info');
           return;
-        } else {
-          console.log('Playlist available with', this.playlist.length, 'tracks');
         }
         
         // Check if we need to resume or start fresh
@@ -914,18 +909,12 @@ export class MusicPanelUI {
       
       const mapping = this.musicManager.chapterMappings[chapterKey];
       
-      console.log('Mapping found:', !!mapping);
-      console.log('Mapping tracks:', mapping?.tracks?.length || 0);
-      
       if (mapping && mapping.tracks && mapping.tracks.length > 0) {
-        console.log('Loading playlist with', mapping.tracks.length, 'recommended tracks');
         await this.loadPlaylistForChapter(chapterIndex, mapping.tracks);
         // Force UI update
         this.renderPlaylist();
-        console.log('Playlist UI updated with', this.playlist.length, 'tracks');
         this.showToast('✓ Music tracks reloaded!', 'success');
       } else {
-        console.log('No tracks match filter, clearing playlist');
         this.playlist = [];
         this.renderPlaylist();
         this.showToast('⚠️ No tracks match your filter', 'warning');
