@@ -440,7 +440,8 @@ export class SettingsUI {
     this.applyPageDensity();
     this._emitLayoutChanged('calibration');
     
-    // Also emit the pageDensityChanged event for reader.js
+    // Emit pageDensityChanged event for reader.js
+    // The reader will use character offset to restore the user's position after re-pagination
     window.dispatchEvent(new CustomEvent('pageDensityChanged', {
       detail: { charsPerPage: calibratedDensity }
     }));
