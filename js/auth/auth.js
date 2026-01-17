@@ -8,6 +8,7 @@ import {
   signOut as firebaseSignOut,
   onAuthStateChanged as firebaseOnAuthStateChanged
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+import { checkUserRegistration, registerUser, updateLastLogin } from './user-manager.js';
 
 /**
  * Initialize Firebase Authentication
@@ -32,7 +33,27 @@ export async function signInWithGoogle() {
     const result = await signInWithPopup(auth, provider);
     const user = result.user;
     
-    console.log(' User signed in:', user.email);
+    // Check if user registration is allowed
+    const registrationCheck = await checkUserRegistration(
+      user.uid, 
+      user.displayName || 'Unknown User', 
+      user.email
+    );
+    
+    if (!registrationCheck.allowed) {
+      // Sign out immediately if not allowed
+      await firebaseSignOut(auth);
+      throw new Error(registrationCheck.reason);
+    }
+    
+    // Register or update user
+    if (!registrationCheck.isExisting) {
+      await registerUser(user.uid, user.displayName || 'Unknown User', user.email);
+      console.log(' New user registered successfully');
+    } else {
+      await updateLastLogin(user.uid);
+      console.log(' Existing user logged in:', user.email);
+    }
     
     return {
       uid: user.uid,
@@ -51,7 +72,7 @@ export async function signInWithGoogle() {
     } else if (error.code === 'auth/cancelled-popup-request') {
       throw new Error('Another sign-in popup is already open');
     } else {
-      throw new Error(`Sign-in failed: ${error.message}`);
+      throw error; // Re-throw as-is to preserve custom messages
     }
   }
 }

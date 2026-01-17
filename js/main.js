@@ -45,13 +45,10 @@ class BooksWithMusicApp {
         this.musicPanel = new MusicPanelUI(this.db, this.reader.musicManager, this.reader);
         this.musicPanel.initialize();
 
-        // Trigger initial chapter music
+        // Wait for music initialization to complete (already triggers onChapterChange in reader.js)
         if (this.reader._musicInitPromise) {
           await this.reader._musicInitPromise;
         }
-        this.reader.musicManager.onChapterChange(
-          this.reader.currentChapterIndex,
-        );
 
         // Setup auth UI for reader page
         this.setupAuthUI(true);

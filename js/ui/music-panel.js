@@ -195,10 +195,8 @@ export class MusicPanelUI {
       }
       
       // Get available tracks from music manager
-      console.log(' Fetching tracks from music manager...');
       const allTracks = await this.musicManager.getAllAvailableTracks();
       
-      console.log(` Available tracks: ${allTracks.length}`);
       if (allTracks.length === 0) {
         console.warn(' No tracks available - check if music is enabled and API key is set');
         this.playlist = [];
@@ -208,7 +206,6 @@ export class MusicPanelUI {
       
       // Build ordered playlist from recommended tracks
       if (recommendedTracks && recommendedTracks.length > 0) {
-        console.log(`Found ${recommendedTracks.length} recommended tracks for this chapter`);
         
         // Find full track objects for recommended track IDs (in order)
         const orderedPlaylist = [];
@@ -220,7 +217,6 @@ export class MusicPanelUI {
           if (fullTrack) {
             orderedPlaylist.push(fullTrack);
             usedIds.add(fullTrack.id);
-            console.log(`   ${orderedPlaylist.length}. ${fullTrack.title}`);
           }
         }
         
@@ -228,15 +224,13 @@ export class MusicPanelUI {
         const remainingTracks = allTracks.filter(t => !usedIds.has(t.id));
         this.playlist = [...orderedPlaylist, ...remainingTracks];
         
-        console.log(` Playlist: ${orderedPlaylist.length} chapter tracks + ${remainingTracks.length} fallback tracks`);
       } else {
-        console.log('No specific recommendations, using all tracks');
         this.playlist = allTracks;
       }
       
       this.currentTrackIndex = 0;
       this.renderPlaylist();
-      console.log('Playlist loaded with', this.playlist.length, 'tracks');
+      console.log(`✓ Playlist: ${this.playlist.length} tracks`);
     } catch (error) {
       console.error('Error loading playlist:', error);
     }
