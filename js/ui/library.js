@@ -445,7 +445,6 @@ export class BookLibrary {
             const bookId = card.dataset.bookId;
             this.openBook(bookId);
         });
-    });
-    
-    console.log('Books displayed successfully');
+    });        console.log('Books displayed successfully');
+    }
 }
