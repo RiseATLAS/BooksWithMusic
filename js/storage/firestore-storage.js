@@ -1,7 +1,7 @@
 // Firestore Storage Module
 // Handles user settings, book metadata, and reading progress in Firestore
 
-import { db } from '../config/firebase-config.js';
+import { db, auth } from '../config/firebase-config.js';
 import { 
   doc, 
   getDoc, 
@@ -192,5 +192,81 @@ export async function deleteBookMetadata(userId, bookId) {
   } catch (error) {
     console.error('Error deleting book metadata:', error);
     throw new Error(`Failed to delete metadata: ${error.message}`);
+  }
+}
+
+/**
+ * FirestoreStorage class - wraps Firestore functions with auth context
+ */
+export class FirestoreStorage {
+  constructor() {
+    this.auth = null;
+  }
+
+  async getUserBooks() {
+    const userId = this.getCurrentUserId();
+    return await getUserBooks(userId);
+  }
+
+  async saveBook(bookId, bookData) {
+    const userId = this.getCurrentUserId();
+    const { fileData, ...metadata } = bookData;
+    return await saveBook(userId, bookId, metadata, fileData);
+  }
+
+  async updateBook(bookId, updates) {
+    const userId = this.getCurrentUserId();
+    const bookRef = doc(db, 'users', userId, 'books', bookId);
+    await setDoc(bookRef, updates, { merge: true });
+  }
+
+  async deleteBook(bookId) {
+    const userId = this.getCurrentUserId();
+    return await deleteBookMetadata(userId, bookId);
+  }
+
+  async saveProgress(bookId, progress) {
+    const userId = this.getCurrentUserId();
+    return await saveBookProgress(userId, bookId, progress);
+  }
+
+  async getProgress(bookId) {
+    const userId = this.getCurrentUserId();
+    return await getBookProgress(userId, bookId);
+  }
+
+  async saveSettings(settings) {
+    const userId = this.getCurrentUserId();
+    return await saveUserSettings(userId, settings);
+  }
+
+  async getSettings() {
+    const userId = this.getCurrentUserId();
+    return await getUserSettings(userId);
+  }
+
+  async calculateStorageUsage(userId) {
+    if (!userId) {
+      userId = auth.currentUser?.uid;
+    }
+    if (!userId) {
+      return 0;
+    }
+    
+    const books = await getUserBooks();
+    let totalSize = 0;
+    for (const book of books) {
+        if (book.fileSize) {
+            totalSize += book.fileSize;
+        }
+    }
+    return totalSize;
+  }
+
+  getCurrentUserId() {
+    if (!auth?.currentUser) {
+      throw new Error('User not authenticated');
+    }
+    return auth.currentUser.uid;
   }
 }

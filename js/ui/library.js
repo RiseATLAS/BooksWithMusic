@@ -1,10 +1,15 @@
 import { db, auth } from '../config/firebase-config.js';
-import { FirestoreStorage } from '../storage/firestore-storage.js';
+import { 
+    getUserBooks, 
+    saveBook, 
+    updateBook, 
+    deleteBook, 
+    calculateStorageUsage 
+} from '../storage/firestore-storage.js';
 
 export class BookLibrary {
     constructor() {
         this.books = [];
-        this.firestoreStorage = new FirestoreStorage();
         this.currentUser = null;
     }
 
@@ -17,7 +22,7 @@ export class BookLibrary {
 
     async loadBooks() {
         try {
-            this.books = await this.firestoreStorage.getUserBooks();
+            this.books = await getUserBooks();
             console.log(`Loaded ${this.books.length} books`);
             return this.books;
         } catch (error) {
@@ -121,7 +126,7 @@ export class BookLibrary {
                         progress: 0
                     };
                     
-                    await this.firestoreStorage.saveBook(bookData.id, {
+                    await saveBook(bookData.id, {
                         ...bookData,
                         fileData: base64Data,
                         fileSize: file.size
@@ -129,6 +134,9 @@ export class BookLibrary {
                     
                     await this.loadBooks();
                     this.displayBooks();
+                    
+                    const totalSize = await calculateStorageUsage(auth.currentUser.uid);
+                    console.log(`Storage used: ${(totalSize / 1024).toFixed(2)} KB / 1,048,576 KB (${((totalSize / 1048576) * 100).toFixed(2)}%)`);
                     
                     alert(`✓ "${bookData.title}" imported!`);
                 } catch (error) {
@@ -147,7 +155,7 @@ export class BookLibrary {
         const book = this.books.find(b => b.id === bookId);
         if (!book) return;
         
-        await this.firestoreStorage.updateBook(bookId, {
+        await updateBook(bookId, {
             lastOpened: new Date().toISOString()
         });
         
@@ -158,7 +166,7 @@ export class BookLibrary {
         if (!confirm('Delete this book?')) return;
         
         try {
-            await this.firestoreStorage.deleteBook(bookId);
+            await deleteBook(bookId);
             await this.loadBooks();
             this.displayBooks();
         } catch (error) {
