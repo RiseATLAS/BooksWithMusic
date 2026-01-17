@@ -100,9 +100,8 @@ export async function registerUser(userId, userName, userEmail) {
       name: userName,
       email: userEmail,
       registeredAt: serverTimestamp(),
-      lastLogin: serverTimestamp(),
-      termsAccepted: false, // Will be set to true by terms-of-service.js
-      termsVersion: null
+      lastLogin: serverTimestamp()
+      // Note: termsAccepted, termsVersion, and termsAcceptedAt are already set by acceptTerms()
     }, { merge: true });
     
     console.log(`✅ New user registered: ${userName} (${userEmail})`);

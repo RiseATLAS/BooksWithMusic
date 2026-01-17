@@ -244,7 +244,8 @@ export async function checkAndPromptTerms(userId) {
       await acceptTerms(userId);
       return true;
     } else {
-      console.log('❌ User declined terms');
+      // User declined - don't create account, just log and return false
+      console.log('❌ User declined terms - account will not be created');
       return false;
     }
   } catch (error) {

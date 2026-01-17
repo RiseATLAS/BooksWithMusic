@@ -3,7 +3,7 @@
 
 export const TEST_CONFIG = {
   // Show Terms of Service modal to all users (even if already accepted)
-  ALWAYS_SHOW_TOS: true,
+  ALWAYS_SHOW_TOS: false,  // PRODUCTION MODE: Only show to new users or on version update
   
   // Simulate max users reached (blocks all new registrations)
   SIMULATE_MAX_USERS: false,
