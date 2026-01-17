@@ -134,14 +134,12 @@ export class BookLibrary {
                         cover: parsed.coverImage || '',
                         addedDate: new Date().toISOString(),
                         lastOpened: null,
-                        progress: 0
+                        progress: 0,
+                        fileSize: file.size
                     };
                     
-                    await saveBook(bookData.id, {
-                        ...bookData,
-                        fileData: base64Data,
-                        fileSize: file.size
-                    });
+                    const userId = auth.currentUser.uid;
+                    await saveBook(userId, bookData.id, bookData, base64Data);
                     
                     await this.loadBooks();
                     this.displayBooks();
