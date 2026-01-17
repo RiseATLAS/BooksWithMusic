@@ -248,6 +248,12 @@ export class ReaderUI {
       // Initialize music in the background
       this._musicInitPromise = this.musicManager
         .initialize(book.id, this.chapters)
+        .then(() => {
+          // After music is initialized, trigger music for the current chapter
+          if (this.musicManager && this.currentChapterIndex >= 0) {
+            this.musicManager.onChapterChange(this.currentChapterIndex);
+          }
+        })
         .catch((e) => console.warn('Music init failed:', e));
       
       console.log('✓ Reader ready');
