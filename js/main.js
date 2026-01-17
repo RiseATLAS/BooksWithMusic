@@ -266,41 +266,15 @@ class BooksWithMusicApp {
   }
 
   async registerServiceWorker() {
-    // Service workers frequently cause "crash on load" during development by
-    // serving stale cached assets (especially styles/scripts) after code changes.
-    // Vite already provides its own dev caching/reload pipeline.
-    if (import.meta?.env?.DEV) {
+    // Register service worker for offline support
+    if ('serviceWorker' in navigator) {
       try {
-        if ('serviceWorker' in navigator) {
-          const regs = await navigator.serviceWorker.getRegistrations();
-          await Promise.all(regs.map(r => r.unregister()));
-        }
-        if (window.caches?.keys) {
-          const keys = await window.caches.keys();
-          await Promise.all(
-            keys
-              .filter((k) => k.startsWith('booksWithMusic-'))
-              .map((k) => window.caches.delete(k))
-          );
-        }
-        console.log('Dev mode: service worker disabled and caches cleared');
+        // Use correct path for GitHub Pages (with repo name in URL)
+        const swPath = '/BooksWithMusic/service-worker.js';
+        const registration = await navigator.serviceWorker.register(swPath);
+        console.log('✓ Service Worker registered');
       } catch (error) {
-        console.warn('Dev mode: failed to clear service worker/caches:', error);
-      }
-      return;
-    }
-
-    async initServiceWorker() {
-      // Register service worker for offline support
-      if ('serviceWorker' in navigator) {
-          try {
-              // Use correct path for GitHub Pages (with repo name in URL)
-              const swPath = '/BooksWithMusic/service-worker.js';
-              const registration = await navigator.serviceWorker.register(swPath);
-              console.log('✓ Service Worker registered');
-          } catch (error) {
-              console.warn('Service Worker registration failed:', error);
-          }
+        console.warn('Service Worker registration failed:', error);
       }
     }
   }
