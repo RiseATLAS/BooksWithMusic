@@ -5,11 +5,13 @@ import {
     updateBook, 
     deleteBook 
 } from '../storage/firestore-storage.js';
+import { EPUBParser } from '../core/epub-parser.js';
 
 export class BookLibrary {
     constructor() {
         this.books = [];
         this.currentUser = null;
+        this.parser = new EPUBParser();
     }
 
     async init() {
@@ -107,7 +109,13 @@ export class BookLibrary {
                 return;
             }
             
+            // Parse EPUB using EPUBParser
+            console.log('Parsing EPUB...');
             const arrayBuffer = await file.arrayBuffer();
+            const parsed = await this.parser.parse(arrayBuffer);
+            console.log('Parsed:', parsed.title, 'by', parsed.author);
+            
+            // Convert to base64 for storage
             const reader = new FileReader();
             
             reader.onload = async (e) => {
@@ -119,20 +127,11 @@ export class BookLibrary {
                         return;
                     }
                     
-                    const epubBook = ePub(arrayBuffer);
-                    await epubBook.ready;
-                    
-                    const metadata = epubBook.packaging?.metadata || {};
-                    let cover = null;
-                    try {
-                        cover = await epubBook.coverUrl();
-                    } catch (e) {}
-                    
                     const bookData = {
-                        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                        title: metadata.title || 'Unknown Title',
-                        author: metadata.creator || 'Unknown Author',
-                        cover: cover || '',
+                        id: parsed.id,
+                        title: parsed.title || 'Unknown Title',
+                        author: parsed.author || 'Unknown Author',
+                        cover: parsed.coverImage || '',
                         addedDate: new Date().toISOString(),
                         lastOpened: null,
                         progress: 0
@@ -161,6 +160,7 @@ export class BookLibrary {
             reader.readAsDataURL(file);
         } catch (error) {
             console.error('Import error:', error);
+            alert(`Import error: ${error.message}`);
         }
     }
 
@@ -204,7 +204,7 @@ export class BookLibrary {
             };
             
             sessionStorage.setItem('currentBook', JSON.stringify(bookForReader));
-            window.location.href = 'reader.html';
+            window.location.href = './reader.html';
         } else {
             alert('Book data not found. Please re-import the book.');
         }
