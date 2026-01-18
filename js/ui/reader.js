@@ -1129,12 +1129,15 @@ export class ReaderUI {
     const pageContent = pages[pageIndex] || pages[0];
     newPageDiv.innerHTML = pageContent;
     
-    // CRITICAL: Add to DOM with pre-render class to let browser calculate text layout invisibly
+    // Add to DOM with pre-render class to let browser calculate text layout invisibly
     newPageDiv.classList.add('pre-render');
     pageViewport.appendChild(newPageDiv);
     
     // Force reflow to calculate all text layouts
     void newPageDiv.offsetHeight;
+    
+    // NUCLEAR OPTION: Hide old page immediately so only new page is visible during animation
+    chapterText.style.visibility = 'hidden';
     
     // Remove pre-render class and add animation
     newPageDiv.classList.remove('pre-render');
