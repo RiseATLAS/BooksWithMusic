@@ -1498,6 +1498,20 @@ body {
   }
 }
 
+/* Desktop: Ensure buttons have proper size and spacing */
+@media (min-width: 769px) {
+  .top-left-controls .btn,
+  .top-right-controls .btn {
+    padding: 0.625rem 1.25rem;
+    font-size: 1rem;
+  }
+
+  .top-left-controls,
+  .top-right-controls {
+    gap: 0.5rem;
+  }
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .chapter-sidebar {
@@ -1521,19 +1535,22 @@ body {
   .top-right-controls {
     z-index: 110 !important;
     position: relative;
+  }
+
+  /* Mobile-specific: Make top control buttons smaller and more compact */
+  .top-left-controls,
+  .top-right-controls {
     gap: 0.3rem;
   }
 
-  /* Make top control buttons smaller and more compact on mobile */
   .top-left-controls .btn,
   .top-right-controls .btn {
     min-width: 40px;
     min-height: 40px;
     padding: 8px;
-    font-size: 1rem;
+    font-size: 0.9rem;
   }
 
-  /* Shrink button text/icons to prevent wrapping */
   .top-left-controls .btn .icon,
   .top-right-controls .btn .icon {
     font-size: 1rem;
