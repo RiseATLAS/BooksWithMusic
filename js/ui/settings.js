@@ -388,11 +388,10 @@ export class SettingsUI {
       lineHeight: `${lineHeight}px (${lineHeightMultiplier})`
     });
     
-    // Calculate optimal page width based on container
-    // The container already accounts for viewport padding, so use most of it
-    const optimalPageWidth = Math.floor(containerWidth * 0.95);
-    // Clamp to reasonable range (400-2000px)
-    const calibratedPageWidth = Math.max(400, Math.min(2000, optimalPageWidth));
+    // Cap page width to current container width (don't exceed available space)
+    // Use 95% of container width to leave some breathing room
+    const maxPageWidth = Math.floor(containerWidth * 0.95);
+    const calibratedPageWidth = Math.max(400, Math.min(maxPageWidth, 2000));
     
     if (containerHeight <= 100) {
       console.error('Container too small:', containerHeight);
