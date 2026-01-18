@@ -1457,7 +1457,7 @@ body {
   .chapter-sidebar {
     position: fixed;
     left: -280px;
-    z-index: 100;
+    z-index: 90;
     transition: left 0.3s;
   }
   
@@ -1468,6 +1468,12 @@ body {
   .book-grid {
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     gap: 1rem;
+  }
+
+  /* Ensure top controls stay above chapter sidebar */
+  .top-left-controls,
+  .top-right-controls {
+    z-index: 110;
   }
 }
 
@@ -1837,6 +1843,12 @@ input, select, textarea {
     min-height: 44px;
     padding: 10px;
     font-size: 1.1rem;
+  }
+
+  /* Ensure top controls stay above chapter sidebar */
+  .top-left-controls,
+  .top-right-controls {
+    z-index: 110;
   }
 
   /* Controls */
