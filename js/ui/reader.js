@@ -438,16 +438,22 @@ export class ReaderUI {
       if (totalMovement < tapThreshold && duration < tapTimeThreshold) {
         // On mobile, tap in center area toggles fullscreen
         if (window.innerWidth <= 768) {
-          // Only toggle fullscreen if tap is in the center reading area
-          // (not on buttons or panels)
-          const tapX = touchEndX;
-          const tapY = touchEndY;
-          const centerAreaMargin = 100; // pixels from edge
-          
-          if (tapX > centerAreaMargin && 
-              tapX < window.innerWidth - centerAreaMargin &&
-              tapY > centerAreaMargin && 
-              tapY < window.innerHeight - centerAreaMargin) {
+          // Check if tap target is not a button, panel, or interactive element
+          const tapTarget = document.elementFromPoint(touchEndX, touchEndY);
+          const isInteractive = tapTarget && (
+            tapTarget.tagName === 'BUTTON' ||
+            tapTarget.tagName === 'INPUT' ||
+            tapTarget.tagName === 'SELECT' ||
+            tapTarget.tagName === 'A' ||
+            tapTarget.closest('.music-panel') ||
+            tapTarget.closest('.settings-panel') ||
+            tapTarget.closest('.chapter-sidebar') ||
+            tapTarget.closest('.top-left-controls') ||
+            tapTarget.closest('.top-right-controls')
+          );
+
+          // Only toggle fullscreen if tapping on the reading area
+          if (!isInteractive) {
             this.toggleFullscreen();
             return;
           }

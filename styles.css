@@ -114,16 +114,15 @@ body {
 .import-section { text-align: center; padding: 2rem; margin-bottom: 2rem; }
 
 .btn {
-  padding: 0.875rem 2rem;
+  padding: 0.6rem 1rem;
   border: none;
-  border-radius: 12px;
-  font-size: 1rem;
-  font-weight: 600;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
+  display: inline-block;
+  white-space: nowrap;
 }
 
 .btn-primary {
@@ -156,7 +155,9 @@ body {
 }
 
 .btn-icon {
-  padding: 0.625rem 1.25rem;
+  padding: 0.5rem;
+  min-width: 40px;
+  min-height: 40px;
   background: rgba(var(--glass-rgb, 255, 255, 255), 0.15);
   backdrop-filter: blur(20px);
   color: var(--text-primary);
@@ -164,6 +165,9 @@ body {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
   opacity: 0.85;
   transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .btn-icon:hover { 
@@ -855,6 +859,32 @@ body {
   padding: 0.5rem 0.75rem; /* Even more compact */
 }
 
+.settings-user-info {
+  padding: 1rem;
+  margin-bottom: 1rem;
+  background: rgba(var(--accent-rgb, 99, 102, 241), 0.1);
+  border-radius: 8px;
+  border: 1px solid rgba(var(--accent-rgb, 99, 102, 241), 0.2);
+}
+
+.settings-user-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.settings-user-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.settings-user-email {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  opacity: 0.8;
+}
+
 .music-header, .settings-header {
   display: flex;
   align-items: center;
@@ -1531,6 +1561,11 @@ body {
   .top-right-controls {
     z-index: 110 !important;
     position: relative;
+  }
+
+  /* Hide fullscreen button on mobile */
+  #fullscreen-btn {
+    display: none !important;
   }
 
   /* Controls */
