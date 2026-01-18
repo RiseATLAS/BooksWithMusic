@@ -423,8 +423,8 @@ export class ReaderUI {
     }, { passive: true });
 
     document.addEventListener('touchend', (e) => {
-      touchEndX = e.changedTouches[0].screenX;
-      touchEndY = e.changedTouches[0].screenY;
+      touchEndX = e.changedTouches[0].clientX;
+      touchEndY = e.changedTouches[0].clientY;
       const touchDuration = Date.now() - touchStartTime;
       this.handleTouch(touchDuration, ignoreTapFullscreen);
       ignoreTapFullscreen = false;
@@ -448,8 +448,11 @@ export class ReaderUI {
           // Check if tap target is the text area specifically
           const isTextArea = this.isTapInChapterText(touchEndX, touchEndY);
 
+          console.log('Is text area?', isTextArea);
+
           // Only toggle fullscreen if tapping on the text area
           if (isTextArea) {
+            console.log('Toggling fullscreen!');
             this.toggleFullscreen();
             return;
           }
