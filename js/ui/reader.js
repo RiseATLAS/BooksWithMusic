@@ -1113,7 +1113,8 @@ export class ReaderUI {
     }
     
     const oldPageRect = chapterText.getBoundingClientRect();
-    const oldFirstP = chapterText.querySelector('p') ? chapterText.querySelector('p').getBoundingClientRect() : null;
+    const oldFirstP = chapterText.querySelector('p');
+    const oldFirstPRect = oldFirstP ? oldFirstP.getBoundingClientRect() : null;
     
     console.log('📄 [OLD PAGE]', { 
       x: oldPageRect.x,
@@ -1122,7 +1123,13 @@ export class ReaderUI {
       height: oldPageRect.height,
       fontSmoothing: window.getComputedStyle(chapterText).webkitFontSmoothing,
       textAlign: window.getComputedStyle(chapterText).textAlign,
-      firstParagraph: oldFirstP ? { x: oldFirstP.x, y: oldFirstP.y, width: oldFirstP.width } : null
+      firstParagraph: oldFirstPRect ? { 
+        x: oldFirstPRect.x, 
+        y: oldFirstPRect.y, 
+        width: oldFirstPRect.width,
+        height: oldFirstPRect.height,
+        textContent: oldFirstP.textContent.substring(0, 50) + '...'
+      } : null
     });
     
     // Get container
@@ -1204,7 +1211,8 @@ export class ReaderUI {
     newPageDiv.classList.remove(animClass);
     
     const finalRect = newPageDiv.getBoundingClientRect();
-    const finalFirstP = newPageDiv.querySelector('p') ? newPageDiv.querySelector('p').getBoundingClientRect() : null;
+    const finalFirstP = newPageDiv.querySelector('p');
+    const finalFirstPRect = finalFirstP ? finalFirstP.getBoundingClientRect() : null;
     
     console.log('📍 [FINAL POSITION]', {
       x: finalRect.x,
@@ -1213,7 +1221,13 @@ export class ReaderUI {
       height: finalRect.height,
       fontSmoothing: window.getComputedStyle(newPageDiv).webkitFontSmoothing,
       textAlign: window.getComputedStyle(newPageDiv).textAlign,
-      firstParagraph: finalFirstP ? { x: finalFirstP.x, y: finalFirstP.y, width: finalFirstP.width } : null
+      firstParagraph: finalFirstPRect ? { 
+        x: finalFirstPRect.x, 
+        y: finalFirstPRect.y, 
+        width: finalFirstPRect.width,
+        height: finalFirstPRect.height,
+        textContent: finalFirstP.textContent.substring(0, 50) + '...'
+      } : null
     });
     
     // Restore scrollbar

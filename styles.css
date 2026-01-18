@@ -641,17 +641,14 @@ body {
   height: auto;
   min-height: calc(100% - var(--page-gap, 120px) * 2); /* Subtract top and bottom gaps */
   box-sizing: border-box;
-  /* Ensure consistent rendering and prevent sub-pixel shifting */
-  transform: translateZ(0);
-  will-change: transform;
-  /* Consistent text rendering */
+  /* Consistent text rendering - NO transform to avoid sub-pixel shifts */
   text-align: left;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  /* Prevent sub-pixel rendering differences */
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
+  text-rendering: geometricPrecision; /* More precise than optimizeLegibility */
+  -webkit-font-smoothing: subpixel-antialiased; /* Use sub-pixel rendering */
+  -moz-osx-font-smoothing: auto;
+  font-kerning: normal;
+  /* Round to full pixels */
+  image-rendering: crisp-edges;
 }
 
 /* Ensure text is always visible and properly aligned */
