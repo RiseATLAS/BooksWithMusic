@@ -159,10 +159,12 @@ export class MusicPanelUI {
       // Reset page history when chapter changes
       this.currentChapter = data.chapterIndex;
       this.pageTrackHistory.clear();
-      this.pageTrackHistory.set(1, 0); // Start at first track on page 1
+      
+      // Store shift points for this chapter
+      this.currentShiftPoints = data.chapterShiftPoints?.shiftPoints || [];
       
       // Load playlist with recommended tracks (1-5 tracks in order)
-      await this.loadPlaylistForChapter(data.chapterIndex, data.recommendedTracks);
+      await this.loadPlaylistForChapter(data.chapterIndex, data.recommendedTracks, data.currentPageInChapter || 1);
       
       // Check if auto-play enabled (default FALSE - requires API key)
       const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
@@ -177,16 +179,17 @@ export class MusicPanelUI {
           }, 1000);
         }
       } else if (autoPlay && this.playlist.length > 0) {
-        // Auto-play the first track of the new playlist
+        // Auto-play the appropriate track for the current page
         // (We just loaded a new playlist for this chapter, so start it regardless of previous playing state)
+        const startTrackIndex = this.determineTrackIndexForPage(data.currentPageInChapter || 1);
         setTimeout(async () => {
-          await this.playTrack(0);
+          await this.playTrack(startTrackIndex);
         }, 500);
       }
     });
   }
 
-  async loadPlaylistForChapter(chapterIndex, recommendedTracks) {
+  async loadPlaylistForChapter(chapterIndex, recommendedTracks, currentPageInChapter = 1) {
     try {
       
       if (!this.musicManager) {
@@ -228,11 +231,37 @@ export class MusicPanelUI {
         this.playlist = allTracks;
       }
       
-      this.currentTrackIndex = 0;
+      // Determine starting track based on current page
+      this.currentTrackIndex = this.determineTrackIndexForPage(currentPageInChapter);
       this.renderPlaylist();
     } catch (error) {
       console.error('Error loading playlist:', error);
     }
+  }
+
+  /**
+   * Determine which track should be playing for a given page number
+   * based on shift points in the chapter
+   */
+  determineTrackIndexForPage(pageNumber) {
+    if (!this.currentShiftPoints || this.currentShiftPoints.length === 0 || !this.playlist || this.playlist.length === 0) {
+      // No shift points or no playlist, start at first track
+      this.pageTrackHistory.set(pageNumber, 0);
+      return 0;
+    }
+    
+    // Count how many shift points occur before this page
+    const shiftsBeforePage = this.currentShiftPoints.filter(sp => sp.page < pageNumber).length;
+    
+    // Track index is the number of shifts that have occurred (clamped to playlist length)
+    const trackIndex = Math.min(shiftsBeforePage, this.playlist.length - 1);
+    
+    // Store in history
+    this.pageTrackHistory.set(pageNumber, trackIndex);
+    
+    console.log(`📍 Page ${pageNumber}: Starting at track ${trackIndex} (${shiftsBeforePage} shifts before this page)`);
+    
+    return trackIndex;
   }
 
   setupEventListeners() {

@@ -78,7 +78,7 @@ export class MusicManager {
     }
   }
 
-  onChapterChange(chapterIndex) {
+  onChapterChange(chapterIndex, currentPageInChapter = 1, chapterShiftPoints = null) {
     // Check if music manager is fully initialized
     if (!this.bookAnalysis || !this.chapters || !this.chapters[chapterIndex]) {
       return;
@@ -92,6 +92,8 @@ export class MusicManager {
       // Emit event that music panel can listen to
       this.emit('chapterMusicChanged', {
         chapterIndex,
+        currentPageInChapter, // Pass the current page so music can start at the right track
+        chapterShiftPoints, // Pass shift points so music panel knows where tracks should change
         analysis,
         recommendedTracks: mapping.tracks || []
       });

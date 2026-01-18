@@ -460,6 +460,44 @@ export class ReaderUI {
     window.addEventListener('settings:pageNumbersChanged', () => {
       this.updatePageIndicator();
     });
+
+    // Listen for layout changes (font size, line height, etc.) that affect pagination
+    window.addEventListener('reader:layoutChanged', async (e) => {
+      const { reason, settings } = e.detail;
+      
+      // Settings that affect pagination and require shift point recalculation
+      const paginationAffectingChanges = ['fontSize', 'lineHeight', 'fontFamily', 'textAlign', 'pageWidth', 'pageDensity', 'calibration'];
+      
+      if (paginationAffectingChanges.includes(reason)) {
+        console.log(`📐 Layout changed (${reason}) - recalculating shift points...`);
+        
+        // Clear cached pages to force re-pagination
+        this.chapterPages = {};
+        
+        // Calculate current character offset BEFORE re-pagination
+        const currentOffset = this.calculateCharOffset();
+        
+        // Re-load current chapter with new pagination
+        if (this.currentChapterIndex >= 0 && this.chapters.length > 0) {
+          await this.loadChapter(this.currentChapterIndex, { 
+            pageInChapter: this.currentPageInChapter, 
+            preservePage: true 
+          });
+          
+          // Restore position using character offset
+          const newPage = this.findPageByCharOffset(this.currentChapterIndex, currentOffset);
+          if (newPage !== this.currentPageInChapter) {
+            this.currentPageInChapter = newPage;
+            this.renderCurrentPage();
+            this.currentPage = this.calculateCurrentPageNumber();
+            this.totalPages = this.calculateTotalPages();
+            this.updatePageIndicator();
+          }
+          
+          // Shift points are automatically recalculated in loadChapter via _analyzeChapterSections
+        }
+      }
+    });
   }
 
   /**
@@ -684,6 +722,16 @@ export class ReaderUI {
       
       // Analyze chapter sections for intelligent music switching
       await this._analyzeChapterSections(index);
+
+      // Update music for new chapter (only if music manager is ready)
+      if (this.musicManager && this._musicInitPromise) {
+        await this._musicInitPromise;
+        this.musicManager.onChapterChange(
+          this.currentChapterIndex, 
+          this.currentPageInChapter,
+          this.currentChapterShiftPoints
+        );
+      }
 
       // Update page numbers
       this.currentPage = this.calculateCurrentPageNumber();

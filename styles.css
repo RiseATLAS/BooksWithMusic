@@ -1473,7 +1473,8 @@ body {
   /* Ensure top controls stay above chapter sidebar */
   .top-left-controls,
   .top-right-controls {
-    z-index: 110;
+    z-index: 110 !important;
+    position: relative;
   }
 }
 
@@ -1848,7 +1849,8 @@ input, select, textarea {
   /* Ensure top controls stay above chapter sidebar */
   .top-left-controls,
   .top-right-controls {
-    z-index: 110;
+    z-index: 110 !important;
+    position: relative;
   }
 
   /* Controls */
