@@ -36,6 +36,7 @@ class BooksWithMusicApp {
 
       // Check if we're on reader page
       if (window.location.pathname.includes("reader.html")) {
+        document.body.classList.add("reader-page");
         await this.reader.initializeReader();
 
         // Apply settings ASAP
@@ -93,7 +94,8 @@ class BooksWithMusicApp {
             // No cloud settings, save local settings to cloud
             const localSettings = localStorage.getItem('booksWithMusic-settings');
             if (localSettings) {
-                await saveUserSettings(user.uid, JSON.parse(localSettings));
+                const payload = this.buildSettingsPayload(JSON.parse(localSettings), user);
+                await saveUserSettings(user.uid, payload);
             }
           }
         } catch (error) {
@@ -112,18 +114,15 @@ class BooksWithMusicApp {
     });
   }
 
-  updateSettingsUserInfo(user) {
-    const settingsUserInfo = document.getElementById("settings-user-info");
-    const settingsUserName = document.getElementById("settings-user-name");
-    const settingsUserEmail = document.getElementById("settings-user-email");
-
-    if (settingsUserInfo && settingsUserName && settingsUserEmail && user) {
-      settingsUserName.textContent = user.displayName || "User";
-      settingsUserEmail.textContent = user.email;
-      settingsUserInfo.style.display = "block";
-    } else if (settingsUserInfo) {
-      settingsUserInfo.style.display = "none";
+  buildSettingsPayload(settings, user) {
+    if (!user) {
+      return { ...settings };
     }
+
+    return {
+      ...settings,
+      userEmail: user.email || null,
+    };
   }
 
   setupAuthUI(isReaderPage) {
@@ -161,7 +160,8 @@ class BooksWithMusicApp {
               const settings = JSON.parse(
                 localStorage.getItem("booksWithMusic-settings") || "{}",
               );
-              await saveUserSettings(this.currentUser.uid, settings);
+              const payload = this.buildSettingsPayload(settings, this.currentUser);
+              await saveUserSettings(this.currentUser.uid, payload);
             }
 
             await signOut();
@@ -252,9 +252,6 @@ class BooksWithMusicApp {
           menuEmail.textContent = user.email;
         }
 
-        // Update settings panel user info
-        this.updateSettingsUserInfo(user);
-        
         // Setup sign out handler for reader page
         const signOutBtnReader = document.getElementById("sign-out-btn-reader");
         if (signOutBtnReader && !signOutBtnReader.dataset.handlerAdded) {
@@ -266,7 +263,8 @@ class BooksWithMusicApp {
                 const settings = JSON.parse(
                   localStorage.getItem("booksWithMusic-settings") || "{}",
                 );
-                await saveUserSettings(this.currentUser.uid, settings);
+                const payload = this.buildSettingsPayload(settings, this.currentUser);
+                await saveUserSettings(this.currentUser.uid, payload);
               }
               
               await signOut();
