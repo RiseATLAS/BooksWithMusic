@@ -1118,13 +1118,23 @@ export class ReaderUI {
     // Hide scrollbar during flip animation
     pageViewport.classList.add('flipping');
     
-    // Get the new page content
+    // Create new page element that will flip in
+    const newPageDiv = document.createElement('div');
+    newPageDiv.className = 'chapter-text';
+    newPageDiv.setAttribute('data-page', targetPage);
+    newPageDiv.setAttribute('data-chapter', this.currentChapterIndex);
+    
+    // Set the new page content
     const pageIndex = targetPage - 1;
     const pageContent = pages[pageIndex] || pages[0];
+    newPageDiv.innerHTML = pageContent;
     
-    // Add animation class to existing element
+    // Add animation class - new page flips in over old page
     const animClass = direction === 'next' ? 'flipping-next' : 'flipping-prev';
-    chapterText.classList.add(animClass);
+    newPageDiv.classList.add(animClass);
+    
+    // Add new page on top of old page
+    pageViewport.appendChild(newPageDiv);
     
     // Update page number immediately
     this.currentPageInChapter = targetPage;
@@ -1142,19 +1152,14 @@ export class ReaderUI {
       this.saveProgress().catch(() => {});
     }, 400);
     
-    // Wait for halfway through animation (350ms) when page is perpendicular
-    await new Promise(resolve => setTimeout(resolve, 350));
+    // Wait for animation to complete (700ms)
+    await new Promise(resolve => setTimeout(resolve, 700));
     
-    // Swap content when page is edge-on (invisible)
-    chapterText.innerHTML = pageContent;
-    chapterText.setAttribute('data-page', targetPage);
-    chapterText.setAttribute('data-chapter', this.currentChapterIndex);
-    
-    // Wait for second half of animation
-    await new Promise(resolve => setTimeout(resolve, 350));
-    
-    // Remove animation class
-    chapterText.classList.remove(animClass);
+    // Remove old page and animation class
+    if (chapterText && chapterText.parentElement) {
+      chapterText.remove();
+    }
+    newPageDiv.classList.remove(animClass);
     
     // Restore scrollbar
     pageViewport.classList.remove('flipping');

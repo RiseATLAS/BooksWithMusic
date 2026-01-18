@@ -535,25 +535,13 @@ body {
   background: rgba(0, 0, 0, 0.3);
 }
 
-/* Page flip animations - Flip away, swap content, flip back */
+/* Page flip animations - Simple perpendicular to flat flip */
 @keyframes pageFlipNext {
   0% {
-    transform: rotateY(0deg) translateZ(0);
+    transform: rotateY(90deg) translateZ(0);
     opacity: 1;
     z-index: 20;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-  }
-  49% {
-    transform: rotateY(90deg) translateZ(0);
-    opacity: 0;
-    z-index: 20;
     box-shadow: 20px 0 40px rgba(0, 0, 0, 0.4);
-  }
-  50% {
-    transform: rotateY(-90deg) translateZ(0);
-    opacity: 0;
-    z-index: 20;
-    box-shadow: -20px 0 40px rgba(0, 0, 0, 0.4);
   }
   99% {
     transform: rotateY(0deg) translateZ(0);
@@ -571,22 +559,10 @@ body {
 
 @keyframes pageFlipPrev {
   0% {
-    transform: rotateY(0deg) translateZ(0);
+    transform: rotateY(-90deg) translateZ(0);
     opacity: 1;
     z-index: 20;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-  }
-  49% {
-    transform: rotateY(-90deg) translateZ(0);
-    opacity: 0;
-    z-index: 20;
     box-shadow: -20px 0 40px rgba(0, 0, 0, 0.4);
-  }
-  50% {
-    transform: rotateY(90deg) translateZ(0);
-    opacity: 0;
-    z-index: 20;
-    box-shadow: 20px 0 40px rgba(0, 0, 0, 0.4);
   }
   99% {
     transform: rotateY(0deg) translateZ(0);
