@@ -413,10 +413,12 @@ export class ReaderUI {
     let touchEndY = 0;
     let touchStartTime = 0;
     let ignoreTapFullscreen = false;
+    let allowSwipeNavigation = false;
 
     document.addEventListener('touchstart', (e) => {
       const touchTarget = e.target;
       ignoreTapFullscreen = Boolean(touchTarget?.closest('input[type="range"]'));
+      allowSwipeNavigation = Boolean(touchTarget?.closest('.chapter-text'));
       touchStartX = e.changedTouches[0].screenX;
       touchStartY = e.changedTouches[0].screenY;
       touchStartTime = Date.now();
@@ -426,11 +428,12 @@ export class ReaderUI {
       touchEndX = e.changedTouches[0].clientX;
       touchEndY = e.changedTouches[0].clientY;
       const touchDuration = Date.now() - touchStartTime;
-      this.handleTouch(touchDuration, ignoreTapFullscreen);
+      this.handleTouch(touchDuration, ignoreTapFullscreen, allowSwipeNavigation);
       ignoreTapFullscreen = false;
+      allowSwipeNavigation = false;
     }, { passive: true });
 
-    this.handleTouch = (duration, ignoreFullscreenTap = false) => {
+    this.handleTouch = (duration, ignoreFullscreenTap = false, allowSwipe = true) => {
       const swipeThreshold = 50; // minimum distance for swipe
       const tapThreshold = 10; // maximum movement for tap
       const tapTimeThreshold = 300; // maximum time for tap (ms)
@@ -448,8 +451,6 @@ export class ReaderUI {
           // Check if tap target is the text area specifically
           const isTextArea = this.isTapInChapterText(touchEndX, touchEndY);
 
-          console.log('Is text area?', isTextArea);
-
           // Only toggle fullscreen if tapping on the text area
           if (isTextArea) {
             console.log('Toggling fullscreen!');
@@ -457,6 +458,10 @@ export class ReaderUI {
             return;
           }
         }
+      }
+
+      if (!allowSwipe) {
+        return;
       }
 
       // Check for swipe (horizontal movement dominant)
