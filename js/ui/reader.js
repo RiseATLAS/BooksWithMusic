@@ -1129,12 +1129,19 @@ export class ReaderUI {
     const pageContent = pages[pageIndex] || pages[0];
     newPageDiv.innerHTML = pageContent;
     
-    // Add animation class - new page flips in over old page
+    // CRITICAL: Add to DOM invisibly first to let browser calculate text layout
+    newPageDiv.style.opacity = '0';
+    newPageDiv.style.visibility = 'hidden';
+    pageViewport.appendChild(newPageDiv);
+    
+    // Force reflow to calculate all text layouts
+    void newPageDiv.offsetHeight;
+    
+    // Now make it visible and add animation
+    newPageDiv.style.opacity = '';
+    newPageDiv.style.visibility = '';
     const animClass = direction === 'next' ? 'flipping-next' : 'flipping-prev';
     newPageDiv.classList.add(animClass);
-    
-    // Add new page on top of old page
-    pageViewport.appendChild(newPageDiv);
     
     // Update page number immediately
     this.currentPageInChapter = targetPage;
