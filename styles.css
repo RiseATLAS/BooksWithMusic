@@ -538,35 +538,43 @@ body {
 /* Page flip animations - Simple perpendicular to flat flip */
 @keyframes pageFlipNext {
   0% {
-    transform: rotateY(90deg);
-    transform-origin: right center;
+    transform: rotateY(90deg) translateZ(0);
     opacity: 1;
     z-index: 20;
     box-shadow: 20px 0 40px rgba(0, 0, 0, 0.4);
   }
-  100% {
-    transform: rotateY(0deg);
-    transform-origin: right center;
+  99% {
+    transform: rotateY(0deg) translateZ(0);
     opacity: 1;
     z-index: 20;
     box-shadow: 0 0 30px rgba(0, 0, 0, 0.15);
+  }
+  100% {
+    transform: translateZ(0);
+    opacity: 1;
+    z-index: 1;
+    box-shadow: none;
   }
 }
 
 @keyframes pageFlipPrev {
   0% {
-    transform: rotateY(-90deg);
-    transform-origin: left center;
+    transform: rotateY(-90deg) translateZ(0);
     opacity: 1;
     z-index: 20;
     box-shadow: -20px 0 40px rgba(0, 0, 0, 0.4);
   }
-  100% {
-    transform: rotateY(0deg);
-    transform-origin: left center;
+  99% {
+    transform: rotateY(0deg) translateZ(0);
     opacity: 1;
     z-index: 20;
     box-shadow: 0 0 30px rgba(0, 0, 0, 0.15);
+  }
+  100% {
+    transform: translateZ(0);
+    opacity: 1;
+    z-index: 1;
+    box-shadow: none;
   }
 }
 
@@ -628,11 +636,14 @@ body {
   line-height: var(--reader-line-height, 1.8);
   font-family: var(--reader-font-family, Georgia, "Times New Roman", serif);
   color: inherit;
-  background: transparent;
+  background: var(--page-paper-bg, var(--reader-bg));
   overflow: visible;
   height: auto;
   min-height: calc(100% - var(--page-gap, 120px) * 2); /* Subtract top and bottom gaps */
   box-sizing: border-box;
+  /* Ensure consistent rendering */
+  transform: translateZ(0);
+  will-change: transform;
 }
 
 /* Ensure text is always visible - explicit color for debugging */
@@ -663,17 +674,15 @@ body {
   box-shadow: 0 0 30px rgba(0, 0, 0, 0.15);
   transform-style: preserve-3d;
   backface-visibility: visible;
-  background: var(--page-paper-bg, var(--reader-bg));
-  color: var(--page-paper-text, var(--reader-text));
 }
 
 .chapter-text.flipping-next {
-  animation: pageFlipNext 0.7s cubic-bezier(0.4, 0.0, 0.2, 1);
+  animation: pageFlipNext 0.7s cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
   transform-origin: right center;
 }
 
 .chapter-text.flipping-prev {
-  animation: pageFlipPrev 0.7s cubic-bezier(0.4, 0.0, 0.2, 1);
+  animation: pageFlipPrev 0.7s cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
   transform-origin: left center;
 }
 
