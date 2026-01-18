@@ -1033,11 +1033,20 @@ body.reader-page::-webkit-scrollbar {
   transition: top 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 1000;
   opacity: 1;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .music-panel.show { top: 60px; }
 .settings-panel.show { top: 60px; }
 .music-settings-panel.show { top: 60px; }
+
+.music-panel.show,
+.settings-panel.show,
+.music-settings-panel.show {
+  visibility: visible;
+  pointer-events: auto;
+}
 
 .music-panel { display: flex; flex-direction: column; }
 .settings-panel { 
