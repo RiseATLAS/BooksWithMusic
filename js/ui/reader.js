@@ -1102,8 +1102,6 @@ export class ReaderUI {
    * Flip to a specific page within the current chapter with animation
    */
   async _flipToPage(targetPage, direction = 'next') {
-    console.log('🔄 [FLIP START]', { targetPage, direction });
-    
     const pages = this.chapterPages[this.currentChapterIndex];
     if (!pages || targetPage < 1 || targetPage > pages.length) return;
     
@@ -1116,8 +1114,9 @@ export class ReaderUI {
     
     console.log('📄 [OLD PAGE]', { 
       position: chapterText.getBoundingClientRect(),
-      transform: window.getComputedStyle(chapterText).transform,
-      opacity: window.getComputedStyle(chapterText).opacity
+      fontSmoothing: window.getComputedStyle(chapterText).webkitFontSmoothing,
+      textAlign: window.getComputedStyle(chapterText).textAlign,
+      firstParagraph: chapterText.querySelector('p') ? chapterText.querySelector('p').getBoundingClientRect() : null
     });
     
     // Get container
@@ -1125,7 +1124,6 @@ export class ReaderUI {
     
     // Hide scrollbar during flip animation
     pageViewport.classList.add('flipping');
-    console.log('🚫 [SCROLLBAR] Hidden');
     
     // Create new page element that will flip in
     const newPageDiv = document.createElement('div');
@@ -1137,45 +1135,37 @@ export class ReaderUI {
     const pageIndex = targetPage - 1;
     const pageContent = pages[pageIndex] || pages[0];
     newPageDiv.innerHTML = pageContent;
-    console.log('📝 [CONTENT SET]', { contentLength: pageContent.length });
     
     // CRITICAL: Add to DOM with pre-render class to let browser calculate text layout invisibly
     newPageDiv.classList.add('pre-render');
     pageViewport.appendChild(newPageDiv);
-    console.log('👻 [PRE-RENDER] Added invisibly to DOM');
     
     // Force reflow to calculate all text layouts
     void newPageDiv.offsetHeight;
+    
     console.log('📐 [LAYOUT CALCULATED]', {
       position: newPageDiv.getBoundingClientRect(),
-      offsetHeight: newPageDiv.offsetHeight
+      firstParagraph: newPageDiv.querySelector('p') ? newPageDiv.querySelector('p').getBoundingClientRect() : null
     });
     
     // Remove pre-render class and add animation
     newPageDiv.classList.remove('pre-render');
     const animClass = direction === 'next' ? 'flipping-next' : 'flipping-prev';
     newPageDiv.classList.add(animClass);
+    
     console.log('🎬 [ANIMATION START]', { 
-      animClass,
       position: newPageDiv.getBoundingClientRect(),
-      transform: window.getComputedStyle(newPageDiv).transform
+      fontSmoothing: window.getComputedStyle(newPageDiv).webkitFontSmoothing,
+      textAlign: window.getComputedStyle(newPageDiv).textAlign,
+      firstParagraph: newPageDiv.querySelector('p') ? newPageDiv.querySelector('p').getBoundingClientRect() : null
     });
     
     // Update page number immediately
     this.currentPageInChapter = targetPage;
     this.currentPage = this.calculateCurrentPageNumber();
     this.totalPages = this.calculateTotalPages();
-    console.log('🔢 [PAGE NUMBERS UPDATED]', {
-      currentPageInChapter: this.currentPageInChapter,
-      currentPage: this.currentPage,
-      totalPages: this.totalPages
-    });
-    
     this.updatePageIndicator();
-    console.log('📊 [INDICATOR UPDATED]');
-    
     this._updateNavButtons();
-    console.log('🔘 [NAV BUTTONS UPDATED]');
     
     // Notify music manager about page change
     this._notifyPageChange(oldPage, targetPage);
@@ -1187,26 +1177,23 @@ export class ReaderUI {
     }, 400);
     
     // Wait for animation to complete (700ms)
-    console.log('⏱️  [WAITING] Animation duration 700ms...');
     await new Promise(resolve => setTimeout(resolve, 700));
     
-    console.log('🗑️  [CLEANUP] Removing old page');
     // Remove old page and animation class
     if (chapterText && chapterText.parentElement) {
       chapterText.remove();
     }
-    console.log('✂️  [ANIMATION CLASS] Removing from new page');
     newPageDiv.classList.remove(animClass);
     
     console.log('📍 [FINAL POSITION]', {
       position: newPageDiv.getBoundingClientRect(),
-      transform: window.getComputedStyle(newPageDiv).transform,
-      opacity: window.getComputedStyle(newPageDiv).opacity
+      fontSmoothing: window.getComputedStyle(newPageDiv).webkitFontSmoothing,
+      textAlign: window.getComputedStyle(newPageDiv).textAlign,
+      firstParagraph: newPageDiv.querySelector('p') ? newPageDiv.querySelector('p').getBoundingClientRect() : null
     });
     
     // Restore scrollbar
     pageViewport.classList.remove('flipping');
-    console.log('✅ [FLIP COMPLETE]');
   }
 
   async goToNextPage() {
