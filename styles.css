@@ -112,6 +112,67 @@ body.reader-page::-webkit-scrollbar {
   text-transform: uppercase;
 }
 
+.auth-container {
+  margin-top: 1.5rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.user-profile {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(var(--glass-rgb, 255, 255, 255), 0.2);
+  border: 1px solid rgba(var(--border-rgb, 0, 0, 0), 0.1);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  max-width: min(360px, 100%);
+}
+
+.user-photo {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: rgba(var(--glass-rgb, 255, 255, 255), 0.2);
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.user-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.btn-text {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.2s ease;
+}
+
+.btn-text:hover {
+  color: var(--text-primary);
+}
+
 .library-container {
   background: var(--glass-bg);
   backdrop-filter: blur(20px);
@@ -161,8 +222,8 @@ body.reader-page::-webkit-scrollbar {
 .btn-secondary:hover {
   background: rgba(var(--glass-rgb, 255, 255, 255), 0.25);
   opacity: 1;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .btn-icon {
@@ -180,13 +241,15 @@ body.reader-page::-webkit-scrollbar {
   align-items: center;
   justify-content: center;
   line-height: 1;
+  position: relative;
+  overflow: hidden;
 }
 
 .btn-icon:hover { 
-  background: rgba(var(--glass-rgb, 255, 255, 255), 0.25);
+  background: rgba(var(--glass-rgb, 255, 255, 255), 0.22);
   opacity: 1;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 .icon { 
   font-size: 1.1rem;
@@ -226,12 +289,12 @@ body.reader-page::-webkit-scrollbar {
   position: absolute;
   top: 10px;
   right: 10px;
-  background: rgba(255, 59, 48, 0.9);
+  background: rgba(255, 59, 48, 0.92);
   border: none;
   border-radius: 50%;
   width: 32px;
   height: 32px;
-  font-size: 16px;
+  font-size: 18px;
   cursor: pointer;
   opacity: 0;
   transition: opacity 0.2s ease;
@@ -239,6 +302,8 @@ body.reader-page::-webkit-scrollbar {
   align-items: center;
   justify-content: center;
   z-index: 10;
+  color: #fff;
+  box-shadow: 0 4px 10px rgba(255, 59, 48, 0.25);
 }
 
 .book-card:hover .delete-btn {
@@ -247,7 +312,7 @@ body.reader-page::-webkit-scrollbar {
 
 .book-card .delete-btn:hover {
   background: rgba(255, 59, 48, 1);
-  transform: scale(1.1);
+  transform: scale(1.05);
 }
 
 .book-cover { 
@@ -875,6 +940,7 @@ body.reader-page::-webkit-scrollbar {
   backdrop-filter: blur(20px);
   border: 1px solid rgba(var(--border-rgb, 0, 0, 0), 0.1);
   font-size: 1.5rem;
+  line-height: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -895,6 +961,7 @@ body.reader-page::-webkit-scrollbar {
   backdrop-filter: blur(20px);
   border: 1px solid rgba(var(--border-rgb, 0, 0, 0), 0.1);
   font-size: 1.5rem;
+  line-height: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -907,8 +974,8 @@ body.reader-page::-webkit-scrollbar {
 .reader-controls #next-chapter:hover {
   background: rgba(var(--glass-rgb, 255, 255, 255), 0.25);
   opacity: 1;
-  transform: translateY(-50%) scale(1.1);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-50%);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .reader-controls #prev-chapter:disabled,
@@ -968,6 +1035,24 @@ body.reader-page::-webkit-scrollbar {
 /* Settings panel content - more compact */
 .settings-content {
   padding: 0.5rem 0.75rem; /* Even more compact */
+}
+
+.settings-two-column {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+}
+
+.settings-column {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-section-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 0.75rem;
 }
 
 .settings-user-info {
@@ -1082,6 +1167,13 @@ body.reader-page::-webkit-scrollbar {
   padding: 0.65rem 1rem; /* Even more compact */
   border-bottom: 1px solid var(--border);
   background: var(--bg-secondary);
+}
+
+.music-controls-inline {
+  justify-content: flex-start;
+  padding: 0;
+  border-bottom: none;
+  background: transparent;
 }
 
 .btn-large { font-size: 1.6rem; padding: 0.65rem; } /* Slightly smaller */
@@ -1200,19 +1292,37 @@ body.reader-page::-webkit-scrollbar {
   width: 60%;
   overflow-y: auto;
   background: var(--bg-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
-.playlist {
-  height: 100%;
-  padding: 1.5rem;
+.music-playlist-header {
+  padding: 1.5rem 1.5rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
-.playlist h4 {
+.music-playlist-header h4 {
   font-size: 0.875rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-secondary);
-  margin-bottom: 1rem;
+  margin: 0;
+}
+
+.music-controls-inline {
+  padding: 0 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.playlist {
+  flex: 1;
+  padding: 0 1.5rem 1.5rem;
 }
 
 .playlist-tracks { 
@@ -1222,16 +1332,17 @@ body.reader-page::-webkit-scrollbar {
 }
 
 .playlist-item {
-  padding: 0.4rem 0.6rem; /* Further reduced padding */
+  padding: 0.6rem 0.75rem; /* Slightly larger for status */
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.15s ease;
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.25rem;
   background: var(--bg-secondary);
   font-size: 0.8rem; /* Smaller text */
   position: relative;
+  border: 1px solid transparent;
 }
 
 .playlist-item:hover {
@@ -1244,6 +1355,7 @@ body.reader-page::-webkit-scrollbar {
   background: var(--accent); 
   color: white;
   font-weight: 500;
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .playlist-item.playing {
@@ -1275,6 +1387,25 @@ body.reader-page::-webkit-scrollbar {
   transform: translateY(-50%);
   font-size: 1rem;
   opacity: 0.6;
+}
+
+.playlist-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: inherit;
+  opacity: 0.65;
+}
+
+.playlist-status-icon {
+  font-size: 0.75rem;
+}
+
+.playlist-item.is-playing .playlist-status {
+  opacity: 0.9;
 }
 
 .playlist-item.active.shift-point::after {
@@ -1675,32 +1806,12 @@ body.reader-page::-webkit-scrollbar {
   .top-left-controls,
   .top-right-controls {
     z-index: 110 !important;
-    position: relative;
-    gap: 0.25rem;
+    position: absolute;
+    top: 0.75rem;
   }
 
-  .top-left-controls {
-    max-width: 45%;
-  }
-
-  .top-right-controls {
-    max-width: 50%;
-    flex-wrap: wrap;
-  }
-
-  /* Make buttons more compact on mobile to prevent wrapping */
-  .top-left-controls .btn-icon,
-  .top-right-controls .btn-icon {
-    width: 32px;
-    height: 32px;
-    padding: 0.3rem;
-    font-size: 0.9rem;
-  }
-
-  .top-left-controls .icon,
-  .top-right-controls .icon {
-    font-size: 1rem;
-  }
+  .top-left-controls { left: 0.75rem; }
+  .top-right-controls { right: 0.75rem; }
 
   /* Hide fullscreen button on mobile */
   #fullscreen-btn {
@@ -1718,14 +1829,30 @@ body.reader-page::-webkit-scrollbar {
     font-size: 0.9rem;
   }
 
+  .reader-controls .btn-icon {
+    width: 44px;
+    height: 44px;
+  }
+
+  .reader-controls #prev-chapter,
+  .reader-controls #next-chapter {
+    width: 44px;
+    height: 44px;
+    font-size: 1.25rem;
+  }
+
   /* Reader container */
   .reader-container {
-    padding: 5px;
+    padding: 0;
+  }
+
+  .reader-content {
+    padding: 0;
   }
 
   /* Chapter text - use percentage-based padding for better mobile space usage */
   .chapter-text {
-    padding: 5% 4% 8%;
+    padding: 4% 3% 6%;
     font-size: var(--reader-font-size, 16px);
     top: 5vh;
     bottom: 5vh;
@@ -1736,6 +1863,8 @@ body.reader-page::-webkit-scrollbar {
     --page-gap: 5vh;
     padding-top: 5vh;
     padding-bottom: 5vh;
+    max-width: calc(100% - 32px);
+    width: 100%;
   }
 
   /* Fullscreen mode - even more space for text */
@@ -1774,7 +1903,7 @@ body.reader-page::-webkit-scrollbar {
     left: auto;
     top: -100vh;
     border-radius: 12px;
-    max-height: 80vh;
+    max-height: 85vh;
   }
 
   .settings-panel.show {
@@ -1790,11 +1919,11 @@ body.reader-page::-webkit-scrollbar {
   }
 
   .settings-content {
-    padding: 12px;
+    padding: 12px 14px 16px;
   }
 
   .setting-group {
-    margin-bottom: 1.2rem;
+    margin-bottom: 1rem;
   }
 
   .setting-group label {
@@ -1809,6 +1938,36 @@ body.reader-page::-webkit-scrollbar {
   .volume-control #volume-slider,
   .volume-control-inline #volume-slider {
     touch-action: pan-x;
+  }
+
+  .settings-two-column {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .settings-section-title {
+    font-size: 0.95rem;
+  }
+
+  .music-content-layout {
+    flex-direction: column;
+  }
+
+  .music-settings-column,
+  .music-playlist-column {
+    width: 100%;
+    border-right: none;
+  }
+
+  .music-settings-column {
+    border-bottom: 1px solid var(--border);
+  }
+
+  .music-playlist-header,
+  .music-controls-inline,
+  .playlist {
+    padding-left: 1rem;
+    padding-right: 1rem;
   }
 
   /* Music panel - dropdown style on mobile */
@@ -1912,6 +2071,15 @@ body.reader-page::-webkit-scrollbar {
     font-size: 1rem;
   }
 
+  .user-profile {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .user-info {
+    align-items: center;
+  }
+
   /* Library */
   .library-grid {
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
@@ -1925,6 +2093,15 @@ body.reader-page::-webkit-scrollbar {
 
   .book-cover {
     height: 180px;
+  }
+
+  .book-card .delete-btn {
+    opacity: 1;
+  }
+
+  .book-cover-image {
+    object-fit: contain;
+    background: var(--bg-primary);
   }
 
   .book-title {

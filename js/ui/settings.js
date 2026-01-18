@@ -245,6 +245,7 @@ export class SettingsUI {
   showSettings() {
     const panel = document.getElementById('settings-panel');
     if (panel) {
+      document.getElementById('music-panel')?.classList.remove('show');
       panel.classList.add('show');
     }
   }
