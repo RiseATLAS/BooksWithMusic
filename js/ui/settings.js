@@ -41,16 +41,16 @@ export class SettingsUI {
   }
 
   setupEventListeners() {
-    // Open/close settings panel
+    // Toggle settings panel
     document.getElementById('settings-btn')?.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      this.showSettings();
-    });
-
-    document.getElementById('close-settings')?.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.hideSettings();
+      const panel = document.getElementById('settings-panel');
+      if (panel?.classList.contains('show')) {
+        this.hideSettings();
+      } else {
+        this.showSettings();
+      }
     });
 
     // Click outside to close settings panel
@@ -427,8 +427,8 @@ export class SettingsUI {
       return;
     }
     
-    // Calculate total chars per page with conservative estimate (reduce by 15% for better UX)
-    const calculatedChars = Math.floor((linesPerPage * avgCharsPerLine) * 0.85);
+    // Calculate total chars per page and add 20% more text for better page utilization
+    const calculatedChars = Math.floor((linesPerPage * avgCharsPerLine) * 1.20);
     
     console.log('� Calibration results:', {
       linesPerPage,

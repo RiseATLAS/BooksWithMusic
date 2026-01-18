@@ -265,16 +265,11 @@ export class MusicPanelUI {
   }
 
   setupEventListeners() {
-    // Open/close music panel
+    // Toggle music panel
     document.getElementById('music-toggle')?.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
       this.togglePanel();
-    });
-
-    document.getElementById('close-music-panel')?.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.hidePanel();
     });
 
     // Click outside to close music panel
