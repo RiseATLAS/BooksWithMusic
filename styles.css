@@ -73,6 +73,16 @@ body {
   min-height: 100vh;
 }
 
+body.reader-page {
+  overflow: hidden;
+  overscroll-behavior: none;
+  scrollbar-width: none;
+}
+
+body.reader-page::-webkit-scrollbar {
+  display: none;
+}
+
 .view { display: none; }
 .view.active { display: block; }
 
@@ -975,11 +985,6 @@ body {
   color: var(--text-primary);
 }
 
-.settings-user-email {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  opacity: 0.8;
-}
 
 .music-header, .settings-header {
   display: flex;
@@ -1760,6 +1765,12 @@ body {
 
   .setting-group input[type="range"] {
     height: 32px;
+    touch-action: pan-x;
+  }
+
+  .volume-control #volume-slider,
+  .volume-control-inline #volume-slider {
+    touch-action: pan-x;
   }
 
   /* Music panel - dropdown style on mobile */
