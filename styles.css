@@ -641,12 +641,20 @@ body {
   height: auto;
   min-height: calc(100% - var(--page-gap, 120px) * 2); /* Subtract top and bottom gaps */
   box-sizing: border-box;
-  /* Ensure consistent rendering */
+  /* Ensure consistent rendering and prevent sub-pixel shifting */
   transform: translateZ(0);
   will-change: transform;
+  /* Consistent text rendering */
+  text-align: left;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Prevent sub-pixel rendering differences */
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 
-/* Ensure text is always visible - explicit color for debugging */
+/* Ensure text is always visible and properly aligned */
 .chapter-text p,
 .chapter-text h1,
 .chapter-text h2,
@@ -659,6 +667,10 @@ body {
   color: inherit;
   opacity: 1 !important;
   visibility: visible !important;
+  /* Ensure consistent text alignment */
+  text-align: left;
+  /* Prevent sub-pixel shifts */
+  transform: translateZ(0);
 }
 
 /* Hide scrollbar during flip animations */
