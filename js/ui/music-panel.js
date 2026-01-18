@@ -99,11 +99,12 @@ export class MusicPanelUI {
     
     document.body.appendChild(warning);
     
-    // Open music panel when button clicked
+    // Open music settings panel when button clicked
     document.getElementById('open-music-settings-btn')?.addEventListener('click', () => {
-      const panel = document.getElementById('music-panel');
+      const panel = document.getElementById('music-settings-panel');
       if (panel) {
         document.getElementById('settings-panel')?.classList.remove('show');
+        document.getElementById('music-panel')?.classList.remove('show');
         panel.classList.add('show');
       }
       warning.remove();
@@ -273,15 +274,29 @@ export class MusicPanelUI {
       this.togglePanel();
     });
 
+    document.getElementById('music-settings-toggle')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.toggleSettingsPanel();
+    });
+
     // Click outside to close music panel
     document.addEventListener('click', (e) => {
       const panel = document.getElementById('music-panel');
       const musicToggle = document.getElementById('music-toggle');
+      const settingsPanel = document.getElementById('music-settings-panel');
+      const musicSettingsToggle = document.getElementById('music-settings-toggle');
       
       if (panel && panel.classList.contains('show')) {
         // Check if click is outside the panel and not on the music toggle button
         if (!panel.contains(e.target) && !musicToggle?.contains(e.target)) {
           this.hidePanel();
+        }
+      }
+
+      if (settingsPanel && settingsPanel.classList.contains('show')) {
+        if (!settingsPanel.contains(e.target) && !musicSettingsToggle?.contains(e.target)) {
+          settingsPanel.classList.remove('show');
         }
       }
     });
@@ -629,6 +644,19 @@ export class MusicPanelUI {
       const shouldShow = !panel.classList.contains('show');
       if (shouldShow) {
         document.getElementById('settings-panel')?.classList.remove('show');
+        document.getElementById('music-settings-panel')?.classList.remove('show');
+      }
+      panel.classList.toggle('show');
+    }
+  }
+
+  toggleSettingsPanel() {
+    const panel = document.getElementById('music-settings-panel');
+    if (panel) {
+      const shouldShow = !panel.classList.contains('show');
+      if (shouldShow) {
+        document.getElementById('settings-panel')?.classList.remove('show');
+        document.getElementById('music-panel')?.classList.remove('show');
       }
       panel.classList.toggle('show');
     }

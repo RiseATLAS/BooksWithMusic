@@ -125,17 +125,6 @@ class BooksWithMusicApp {
     };
   }
 
-  buildSettingsPayload(settings, user) {
-    if (!user) {
-      return { ...settings };
-    }
-
-    return {
-      ...settings,
-      userEmail: user.email || null,
-    };
-  }
-
   setupAuthUI(isReaderPage) {
     const signInBtn = document.getElementById(
       isReaderPage ? "sign-in-btn-reader" : "sign-in-btn",
