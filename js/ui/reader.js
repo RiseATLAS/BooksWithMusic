@@ -328,11 +328,26 @@ export class ReaderUI {
     const toggleChaptersBtn = document.getElementById('toggle-chapters');
     toggleChaptersBtn?.addEventListener('click', (e) => {
       e.preventDefault();
+      e.stopPropagation();
       const sidebar = document.getElementById('chapter-nav');
       if (sidebar) {
         // Toggle hidden class for desktop, show class for mobile
         sidebar.classList.toggle('hidden');
         sidebar.classList.toggle('show');
+      }
+    });
+
+    // Close chapters sidebar when clicking outside (mobile)
+    document.addEventListener('click', (e) => {
+      const sidebar = document.getElementById('chapter-nav');
+      const toggleBtn = document.getElementById('toggle-chapters');
+      
+      if (sidebar && sidebar.classList.contains('show')) {
+        // Check if click is outside sidebar and not on the toggle button
+        if (!sidebar.contains(e.target) && !toggleBtn?.contains(e.target)) {
+          sidebar.classList.remove('show');
+          sidebar.classList.add('hidden');
+        }
       }
     });
 
@@ -393,23 +408,55 @@ export class ReaderUI {
 
     // Touch/swipe navigation for mobile
     let touchStartX = 0;
+    let touchStartY = 0;
     let touchEndX = 0;
+    let touchEndY = 0;
+    let touchStartTime = 0;
 
     document.addEventListener('touchstart', (e) => {
       touchStartX = e.changedTouches[0].screenX;
+      touchStartY = e.changedTouches[0].screenY;
+      touchStartTime = Date.now();
     }, { passive: true });
 
     document.addEventListener('touchend', (e) => {
       touchEndX = e.changedTouches[0].screenX;
-      this.handleSwipe();
+      touchEndY = e.changedTouches[0].screenY;
+      const touchDuration = Date.now() - touchStartTime;
+      this.handleTouch(touchDuration);
     }, { passive: true });
 
-    this.handleSwipe = () => {
+    this.handleTouch = (duration) => {
       const swipeThreshold = 50; // minimum distance for swipe
-      const diff = touchStartX - touchEndX;
+      const tapThreshold = 10; // maximum movement for tap
+      const tapTimeThreshold = 300; // maximum time for tap (ms)
+      const diffX = touchStartX - touchEndX;
+      const diffY = touchStartY - touchEndY;
+      const totalMovement = Math.sqrt(diffX * diffX + diffY * diffY);
 
-      if (Math.abs(diff) > swipeThreshold) {
-        if (diff > 0) {
+      // Check if it's a tap (minimal movement, quick duration)
+      if (totalMovement < tapThreshold && duration < tapTimeThreshold) {
+        // On mobile, tap in center area toggles fullscreen
+        if (window.innerWidth <= 768) {
+          // Only toggle fullscreen if tap is in the center reading area
+          // (not on buttons or panels)
+          const tapX = touchEndX;
+          const tapY = touchEndY;
+          const centerAreaMargin = 100; // pixels from edge
+          
+          if (tapX > centerAreaMargin && 
+              tapX < window.innerWidth - centerAreaMargin &&
+              tapY > centerAreaMargin && 
+              tapY < window.innerHeight - centerAreaMargin) {
+            this.toggleFullscreen();
+            return;
+          }
+        }
+      }
+
+      // Check for swipe (horizontal movement dominant)
+      if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > swipeThreshold) {
+        if (diffX > 0) {
           // Swiped left - go to next page
           this.goToNextPage();
         } else {

@@ -486,15 +486,11 @@ body {
   position: relative;
   width: var(--page-width, 800px);
   max-width: calc(100% - 160px); /* Leave space for nav buttons */
-  min-height: 100%; /* Allow content to grow beyond viewport */
-  overflow-y: auto; /* Allow scrolling for very long pages */
-  overflow-x: hidden;
-  scrollbar-gutter: stable;
+  min-height: 100%;
+  overflow: hidden; /* No scrollbar - pages should fit */
   background: var(--page-paper-bg, var(--reader-bg));
   color: var(--page-paper-text, var(--reader-text));
   border-radius: 0;
-  scrollbar-width: thin; /* Show thin scrollbar for long pages */
-  -ms-overflow-style: auto;
   padding: var(--page-gap, 120px) 0; /* Top and bottom padding for gaps */
   box-sizing: content-box; /* Padding adds to height, not included */
   transform-style: preserve-3d;
@@ -1452,6 +1448,56 @@ body {
   left: 0;
 }
 
+/* Mobile fullscreen - controls hidden by default, tap center to toggle */
+@media (max-width: 768px) {
+  :fullscreen .reader-header,
+  :fullscreen .reader-controls,
+  :-webkit-full-screen .reader-header,
+  :-webkit-full-screen .reader-controls {
+    opacity: 0;
+    transform: translateY(-100%);
+    pointer-events: none;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+
+  :fullscreen .reader-controls,
+  :-webkit-full-screen .reader-controls {
+    transform: translateY(100%);
+  }
+
+  /* Show controls briefly when tapping near them */
+  :fullscreen .reader-header:active,
+  :fullscreen .reader-controls:active,
+  :-webkit-full-screen .reader-header:active,
+  :-webkit-full-screen .reader-controls:active {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  :fullscreen #reader-view .fullscreen-hover-zone,
+  :-webkit-full-screen #reader-view .fullscreen-hover-zone {
+    display: none; /* No hover zones needed on mobile */
+  }
+
+  /* Disable hover effects on mobile */
+  @media (hover: none) {
+    :fullscreen .reader-header:hover,
+    :fullscreen .reader-controls:hover,
+    :-webkit-full-screen .reader-header:hover,
+    :-webkit-full-screen .reader-controls:hover {
+      opacity: 0;
+      transform: translateY(-100%);
+      pointer-events: none;
+    }
+
+    :fullscreen .reader-controls:hover,
+    :-webkit-full-screen .reader-controls:hover {
+      transform: translateY(100%);
+    }
+  }
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .chapter-sidebar {
@@ -1475,382 +1521,22 @@ body {
   .top-right-controls {
     z-index: 110 !important;
     position: relative;
-  }
-}
-
-/* ========================================
-   Authentication UI Styles
-   ======================================== */
-
-/* Authentication container in header */
-.auth-container {
-  position: absolute;
-  top: 2rem;
-  right: 2rem;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  z-index: 100;
-}
-
-.auth-btn {
-  background: rgba(255, 255, 255, 0.9);
-  color: var(--text-primary);
-  padding: 0.625rem 1.25rem;
-  font-size: 0.9rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.auth-btn:hover {
-  background: white;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-/* User profile display */
-.user-profile {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  background: rgba(255, 255, 255, 0.95);
-  padding: 0.5rem 0.75rem;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.user-photo {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 2px solid rgba(99, 102, 241, 0.3);
-}
-
-.user-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-}
-
-.user-name {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  max-width: 150px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.btn-text {
-  background: none;
-  border: none;
-  color: var(--accent);
-  font-size: 0.8rem;
-  font-weight: 500;
-  cursor: pointer;
-  padding: 0;
-  text-align: left;
-  transition: opacity 0.2s;
-}
-
-.btn-text:hover {
-  opacity: 0.7;
-  text-decoration: underline;
-}
-
-/* Reader page authentication styles */
-.auth-container-reader {
-  display: inline-flex;
-  align-items: center;
-}
-
-.auth-btn-reader {
-  padding: 0.5rem;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.auth-btn-reader:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.user-profile-btn {
-  /* G button inherits btn and btn-icon styles */
-  font-weight: 600;
-  font-size: 1.1rem;
-}
-
-.user-profile-btn:hover {
-  background: var(--accent);
-  color: white;
-}
-
-/* User Menu Dropdown */
-.user-menu {
-  position: absolute;
-  top: 50px;
-  right: 10px;
-  background: var(--bg-secondary, #1f2937);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  min-width: 250px;
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(-10px);
-  transition: all 0.2s ease;
-  z-index: 10000;
-}
-
-.user-menu.show {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(0);
-}
-
-.user-menu-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px;
-}
-
-.user-menu-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  font-weight: 600;
-  flex-shrink: 0;
-}
-
-.user-menu-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.user-menu-name {
-  font-weight: 600;
-  font-size: 14px;
-  color: var(--text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.user-menu-email {
-  font-size: 12px;
-  color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-top: 2px;
-}
-
-.user-menu-divider {
-  height: 1px;
-  background: var(--border);
-  margin: 0;
-}
-
-.user-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 12px 16px;
-  background: none;
-  border: none;
-  color: var(--text);
-  font-size: 14px;
-  cursor: pointer;
-  transition: background 0.2s;
-  text-align: left;
-}
-
-.user-menu-item:hover {
-  background: var(--hover-bg);
-}
-
-.user-menu-item .icon {
-  font-size: 16px;
-}
-
-/* Loading indicator for auth operations */
-.auth-loading {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.625rem 1.25rem;
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: 8px;
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-}
-
-.auth-loading::before {
-  content: '';
-  width: 16px;
-  height: 16px;
-  border: 2px solid var(--accent);
-  border-top-color: transparent;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-/* Settings Panel - Two Column Layout */
-.settings-two-column {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.5rem;
-  padding: 0.5rem;
-}
-
-.settings-column {
-  min-width: 0; /* Prevent overflow */
-}
-
-.settings-section-title {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0 0 0.75rem 0;
-  padding-bottom: 0.5rem;
-  border-bottom: 2px solid var(--accent);
-}
-
-.settings-column:first-child .settings-section-title:first-child {
-  margin-top: 0;
-}
-
-/* Additional top margin for non-first section titles */
-.settings-section-title:not(:first-child) {
-  margin-top: 1.5rem;
-}
-
-/* Helper text styling */
-.setting-help {
-  display: block;
-  opacity: 0.7;
-  font-weight: normal;
-  margin-top: 0.25rem;
-  font-size: 0.8rem;
-  line-height: 1.3;
-}
-
-/* Checkbox label styling */
-.checkbox-label {
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  font-size: 0.85rem;
-}
-
-.checkbox-label input[type="checkbox"] {
-  margin-right: 0.5rem;
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
-  accent-color: var(--accent);
-  flex-shrink: 0;
-}
-
-.checkbox-label span {
-  margin: 0;
-  font-size: inherit;
-  color: var(--text-primary);
-}
-
-/* Full width button */
-.btn-full-width {
-  width: 100%;
-  text-align: center;
-}
-
-/* Responsive: stack columns on smaller screens */
-@media (max-width: 900px) {
-  .settings-two-column {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-  }
-  
-  .settings-panel {
-    width: 500px;
-    right: -500px;
-  }
-}
-
-@media (max-width: 600px) {
-  .settings-panel {
-    width: 100%;
-    right: -100%;
-  }
-}
-
-/* ============================================
-   MOBILE RESPONSIVE DESIGN
-   ============================================ */
-
-/* Touch-friendly improvements for all devices */
-button, a, .clickable {
-  -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
-  touch-action: manipulation;
-}
-
-/* Prevent zoom on inputs on iOS */
-input, select, textarea {
-  font-size: 16px;
-}
-
-/* Improve scrolling on mobile */
-* {
-  -webkit-overflow-scrolling: touch;
-}
-
-/* Tablet and below (768px) */
-@media (max-width: 768px) {
-  body {
-    font-size: 14px;
+    gap: 0.3rem;
   }
 
-  /* Header adjustments */
-  header {
-    padding: 12px 15px;
-    gap: 10px;
+  /* Make top control buttons smaller and more compact on mobile */
+  .top-left-controls .btn,
+  .top-right-controls .btn {
+    min-width: 40px;
+    min-height: 40px;
+    padding: 8px;
+    font-size: 1rem;
   }
 
-  header h1 {
-    font-size: 1.4rem;
-  }
-
-  /* Navigation buttons - larger touch targets */
-  .nav-buttons {
-    gap: 8px;
-  }
-
-  .nav-buttons button {
-    min-width: 44px;
-    min-height: 44px;
-    padding: 10px;
-    font-size: 1.1rem;
-  }
-
-  /* Ensure top controls stay above chapter sidebar */
-  .top-left-controls,
-  .top-right-controls {
-    z-index: 110 !important;
-    position: relative;
+  /* Shrink button text/icons to prevent wrapping */
+  .top-left-controls .btn .icon,
+  .top-right-controls .btn .icon {
+    font-size: 1rem;
   }
 
   /* Controls */
@@ -1971,6 +1657,17 @@ input, select, textarea {
 
   .music-header h3 {
     font-size: 1.2rem;
+  }
+
+  /* Make close buttons larger and better positioned on mobile */
+  .btn-close {
+    font-size: 2rem;
+    padding: 8px;
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .playlist-item {

@@ -353,23 +353,17 @@ export class SettingsUI {
    * Also calibrates optimal page width based on viewport
    */
   calibratePageDensity() {
-    // Get the actual page container (where text is rendered)
+    // Get the actual page container (where pages are rendered)
     const pageContainer = document.querySelector('.page-container');
     if (!pageContainer) {
       this.showToast('Please open a book first to calibrate page size.', 'error');
       return;
     }
 
-    // Get computed styles from the page container
-    const computedStyle = window.getComputedStyle(pageContainer);
-    const fontSize = parseFloat(computedStyle.fontSize) || this.settings.fontSize || 16;
-    
-    // Handle lineHeight - it can be "normal" (string) or a pixel value
-    let lineHeight = parseFloat(computedStyle.lineHeight);
-    if (isNaN(lineHeight) || computedStyle.lineHeight === 'normal') {
-      // If lineHeight is "normal" or NaN, calculate from fontSize and settings
-      lineHeight = fontSize * (this.settings.lineHeight || 1.6);
-    }
+    // Use current user settings for font size and line height
+    const fontSize = this.settings.fontSize || 18;
+    const lineHeightMultiplier = this.settings.lineHeight || 1.6;
+    const lineHeight = fontSize * lineHeightMultiplier;
     
     // Validate values
     if (isNaN(fontSize) || fontSize <= 0) {
@@ -387,11 +381,11 @@ export class SettingsUI {
     const containerHeight = pageContainer.clientHeight;
     const containerWidth = pageContainer.clientWidth;
     
-    console.log('Calibration dimensions:', {
+    console.log('📐 Calibration dimensions:', {
       containerWidth,
       containerHeight,
-      fontSize,
-      lineHeight
+      fontSize: `${fontSize}px`,
+      lineHeight: `${lineHeight}px (${lineHeightMultiplier})`
     });
     
     // Calculate optimal page width based on container
