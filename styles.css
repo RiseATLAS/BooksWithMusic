@@ -678,6 +678,12 @@ body {
   overflow-y: hidden !important;
 }
 
+/* Pre-render class - used to calculate layout before animation */
+.chapter-text.pre-render {
+  opacity: 0 !important;
+  pointer-events: none;
+}
+
 /* Apply animations based on flip direction */
 /* Flipping pages inherit all positioning from .chapter-text, just add animation and shadow */
 .chapter-text.flipping-next,

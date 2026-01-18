@@ -1129,17 +1129,15 @@ export class ReaderUI {
     const pageContent = pages[pageIndex] || pages[0];
     newPageDiv.innerHTML = pageContent;
     
-    // CRITICAL: Add to DOM invisibly first to let browser calculate text layout
-    newPageDiv.style.opacity = '0';
-    newPageDiv.style.visibility = 'hidden';
+    // CRITICAL: Add to DOM with pre-render class to let browser calculate text layout invisibly
+    newPageDiv.classList.add('pre-render');
     pageViewport.appendChild(newPageDiv);
     
     // Force reflow to calculate all text layouts
     void newPageDiv.offsetHeight;
     
-    // Now make it visible and add animation
-    newPageDiv.style.opacity = '';
-    newPageDiv.style.visibility = '';
+    // Remove pre-render class and add animation
+    newPageDiv.classList.remove('pre-render');
     const animClass = direction === 'next' ? 'flipping-next' : 'flipping-prev';
     newPageDiv.classList.add(animClass);
     
