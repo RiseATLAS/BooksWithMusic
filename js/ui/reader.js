@@ -425,8 +425,8 @@ export class ReaderUI {
     }, { passive: true });
 
     document.addEventListener('touchend', (e) => {
-      touchEndX = e.changedTouches[0].screenX;
-      touchEndY = e.changedTouches[0].screenY;
+      touchEndX = e.changedTouches[0].clientX;
+      touchEndY = e.changedTouches[0].clientY;
       const touchDuration = Date.now() - touchStartTime;
       this.handleTouch(touchDuration, ignoreTapFullscreen, allowSwipeNavigation);
       ignoreTapFullscreen = false;
@@ -454,6 +454,7 @@ export class ReaderUI {
 
           // Only toggle fullscreen if tapping on the text area
           if (isTextArea) {
+            console.log('Toggling fullscreen!');
             this.toggleFullscreen();
             return;
           }
