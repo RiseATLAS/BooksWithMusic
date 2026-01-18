@@ -1136,9 +1136,6 @@ export class ReaderUI {
     // Force reflow to calculate all text layouts
     void newPageDiv.offsetHeight;
     
-    // NUCLEAR OPTION: Hide old page immediately so only new page is visible during animation
-    chapterText.style.visibility = 'hidden';
-    
     // Remove pre-render class and add animation
     newPageDiv.classList.remove('pre-render');
     const animClass = direction === 'next' ? 'flipping-next' : 'flipping-prev';
