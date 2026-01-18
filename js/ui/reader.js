@@ -412,10 +412,13 @@ export class ReaderUI {
     let touchEndX = 0;
     let touchEndY = 0;
     let touchStartTime = 0;
+    let ignoreTapFullscreen = false;
 
     document.addEventListener('touchstart', (e) => {
-      touchStartX = e.changedTouches[0].clientX;
-      touchStartY = e.changedTouches[0].clientY;
+      const touchTarget = e.target;
+      ignoreTapFullscreen = Boolean(touchTarget?.closest('input[type="range"]'));
+      touchStartX = e.changedTouches[0].screenX;
+      touchStartY = e.changedTouches[0].screenY;
       touchStartTime = Date.now();
     }, { passive: true });
 
@@ -423,10 +426,11 @@ export class ReaderUI {
       touchEndX = e.changedTouches[0].clientX;
       touchEndY = e.changedTouches[0].clientY;
       const touchDuration = Date.now() - touchStartTime;
-      this.handleTouch(touchDuration, touchEndX, touchEndY);
+      this.handleTouch(touchDuration, ignoreTapFullscreen);
+      ignoreTapFullscreen = false;
     }, { passive: true });
 
-    this.handleTouch = (duration, endX, endY) => {
+    this.handleTouch = (duration, ignoreFullscreenTap = false) => {
       const swipeThreshold = 50; // minimum distance for swipe
       const tapThreshold = 10; // maximum movement for tap
       const tapTimeThreshold = 300; // maximum time for tap (ms)
@@ -438,17 +442,11 @@ export class ReaderUI {
       if (totalMovement < tapThreshold && duration < tapTimeThreshold) {
         // On mobile, tap in text area toggles fullscreen
         if (window.innerWidth <= 768) {
+          if (ignoreFullscreenTap) {
+            return;
+          }
           // Check if tap target is the text area specifically
-          const tapTarget = document.elementFromPoint(endX, endY);
-          
-          console.log('Tap detected at:', endX, endY, 'Target:', tapTarget?.className);
-          
-          const isTextArea = tapTarget && (
-            tapTarget.classList.contains('chapter-text') ||
-            tapTarget.closest('.chapter-text') ||
-            tapTarget.classList.contains('page-viewport') ||
-            tapTarget.closest('.page-viewport')
-          );
+          const isTextArea = this.isTapInChapterText(touchEndX, touchEndY);
 
           console.log('Is text area?', isTextArea);
 
@@ -1127,6 +1125,33 @@ export class ReaderUI {
     return total;
   }
 
+  calculateTotalBookPages() {
+    return this.chapters.reduce((total, _chapter, index) => {
+      return total + (this.pagesPerChapter[index] || 1);
+    }, 0);
+  }
+
+  isTapInChapterText(x, y) {
+    const tapTarget = document.elementFromPoint(x, y);
+    const chapterText = tapTarget?.closest('.chapter-text');
+    if (!chapterText) {
+      return false;
+    }
+    const rect = chapterText.getBoundingClientRect();
+    const styles = window.getComputedStyle(chapterText);
+    const paddingTop = parseFloat(styles.paddingTop) || 0;
+    const paddingRight = parseFloat(styles.paddingRight) || 0;
+    const paddingBottom = parseFloat(styles.paddingBottom) || 0;
+    const paddingLeft = parseFloat(styles.paddingLeft) || 0;
+    const innerRect = {
+      left: rect.left + paddingLeft,
+      right: rect.right - paddingRight,
+      top: rect.top + paddingTop,
+      bottom: rect.bottom - paddingBottom
+    };
+    return x >= innerRect.left && x <= innerRect.right && y >= innerRect.top && y <= innerRect.bottom;
+  }
+
   updatePageIndicator() {
     const pageContainer = document.querySelector('.page-container');
     if (!pageContainer) return;
@@ -1157,7 +1182,7 @@ export class ReaderUI {
     const lines = [];
     const totalChapters = this.chapters.length || 1;
     const chapterPages = this.pagesPerChapter[this.currentChapterIndex] || 1;
-    const totalBookPages = this.calculateTotalPages();
+    const totalBookPages = this.calculateTotalBookPages();
     const progressPercent = totalBookPages > 0 ? (this.currentPage / totalBookPages) * 100 : 0;
 
     if (showBookPageCount) {
