@@ -1121,6 +1121,8 @@ export class ReaderUI {
     // Create new page element that will flip in
     const newPageDiv = document.createElement('div');
     newPageDiv.className = 'chapter-text';
+    newPageDiv.setAttribute('data-page', targetPage);
+    newPageDiv.setAttribute('data-chapter', this.currentChapterIndex);
     
     // Set the new page content
     const pageIndex = targetPage - 1;
@@ -1153,11 +1155,17 @@ export class ReaderUI {
     // Wait for animation to complete (700ms)
     await new Promise(resolve => setTimeout(resolve, 700));
     
-    // Remove animation class and old page
-    newPageDiv.classList.remove(animClass);
+    // Remove the old page first while new page is still absolute positioned
     if (chapterText && chapterText.parentElement) {
       chapterText.remove();
     }
+    
+    // Small delay to ensure old page is fully removed from DOM
+    await new Promise(resolve => setTimeout(resolve, 10));
+    
+    // Now remove animation class to make new page the static page
+    // This transition should be smooth since old page is already gone
+    newPageDiv.classList.remove(animClass);
     
     // Restore scrollbar
     pageViewport.classList.remove('flipping');

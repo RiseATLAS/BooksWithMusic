@@ -627,6 +627,8 @@ body {
   height: auto;
   min-height: 100%; /* Fill viewport height */
   box-sizing: border-box;
+  /* Ensure smooth transition when animation class is removed */
+  transition: none;
 }
 
 /* Ensure text is always visible - explicit color for debugging */
