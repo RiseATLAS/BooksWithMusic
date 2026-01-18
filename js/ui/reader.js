@@ -1129,7 +1129,7 @@ export class ReaderUI {
     const pageContent = pages[pageIndex] || pages[0];
     newPageDiv.innerHTML = pageContent;
     
-    // Add to DOM with pre-render class to let browser calculate text layout invisibly
+    // CRITICAL: Add to DOM with pre-render class to let browser calculate text layout invisibly
     newPageDiv.classList.add('pre-render');
     pageViewport.appendChild(newPageDiv);
     
