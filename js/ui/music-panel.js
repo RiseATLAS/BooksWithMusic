@@ -539,8 +539,8 @@ export class MusicPanelUI {
     const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
     const pageBasedMusicSwitch = settings.pageBasedMusicSwitch !== false; // Default true
     
-    if (!pageBasedMusicSwitch || !this.audioPlayer.state.playing) {
-      return; // Feature disabled or music not playing
+    if (!pageBasedMusicSwitch) {
+      return; // Feature disabled
     }
     
     const { newPage, oldPage, shiftInfo, allShiftPoints, chapterIndex } = detail;
@@ -579,14 +579,17 @@ export class MusicPanelUI {
       // Record current page with track before advancing
       this.pageTrackHistory.set(oldPage, this.currentTrackIndex);
       
-      // Advance to next track
-      this.nextTrack();
+      // Advance to next track (will switch track or just update UI if not playing)
+      const wasPlaying = this.audioPlayer.state.playing;
+      this.nextTrack(wasPlaying);
       
       // Record new page with new track
       this.pageTrackHistory.set(newPage, this.currentTrackIndex);
     } else {
       // No shift, just record current page with current track
       this.pageTrackHistory.set(newPage, this.currentTrackIndex);
+      // Update UI to highlight current track
+      this.renderPlaylist();
     }
   }
   
@@ -595,10 +598,19 @@ export class MusicPanelUI {
     if (this.pageTrackHistory.has(newPage)) {
       const historicalTrackIndex = this.pageTrackHistory.get(newPage);
       
-      // If different from current track, switch back
+      // If different from current track, switch back (update UI and play if music was playing)
       if (historicalTrackIndex !== this.currentTrackIndex && this.playlist.length > 0) {
         console.log(`Page ${newPage}: Restoring track ${historicalTrackIndex} (was: ${this.currentTrackIndex})`);
-        this.playTrack(historicalTrackIndex);
+        const wasPlaying = this.audioPlayer.state.playing;
+        
+        // Update track index and UI
+        this.currentTrackIndex = historicalTrackIndex;
+        this.renderPlaylist();
+        
+        // If music was playing, switch to the track
+        if (wasPlaying) {
+          await this.playTrack(historicalTrackIndex);
+        }
       }
     } else {
       // No history - check if we crossed a shift point going backward
@@ -609,7 +621,8 @@ export class MusicPanelUI {
       if (crossedShiftPoint && this.currentTrackIndex > 0) {
         console.log(`Page ${newPage}: Crossed shift point backward at page ${crossedShiftPoint.page}`);
         console.log(`   Reverting: ${crossedShiftPoint.toMood} → ${crossedShiftPoint.fromMood}`);
-        await this.previousTrack();
+        const wasPlaying = this.audioPlayer.state.playing;
+        await this.previousTrack(wasPlaying);
       }
     }
   }
@@ -886,13 +899,35 @@ export class MusicPanelUI {
     }
   }
 
-  nextTrack() {
+  nextTrack(shouldPlay = true) {
     if (!this.playlist || this.playlist.length === 0) {
       return;
     }
     const newIndex = this.currentTrackIndex + 1;
     if (newIndex < this.playlist.length) {
-      this.playTrack(newIndex);
+      if (shouldPlay) {
+        this.playTrack(newIndex);
+      } else {
+        // Just update the index and UI, don't play
+        this.currentTrackIndex = newIndex;
+        this.renderPlaylist();
+      }
+    }
+  }
+
+  previousTrack(shouldPlay = true) {
+    if (!this.playlist || this.playlist.length === 0) {
+      return;
+    }
+    const newIndex = this.currentTrackIndex - 1;
+    if (newIndex >= 0) {
+      if (shouldPlay) {
+        this.playTrack(newIndex);
+      } else {
+        // Just update the index and UI, don't play
+        this.currentTrackIndex = newIndex;
+        this.renderPlaylist();
+      }
     }
   }
 

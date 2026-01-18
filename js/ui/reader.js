@@ -328,11 +328,26 @@ export class ReaderUI {
     const toggleChaptersBtn = document.getElementById('toggle-chapters');
     toggleChaptersBtn?.addEventListener('click', (e) => {
       e.preventDefault();
+      e.stopPropagation();
       const sidebar = document.getElementById('chapter-nav');
       if (sidebar) {
         // Toggle hidden class for desktop, show class for mobile
         sidebar.classList.toggle('hidden');
         sidebar.classList.toggle('show');
+      }
+    });
+
+    // Close chapters sidebar when clicking outside (mobile)
+    document.addEventListener('click', (e) => {
+      const sidebar = document.getElementById('chapter-nav');
+      const toggleBtn = document.getElementById('toggle-chapters');
+      
+      if (sidebar && sidebar.classList.contains('show')) {
+        // Check if click is outside sidebar and not on the toggle button
+        if (!sidebar.contains(e.target) && !toggleBtn?.contains(e.target)) {
+          sidebar.classList.remove('show');
+          sidebar.classList.add('hidden');
+        }
       }
     });
 

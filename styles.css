@@ -486,15 +486,11 @@ body {
   position: relative;
   width: var(--page-width, 800px);
   max-width: calc(100% - 160px); /* Leave space for nav buttons */
-  min-height: 100%; /* Allow content to grow beyond viewport */
-  overflow-y: auto; /* Allow scrolling for very long pages */
-  overflow-x: hidden;
-  scrollbar-gutter: stable;
+  min-height: 100%;
+  overflow: hidden; /* No scrollbar - pages should fit */
   background: var(--page-paper-bg, var(--reader-bg));
   color: var(--page-paper-text, var(--reader-text));
   border-radius: 0;
-  scrollbar-width: thin; /* Show thin scrollbar for long pages */
-  -ms-overflow-style: auto;
   padding: var(--page-gap, 120px) 0; /* Top and bottom padding for gaps */
   box-sizing: content-box; /* Padding adds to height, not included */
   transform-style: preserve-3d;

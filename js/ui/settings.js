@@ -353,7 +353,7 @@ export class SettingsUI {
    * Also calibrates optimal page width based on viewport
    */
   calibratePageDensity() {
-    // Get the actual page container (where text is rendered)
+    // Get the actual page container (where pages are rendered)
     const pageContainer = document.querySelector('.page-container');
     if (!pageContainer) {
       this.showToast('Please open a book first to calibrate page size.', 'error');
