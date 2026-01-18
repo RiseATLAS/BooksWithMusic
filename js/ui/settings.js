@@ -268,7 +268,11 @@ export class SettingsUI {
   async syncToFirestore() {
     if (auth.currentUser) {
       try {
-        await saveUserSettings(auth.currentUser.uid, this.settings);
+        const settingsPayload = {
+          ...this.settings,
+          userEmail: auth.currentUser.email || null
+        };
+        await saveUserSettings(auth.currentUser.uid, settingsPayload);
       } catch (error) {
         console.error('Failed to sync settings to Firestore:', error);
       }
