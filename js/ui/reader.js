@@ -1155,16 +1155,11 @@ export class ReaderUI {
     // Wait for animation to complete (700ms)
     await new Promise(resolve => setTimeout(resolve, 700));
     
-    // Remove the old page first while new page is still absolute positioned
+    // Remove the old page and animation class
+    // Since both pages use absolute positioning, there's no layout shift
     if (chapterText && chapterText.parentElement) {
       chapterText.remove();
     }
-    
-    // Small delay to ensure old page is fully removed from DOM
-    await new Promise(resolve => setTimeout(resolve, 10));
-    
-    // Now remove animation class to make new page the static page
-    // This transition should be smooth since old page is already gone
     newPageDiv.classList.remove(animClass);
     
     // Restore scrollbar

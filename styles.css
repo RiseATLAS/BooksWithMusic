@@ -615,6 +615,12 @@ body {
 }
 
 .chapter-text {
+  /* Use absolute positioning for both static and flipping pages to prevent layout shift */
+  position: absolute;
+  top: var(--page-gap, 120px); /* Account for viewport's top padding */
+  left: 0;
+  right: 0;
+  bottom: var(--page-gap, 120px); /* Account for viewport's bottom padding */
   width: 100%;
   margin: 0 auto; /* Center horizontally only */
   padding: 48px 48px 96px; /* Internal padding for content */
@@ -625,10 +631,8 @@ body {
   background: transparent;
   overflow: visible;
   height: auto;
-  min-height: 100%; /* Fill viewport height */
+  min-height: calc(100% - var(--page-gap, 120px) * 2); /* Subtract top and bottom gaps */
   box-sizing: border-box;
-  /* Ensure smooth transition when animation class is removed */
-  transition: none;
 }
 
 /* Ensure text is always visible - explicit color for debugging */
@@ -652,28 +656,15 @@ body {
 }
 
 /* Apply animations based on flip direction */
+/* Flipping pages inherit all positioning from .chapter-text, just add animation and shadow */
 .chapter-text.flipping-next,
 .chapter-text.flipping-prev {
-  position: absolute;
-  top: var(--page-gap, 120px); /* Account for viewport's top padding */
-  left: 0;
-  right: 0;
-  bottom: var(--page-gap, 120px); /* Account for viewport's bottom padding */
-  width: 100%;
-  margin: 0 auto;
-  padding: 48px 48px 96px; /* Match regular chapter-text padding exactly */
-  font-size: var(--reader-font-size, 18px);
-  line-height: var(--reader-line-height, 1.8);
-  font-family: var(--reader-font-family, Georgia, "Times New Roman", serif);
-  background: var(--page-paper-bg, var(--reader-bg));
-  color: var(--page-paper-text, var(--reader-text));
+  z-index: 20; /* Ensure flipping page is on top */
   box-shadow: 0 0 30px rgba(0, 0, 0, 0.15);
   transform-style: preserve-3d;
   backface-visibility: visible;
-  overflow: visible;
-  height: auto;
-  min-height: calc(100% - var(--page-gap, 120px) * 2); /* Subtract top and bottom gaps */
-  box-sizing: border-box;
+  background: var(--page-paper-bg, var(--reader-bg));
+  color: var(--page-paper-text, var(--reader-text));
 }
 
 .chapter-text.flipping-next {
