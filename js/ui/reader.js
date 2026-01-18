@@ -437,6 +437,7 @@ export class ReaderUI {
       const swipeThreshold = 50; // minimum distance for swipe
       const tapThreshold = 10; // maximum movement for tap
       const tapTimeThreshold = 300; // maximum time for tap (ms)
+      const minSwipeDuration = 120; // avoid quick taps triggering swipes
       const diffX = touchStartX - touchEndX;
       const diffY = touchStartY - touchEndY;
       const totalMovement = Math.sqrt(diffX * diffX + diffY * diffY);
@@ -461,6 +462,10 @@ export class ReaderUI {
       }
 
       if (!allowSwipe) {
+        return;
+      }
+
+      if (duration < minSwipeDuration) {
         return;
       }
 
