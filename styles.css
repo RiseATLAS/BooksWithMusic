@@ -648,21 +648,31 @@ body.reader-page::-webkit-scrollbar {
   /* Perspective handled by .page-viewport */
 }
 
-/* Page indicator overlay (bottom-left) */
+/* Page indicator overlay (bottom-center) - button-like style */
 .page-indicator {
   position: absolute;
-  bottom: 20px;
-  left: 20px;
-  padding: 6px 12px;
-  background: rgba(0, 0, 0, 0.6);
-  color: rgba(255, 255, 255, 0.9);
-  border-radius: 6px;
-  font-size: 13px;
+  bottom: 15px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.5rem 0.75rem;
+  background: rgba(var(--glass-rgb, 255, 255, 255), 0.15);
+  backdrop-filter: blur(20px);
+  color: var(--text-primary);
+  border: 1px solid rgba(var(--border-rgb, 0, 0, 0), 0.1);
+  border-radius: 8px;
+  font-size: 0.8rem;
   font-weight: 500;
   pointer-events: none;
   z-index: 100;
-  backdrop-filter: blur(4px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  opacity: 0.9;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  align-items: center;
+  text-align: center;
+  white-space: nowrap;
+  max-width: calc(100vw - 40px);
 }
 
 .page-viewport {
@@ -1012,7 +1022,12 @@ body.reader-page::-webkit-scrollbar {
 
 .page-indicator .indicator-line {
   display: block;
-  line-height: 1.3;
+  line-height: 1.4;
+  font-size: 0.8rem;
+}
+
+.page-indicator .indicator-line:not(:last-child) {
+  margin-bottom: 0.15rem;
 }
 
 .progress-indicator:hover {
@@ -1493,8 +1508,8 @@ body.reader-page::-webkit-scrollbar {
 .setting-group input[type="range"]::-moz-range-thumb {
   width: 20px;
   height: 20px;
-  background: var(--accent);
   border-radius: 50%;
+  background: var(--accent);
   cursor: pointer;
   border: none;
   transition: all 0.2s;
@@ -1869,10 +1884,22 @@ body.reader-page::-webkit-scrollbar {
     padding-bottom: 3vh;
   }
 
-  /* Page indicator */
+  /* Page indicator - more compact on mobile, fully visible */
   .page-indicator {
-    font-size: 0.85rem;
-    padding: 8px 14px;
+    bottom: 10px;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.7rem;
+    gap: 0.2rem;
+    max-width: calc(100vw - 20px);
+  }
+
+  .page-indicator .indicator-line {
+    font-size: 0.7rem;
+    line-height: 1.3;
+  }
+
+  .page-indicator .indicator-line:not(:last-child) {
+    margin-bottom: 0.1rem;
   }
 
   /* Chapter selector */
@@ -2152,8 +2179,30 @@ body.reader-page::-webkit-scrollbar {
   }
 
   .page-indicator {
-    font-size: 0.75rem;
-    padding: 6px 10px;
+    bottom: 8px;
+    padding: 0.35rem 0.5rem;
+    font-size: 0.65rem;
+    gap: 0.15rem;
+  }
+
+  .page-indicator .indicator-line {
+    font-size: 0.65rem;
+    line-height: 1.2;
+  }
+
+  /* On very small screens, make indicator even more compact */
+  @media (max-width: 360px) {
+    .page-indicator {
+      padding: 0.3rem 0.4rem;
+      font-size: 0.6rem;
+      gap: 0.1rem;
+      bottom: 5px;
+    }
+
+    .page-indicator .indicator-line {
+      font-size: 0.6rem;
+      line-height: 1.2;
+    }
   }
 
   .library-grid {
