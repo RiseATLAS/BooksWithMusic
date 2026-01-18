@@ -19,8 +19,6 @@ export class SettingsUI {
       brightness: 100,
       pageColor: prefersDark ? 'black' : 'white',
       pageWarmth: 0,
-      showProgress: true,
-      showChapterTitle: true,
       showBookPageCount: true,
       showBookProgress: true,
       showChapterPageCount: false,
@@ -181,20 +179,6 @@ export class SettingsUI {
       this.saveSettings();
     });
 
-    // Show progress
-    document.getElementById('show-progress')?.addEventListener('change', (e) => {
-      this.settings.showProgress = e.target.checked;
-      this.applyShowProgress();
-      this.saveSettings();
-    });
-
-    // Show chapter title
-    document.getElementById('show-chapter-title')?.addEventListener('change', (e) => {
-      this.settings.showChapterTitle = e.target.checked;
-      this.applyShowChapterTitle();
-      this.saveSettings();
-    });
-
     const updatePageIndicator = () => {
       window.dispatchEvent(new CustomEvent('settings:pageIndicatorChanged'));
     };
@@ -329,8 +313,8 @@ export class SettingsUI {
     this.applyBrightness();
     this.applyPageColor();
     this.applyPageWarmth();
-    this.applyShowProgress();
-    this.applyShowChapterTitle();
+    this.syncPageIndicatorSettings();
+    window.dispatchEvent(new CustomEvent('settings:pageIndicatorChanged'));
 
     this.syncPageIndicatorSettings();
     window.dispatchEvent(new CustomEvent('settings:pageIndicatorChanged'));
@@ -655,20 +639,6 @@ export class SettingsUI {
     }, 50);
   }
 
-  applyShowProgress() {
-    const progressBar = document.querySelector('.reading-progress');
-    if (progressBar) {
-      progressBar.style.display = this.settings.showProgress ? 'block' : 'none';
-    }
-  }
-
-  applyShowChapterTitle() {
-    const chapterTitle = document.getElementById('chapter-title');
-    if (chapterTitle) {
-      chapterTitle.style.display = this.settings.showChapterTitle ? 'block' : 'none';
-    }
-  }
-
   getSettings() {
     return { ...this.settings };
   }
@@ -732,12 +702,6 @@ export class SettingsUI {
     const pageWarmthValue = document.getElementById('page-warmth-value');
     if (pageWarmthInput) pageWarmthInput.value = this.settings.pageWarmth;
     if (pageWarmthValue) pageWarmthValue.textContent = `${this.settings.pageWarmth}%`;
-
-    const showProgressCheckbox = document.getElementById('show-progress');
-    if (showProgressCheckbox) showProgressCheckbox.checked = this.settings.showProgress;
-
-    const showChapterTitleCheckbox = document.getElementById('show-chapter-title');
-    if (showChapterTitleCheckbox) showChapterTitleCheckbox.checked = this.settings.showChapterTitle;
 
     const crossfadeInput = document.getElementById('crossfade-duration');
     const crossfadeValue = document.getElementById('crossfade-value');

@@ -1157,10 +1157,11 @@ export class ReaderUI {
     const lines = [];
     const totalChapters = this.chapters.length || 1;
     const chapterPages = this.pagesPerChapter[this.currentChapterIndex] || 1;
-    const progressPercent = this.totalPages > 0 ? (this.currentPage / this.totalPages) * 100 : 0;
+    const totalBookPages = this.calculateTotalPages();
+    const progressPercent = totalBookPages > 0 ? (this.currentPage / totalBookPages) * 100 : 0;
 
     if (showBookPageCount) {
-      lines.push(`Book: ${this.currentPage} / ${this.totalPages}`);
+      lines.push(`Book Page: ${this.currentPage} / ${totalBookPages}`);
     }
 
     if (showBookProgress) {
@@ -1176,7 +1177,7 @@ export class ReaderUI {
     }
 
     if (lines.length === 0) {
-      lines.push(`Book: ${this.currentPage} / ${this.totalPages}`);
+      lines.push(`Book Page: ${this.currentPage} / ${totalBookPages}`);
     }
 
     indicator.innerHTML = lines.map((line) => `<span class="indicator-line">${line}</span>`).join('');

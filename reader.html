@@ -72,7 +72,7 @@
                     <span class="icon">⚙</span>
                 </button>
                 <button id="music-settings-toggle" class="btn btn-icon" title="Music Settings">
-                    <span class="icon">🎚</span>
+                    <span class="icon">🎵⚙</span>
                 </button>
                 <button id="music-toggle" class="btn btn-icon" title="Music">
                     <span class="icon">♫</span>
@@ -144,29 +144,20 @@
             <div class="setting-group">
                 <label for="page-based-music-switch">
                     <input type="checkbox" id="page-based-music-switch" checked>
-                    Dynamic Page-Based Music Switching
-                    <small style="display: block; opacity: 0.7; font-weight: normal; margin-top: 0.25rem;">
-                        Automatically switch tracks as you read based on mood changes
-                    </small>
+                    Dynamic Page-Based Switching (auto mood shifts)
                 </label>
             </div>
 
             <div class="setting-group">
                 <label for="instrumental-only">
                     <input type="checkbox" id="instrumental-only" checked>
-                    Background Music Only
-                    <small style="display: block; opacity: 0.7; font-weight: normal; margin-top: 0.25rem;">
-                        Filter to instrumental/ambient/background music for reading
-                    </small>
+                    Background Music Only (instrumental/ambient)
                 </label>
             </div>
 
             <div class="setting-group">
                 <label for="max-energy-level">
-                    Maximum Energy Level
-                    <small style="display: block; opacity: 0.7; font-weight: normal; margin-top: 0.25rem;">
-                        Limit music intensity (1=calm, 5=intense)
-                    </small>
+                    Maximum Energy Level (1=calm, 5=intense)
                 </label>
                 <input type="range" id="max-energy-level" min="1" max="5" step="1" value="5">
                 <span id="max-energy-value">5 (All)</span>
@@ -303,20 +294,6 @@
                     </div>
 
                     <h4 class="settings-section-title">Display Options</h4>
-
-                    <div class="setting-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="show-progress" checked>
-                            <span>Show Reading Progress Bar</span>
-                        </label>
-                    </div>
-
-                    <div class="setting-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="show-chapter-title" checked>
-                            <span>Show Chapter Title</span>
-                        </label>
-                    </div>
 
                     <div class="setting-group">
                         <label class="checkbox-label">
