@@ -414,13 +414,15 @@ export class ReaderUI {
     let touchStartTime = 0;
     let ignoreTapFullscreen = false;
     let allowSwipeNavigation = false;
+    let tapStartedInText = false;
 
     document.addEventListener('touchstart', (e) => {
       const touchTarget = e.target;
       ignoreTapFullscreen = Boolean(touchTarget?.closest('input[type="range"]'));
       allowSwipeNavigation = Boolean(touchTarget?.closest('.chapter-text'));
-      touchStartX = e.changedTouches[0].screenX;
-      touchStartY = e.changedTouches[0].screenY;
+      tapStartedInText = Boolean(touchTarget?.closest('.chapter-text'));
+      touchStartX = e.changedTouches[0].clientX;
+      touchStartY = e.changedTouches[0].clientY;
       touchStartTime = Date.now();
     }, { passive: true });
 
@@ -428,16 +430,16 @@ export class ReaderUI {
       touchEndX = e.changedTouches[0].clientX;
       touchEndY = e.changedTouches[0].clientY;
       const touchDuration = Date.now() - touchStartTime;
-      this.handleTouch(touchDuration, ignoreTapFullscreen, allowSwipeNavigation);
+      this.handleTouch(touchDuration, ignoreTapFullscreen, allowSwipeNavigation, tapStartedInText);
       ignoreTapFullscreen = false;
       allowSwipeNavigation = false;
+      tapStartedInText = false;
     }, { passive: true });
 
-    this.handleTouch = (duration, ignoreFullscreenTap = false, allowSwipe = true) => {
+    this.handleTouch = (duration, ignoreFullscreenTap = false, allowSwipe = true, startedInText = false) => {
       const swipeThreshold = 50; // minimum distance for swipe
       const tapThreshold = 10; // maximum movement for tap
       const tapTimeThreshold = 300; // maximum time for tap (ms)
-      const minSwipeDuration = 120; // avoid quick taps triggering swipes
       const diffX = touchStartX - touchEndX;
       const diffY = touchStartY - touchEndY;
       const totalMovement = Math.sqrt(diffX * diffX + diffY * diffY);
@@ -450,7 +452,7 @@ export class ReaderUI {
             return;
           }
           // Check if tap target is the text area specifically
-          const isTextArea = this.isTapInChapterText(touchEndX, touchEndY);
+          const isTextArea = startedInText || this.isTapInChapterText(touchEndX, touchEndY);
 
           // Only toggle fullscreen if tapping on the text area
           if (isTextArea) {
@@ -462,10 +464,6 @@ export class ReaderUI {
       }
 
       if (!allowSwipe) {
-        return;
-      }
-
-      if (duration < minSwipeDuration) {
         return;
       }
 
