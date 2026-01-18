@@ -71,6 +71,9 @@
                 <button id="settings-btn" class="btn btn-icon" title="Settings">
                     <span class="icon">⚙</span>
                 </button>
+                <button id="music-settings-toggle" class="btn btn-icon" title="Music Settings">
+                    <span class="icon">🎵⚙</span>
+                </button>
                 <button id="music-toggle" class="btn btn-icon" title="Music">
                     <span class="icon">♫</span>
                 </button>
@@ -88,17 +91,12 @@
             <h3>Music</h3>
         </div>
 
-        <div class="music-info">
-            <div id="current-track" class="track-info">
-                <div class="track-title">No track playing</div>
-                <div class="track-artist">-</div>
-            </div>
-            
-            <!-- Next music shift indicator -->
+        <div class="music-playlist-header">
+            <h4>Playlist</h4>
             <div id="next-shift-info" class="next-shift-info" style="display: none;"></div>
         </div>
 
-        <div class="music-controls">
+        <div class="music-controls music-controls-inline">
             <button id="prev-track" class="btn btn-icon" title="Previous Track">
                 <span class="icon">⏮</span>
             </button>
@@ -117,91 +115,77 @@
             </div>
         </div>
 
-        <!-- Two Column Layout: Settings + Playlist -->
-        <div class="music-content-layout">
-            <!-- Settings Column -->
-            <div class="music-settings-column">
-                <div class="music-settings-section">
-                    <h4>Music Settings</h4>
-                    
-                    <div class="setting-group">
-                        <label for="music-enabled-panel">
-                            <input type="checkbox" id="music-enabled-panel" checked>
-                            Enable Background Music
-                        </label>
-                    </div>
+        <div class="playlist">
+            <div id="playlist-tracks" class="playlist-tracks"></div>
+        </div>
+    </div>
 
-                    <div class="setting-group">
-                        <label for="auto-play-panel">
-                            <input type="checkbox" id="auto-play-panel">
-                            Auto-play Music
-                        </label>
-                    </div>
+    <!-- Music Settings Panel -->
+    <div id="music-settings-panel" class="music-settings-panel">
+        <div class="music-header">
+            <h3>Music Settings</h3>
+        </div>
 
-                    <div class="setting-group">
-                        <label for="page-based-music-switch">
-                            <input type="checkbox" id="page-based-music-switch" checked>
-                            Dynamic Page-Based Music Switching
-                            <small style="display: block; opacity: 0.7; font-weight: normal; margin-top: 0.25rem;">
-                                Automatically switch tracks as you read based on mood changes
-                            </small>
-                        </label>
-                    </div>
-
-                    <div class="setting-group">
-                        <label for="instrumental-only">
-                            <input type="checkbox" id="instrumental-only" checked>
-                            Background Music Only
-                            <small style="display: block; opacity: 0.7; font-weight: normal; margin-top: 0.25rem;">
-                                Filter to instrumental/ambient/background music for reading
-                            </small>
-                        </label>
-                    </div>
-
-                    <div class="setting-group">
-                        <label for="max-energy-level">
-                            Maximum Energy Level
-                            <small style="display: block; opacity: 0.7; font-weight: normal; margin-top: 0.25rem;">
-                                Limit music intensity (1=calm, 5=intense)
-                            </small>
-                        </label>
-                        <input type="range" id="max-energy-level" min="1" max="5" step="1" value="5">
-                        <span id="max-energy-value">5 (All)</span>
-                    </div>
-
-                    <div class="setting-group">
-                        <label for="crossfade-duration-panel">Crossfade Duration</label>
-                        <input type="range" id="crossfade-duration-panel" min="1" max="10" value="3">
-                        <span id="crossfade-value-panel">3s</span>
-                    </div>
-
-                    <div class="setting-group">
-                        <label for="freesound-key-panel">Freesound API Key</label>
-                        <input type="text" id="freesound-key-panel" placeholder="Enter your API key">
-                        <button id="save-freesound-key-panel" class="btn btn-primary" style="margin-top: 0.5rem;">Save Key</button>
-                        <div id="freesound-key-help" style="margin-top: 0.75rem; padding: 0.75rem; background: rgba(99, 102, 241, 0.1); border-radius: 8px; font-size: 0.85rem; line-height: 1.5;">
-                            <strong style="display: block; margin-bottom: 0.5rem;">How to get a free Freesound API key:</strong>
-                            <ol style="margin: 0; padding-left: 1.5rem;">
-                                <li style="margin-bottom: 0.25rem;">Visit <a href="https://freesound.org/apiv2/apply/" target="_blank" rel="noopener" style="color: var(--accent); text-decoration: underline;">freesound.org/apiv2/apply</a></li>
-                                <li style="margin-bottom: 0.25rem;">Create a free Freesound account (or sign in)</li>
-                                <li style="margin-bottom: 0.25rem;">Fill out the API application form</li>
-                                <li style="margin-bottom: 0.25rem;">You'll receive your API key instantly</li>
-                                <li>Paste the key above and click "Save Key"</li>
-                            </ol>
-                            <small style="display: block; margin-top: 0.5rem; opacity: 0.7;">
-                                ℹ️ Freesound is a free, community-driven database of Creative Commons licensed sounds. 
-                                The API key is completely free and allows you to access thousands of high-quality music tracks.
-                            </small>
-                        </div>
-                    </div>
-                </div>
+        <div class="music-settings-section">
+            <div class="setting-group">
+                <label for="music-enabled-panel">
+                    <input type="checkbox" id="music-enabled-panel" checked>
+                    Enable Background Music
+                </label>
             </div>
 
-            <!-- Playlist Column -->
-            <div class="music-playlist-column">
-                <div class="playlist">
-                    <h4>Playlist</h4>
-                    <div id="playlist-tracks" class="playlist-tracks"></div>
+            <div class="setting-group">
+                <label for="auto-play-panel">
+                    <input type="checkbox" id="auto-play-panel">
+                    Auto-play Music
+                </label>
+            </div>
+
+            <div class="setting-group">
+                <label for="page-based-music-switch">
+                    <input type="checkbox" id="page-based-music-switch" checked>
+                    Dynamic Page-Based Switching (auto mood shifts)
+                </label>
+            </div>
+
+            <div class="setting-group">
+                <label for="instrumental-only">
+                    <input type="checkbox" id="instrumental-only" checked>
+                    Background Music Only (instrumental/ambient)
+                </label>
+            </div>
+
+            <div class="setting-group">
+                <label for="max-energy-level">
+                    Maximum Energy Level (1=calm, 5=intense)
+                </label>
+                <input type="range" id="max-energy-level" min="1" max="5" step="1" value="5">
+                <span id="max-energy-value">5 (All)</span>
+            </div>
+
+            <div class="setting-group">
+                <label for="crossfade-duration-panel">Crossfade Duration</label>
+                <input type="range" id="crossfade-duration-panel" min="1" max="10" value="3">
+                <span id="crossfade-value-panel">3s</span>
+            </div>
+
+            <div class="setting-group">
+                <label for="freesound-key-panel">Freesound API Key</label>
+                <input type="text" id="freesound-key-panel" placeholder="Enter your API key">
+                <button id="save-freesound-key-panel" class="btn btn-primary" style="margin-top: 0.5rem;">Save Key</button>
+                <div id="freesound-key-help" style="margin-top: 0.75rem; padding: 0.75rem; background: rgba(99, 102, 241, 0.1); border-radius: 8px; font-size: 0.85rem; line-height: 1.5;">
+                    <strong style="display: block; margin-bottom: 0.5rem;">How to get a free Freesound API key:</strong>
+                    <ol style="margin: 0; padding-left: 1.5rem;">
+                        <li style="margin-bottom: 0.25rem;">Visit <a href="https://freesound.org/apiv2/apply/" target="_blank" rel="noopener" style="color: var(--accent); text-decoration: underline;">freesound.org/apiv2/apply</a></li>
+                        <li style="margin-bottom: 0.25rem;">Create a free Freesound account (or sign in)</li>
+                        <li style="margin-bottom: 0.25rem;">Fill out the API application form</li>
+                        <li style="margin-bottom: 0.25rem;">You'll receive your API key instantly</li>
+                        <li>Paste the key above and click "Save Key"</li>
+                    </ol>
+                    <small style="display: block; margin-top: 0.5rem; opacity: 0.7;">
+                        ℹ️ Freesound is a free, community-driven database of Creative Commons licensed sounds. 
+                        The API key is completely free and allows you to access thousands of high-quality music tracks.
+                    </small>
                 </div>
             </div>
         </div>
@@ -214,14 +198,6 @@
         </div>
 
         <div class="settings-content">
-            <!-- User Info Section (only visible when logged in) -->
-            <div id="settings-user-info" class="settings-user-info" style="display: none;">
-                <div class="settings-user-details">
-                    <div class="settings-user-name" id="settings-user-name">User</div>
-                    <div class="settings-user-email" id="settings-user-email">user@example.com</div>
-                </div>
-            </div>
-
             <!-- Two Column Layout -->
             <div class="settings-two-column">
                 <!-- Left Column: Text & Reading -->
@@ -321,24 +297,30 @@
 
                     <div class="setting-group">
                         <label class="checkbox-label">
-                            <input type="checkbox" id="show-progress" checked>
-                            <span>Show Reading Progress Bar</span>
+                            <input type="checkbox" id="show-book-page-count" checked>
+                            <span>Book Page Count (Current / Total)</span>
                         </label>
                     </div>
 
                     <div class="setting-group">
                         <label class="checkbox-label">
-                            <input type="checkbox" id="show-chapter-title" checked>
-                            <span>Show Chapter Title</span>
+                            <input type="checkbox" id="show-book-progress" checked>
+                            <span>Book Progress Percentage</span>
                         </label>
                     </div>
 
                     <div class="setting-group">
                         <label class="checkbox-label">
-                            <input type="checkbox" id="show-book-page-numbers" checked>
-                            <span>Full Book Page Numbers</span>
+                            <input type="checkbox" id="show-chapter-page-count">
+                            <span>Chapter Page Count (Current / Total)</span>
                         </label>
-                        <small class="setting-help">When unchecked, shows chapter-only page numbers</small>
+                    </div>
+
+                    <div class="setting-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="show-chapter-count">
+                            <span>Chapter Position (Current / Total)</span>
+                        </label>
                     </div>
                 </div>
             </div>

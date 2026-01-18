@@ -412,8 +412,11 @@ export class ReaderUI {
     let touchEndX = 0;
     let touchEndY = 0;
     let touchStartTime = 0;
+    let ignoreTapFullscreen = false;
 
     document.addEventListener('touchstart', (e) => {
+      const touchTarget = e.target;
+      ignoreTapFullscreen = Boolean(touchTarget?.closest('input[type="range"]'));
       touchStartX = e.changedTouches[0].screenX;
       touchStartY = e.changedTouches[0].screenY;
       touchStartTime = Date.now();
@@ -423,10 +426,11 @@ export class ReaderUI {
       touchEndX = e.changedTouches[0].screenX;
       touchEndY = e.changedTouches[0].screenY;
       const touchDuration = Date.now() - touchStartTime;
-      this.handleTouch(touchDuration);
+      this.handleTouch(touchDuration, ignoreTapFullscreen);
+      ignoreTapFullscreen = false;
     }, { passive: true });
 
-    this.handleTouch = (duration) => {
+    this.handleTouch = (duration, ignoreFullscreenTap = false) => {
       const swipeThreshold = 50; // minimum distance for swipe
       const tapThreshold = 10; // maximum movement for tap
       const tapTimeThreshold = 300; // maximum time for tap (ms)
@@ -438,12 +442,11 @@ export class ReaderUI {
       if (totalMovement < tapThreshold && duration < tapTimeThreshold) {
         // On mobile, tap in text area toggles fullscreen
         if (window.innerWidth <= 768) {
+          if (ignoreFullscreenTap) {
+            return;
+          }
           // Check if tap target is the text area specifically
-          const tapTarget = document.elementFromPoint(touchEndX, touchEndY);
-          const isTextArea = tapTarget && (
-            tapTarget.classList.contains('chapter-text') ||
-            tapTarget.closest('.chapter-text')
-          );
+          const isTextArea = this.isTapInChapterText(touchEndX, touchEndY);
 
           // Only toggle fullscreen if tapping on the text area
           if (isTextArea) {
@@ -502,8 +505,12 @@ export class ReaderUI {
       }
     });
 
-    // Listen for page number display preference changes from settings
+    // Listen for page indicator display preference changes from settings
     window.addEventListener('settings:pageNumbersChanged', () => {
+      this.updatePageIndicator();
+    });
+
+    window.addEventListener('settings:pageIndicatorChanged', () => {
       this.updatePageIndicator();
     });
 
@@ -1115,6 +1122,33 @@ export class ReaderUI {
     return total;
   }
 
+  calculateTotalBookPages() {
+    return this.chapters.reduce((total, _chapter, index) => {
+      return total + (this.pagesPerChapter[index] || 1);
+    }, 0);
+  }
+
+  isTapInChapterText(x, y) {
+    const tapTarget = document.elementFromPoint(x, y);
+    const chapterText = tapTarget?.closest('.chapter-text');
+    if (!chapterText) {
+      return false;
+    }
+    const rect = chapterText.getBoundingClientRect();
+    const styles = window.getComputedStyle(chapterText);
+    const paddingTop = parseFloat(styles.paddingTop) || 0;
+    const paddingRight = parseFloat(styles.paddingRight) || 0;
+    const paddingBottom = parseFloat(styles.paddingBottom) || 0;
+    const paddingLeft = parseFloat(styles.paddingLeft) || 0;
+    const innerRect = {
+      left: rect.left + paddingLeft,
+      right: rect.right - paddingRight,
+      top: rect.top + paddingTop,
+      bottom: rect.bottom - paddingBottom
+    };
+    return x >= innerRect.left && x <= innerRect.right && y >= innerRect.top && y <= innerRect.bottom;
+  }
+
   updatePageIndicator() {
     const pageContainer = document.querySelector('.page-container');
     if (!pageContainer) return;
@@ -1128,16 +1162,47 @@ export class ReaderUI {
     
     // Check settings for page number display preference
     const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
-    const showBookPages = settings.showBookPageNumbers !== false; // Default true
-    
-    if (showBookPages) {
-      // Show full book page numbers
-      indicator.textContent = `${this.currentPage} / ${this.totalPages}`;
-    } else {
-      // Show chapter-only page numbers
-      const chapterPages = this.pagesPerChapter[this.currentChapterIndex] || 1;
-      indicator.textContent = `Ch ${this.currentChapterIndex + 1}: ${this.currentPageInChapter} / ${chapterPages}`;
+    if (
+      settings.showBookPageCount === undefined &&
+      settings.showChapterPageCount === undefined &&
+      settings.showBookPageNumbers === false
+    ) {
+      settings.showBookPageCount = false;
+      settings.showChapterPageCount = true;
     }
+
+    const showBookPageCount = settings.showBookPageCount !== false;
+    const showBookProgress = settings.showBookProgress !== false;
+    const showChapterPageCount = settings.showChapterPageCount === true;
+    const showChapterCount = settings.showChapterCount === true;
+
+    const lines = [];
+    const totalChapters = this.chapters.length || 1;
+    const chapterPages = this.pagesPerChapter[this.currentChapterIndex] || 1;
+    const totalBookPages = this.calculateTotalBookPages();
+    const progressPercent = totalBookPages > 0 ? (this.currentPage / totalBookPages) * 100 : 0;
+
+    if (showBookPageCount) {
+      lines.push(`Book Page: ${this.currentPage} / ${totalBookPages}`);
+    }
+
+    if (showBookProgress) {
+      lines.push(`Progress: ${progressPercent.toFixed(1)}%`);
+    }
+
+    if (showChapterPageCount) {
+      lines.push(`Chapter Page: ${this.currentPageInChapter} / ${chapterPages}`);
+    }
+
+    if (showChapterCount) {
+      lines.push(`Chapter: ${this.currentChapterIndex + 1} / ${totalChapters}`);
+    }
+
+    if (lines.length === 0) {
+      lines.push(`Book Page: ${this.currentPage} / ${totalBookPages}`);
+    }
+
+    indicator.innerHTML = lines.map((line) => `<span class="indicator-line">${line}</span>`).join('');
   }
 
   async saveProgress() {
