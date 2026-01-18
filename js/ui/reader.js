@@ -1112,11 +1112,17 @@ export class ReaderUI {
       return;
     }
     
+    const oldPageRect = chapterText.getBoundingClientRect();
+    const oldFirstP = chapterText.querySelector('p') ? chapterText.querySelector('p').getBoundingClientRect() : null;
+    
     console.log('📄 [OLD PAGE]', { 
-      position: chapterText.getBoundingClientRect(),
+      x: oldPageRect.x,
+      y: oldPageRect.y,
+      width: oldPageRect.width,
+      height: oldPageRect.height,
       fontSmoothing: window.getComputedStyle(chapterText).webkitFontSmoothing,
       textAlign: window.getComputedStyle(chapterText).textAlign,
-      firstParagraph: chapterText.querySelector('p') ? chapterText.querySelector('p').getBoundingClientRect() : null
+      firstParagraph: oldFirstP ? { x: oldFirstP.x, y: oldFirstP.y, width: oldFirstP.width } : null
     });
     
     // Get container
@@ -1143,9 +1149,15 @@ export class ReaderUI {
     // Force reflow to calculate all text layouts
     void newPageDiv.offsetHeight;
     
+    const layoutRect = newPageDiv.getBoundingClientRect();
+    const layoutFirstP = newPageDiv.querySelector('p') ? newPageDiv.querySelector('p').getBoundingClientRect() : null;
+    
     console.log('📐 [LAYOUT CALCULATED]', {
-      position: newPageDiv.getBoundingClientRect(),
-      firstParagraph: newPageDiv.querySelector('p') ? newPageDiv.querySelector('p').getBoundingClientRect() : null
+      x: layoutRect.x,
+      y: layoutRect.y,
+      width: layoutRect.width,
+      height: layoutRect.height,
+      firstParagraph: layoutFirstP ? { x: layoutFirstP.x, y: layoutFirstP.y, width: layoutFirstP.width } : null
     });
     
     // Remove pre-render class and add animation
@@ -1153,11 +1165,17 @@ export class ReaderUI {
     const animClass = direction === 'next' ? 'flipping-next' : 'flipping-prev';
     newPageDiv.classList.add(animClass);
     
+    const animRect = newPageDiv.getBoundingClientRect();
+    const animFirstP = newPageDiv.querySelector('p') ? newPageDiv.querySelector('p').getBoundingClientRect() : null;
+    
     console.log('🎬 [ANIMATION START]', { 
-      position: newPageDiv.getBoundingClientRect(),
+      x: animRect.x,
+      y: animRect.y,
+      width: animRect.width,
+      height: animRect.height,
       fontSmoothing: window.getComputedStyle(newPageDiv).webkitFontSmoothing,
       textAlign: window.getComputedStyle(newPageDiv).textAlign,
-      firstParagraph: newPageDiv.querySelector('p') ? newPageDiv.querySelector('p').getBoundingClientRect() : null
+      firstParagraph: animFirstP ? { x: animFirstP.x, y: animFirstP.y, width: animFirstP.width } : null
     });
     
     // Update page number immediately
@@ -1185,11 +1203,17 @@ export class ReaderUI {
     }
     newPageDiv.classList.remove(animClass);
     
+    const finalRect = newPageDiv.getBoundingClientRect();
+    const finalFirstP = newPageDiv.querySelector('p') ? newPageDiv.querySelector('p').getBoundingClientRect() : null;
+    
     console.log('📍 [FINAL POSITION]', {
-      position: newPageDiv.getBoundingClientRect(),
+      x: finalRect.x,
+      y: finalRect.y,
+      width: finalRect.width,
+      height: finalRect.height,
       fontSmoothing: window.getComputedStyle(newPageDiv).webkitFontSmoothing,
       textAlign: window.getComputedStyle(newPageDiv).textAlign,
-      firstParagraph: newPageDiv.querySelector('p') ? newPageDiv.querySelector('p').getBoundingClientRect() : null
+      firstParagraph: finalFirstP ? { x: finalFirstP.x, y: finalFirstP.y, width: finalFirstP.width } : null
     });
     
     // Restore scrollbar
