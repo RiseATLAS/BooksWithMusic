@@ -1112,26 +1112,6 @@ export class ReaderUI {
       return;
     }
     
-    const oldPageRect = chapterText.getBoundingClientRect();
-    const oldFirstP = chapterText.querySelector('p');
-    const oldFirstPRect = oldFirstP ? oldFirstP.getBoundingClientRect() : null;
-    
-    console.log('📄 [OLD PAGE]', { 
-      x: oldPageRect.x,
-      y: oldPageRect.y,
-      width: oldPageRect.width,
-      height: oldPageRect.height,
-      fontSmoothing: window.getComputedStyle(chapterText).webkitFontSmoothing,
-      textAlign: window.getComputedStyle(chapterText).textAlign,
-      firstParagraph: oldFirstPRect ? { 
-        x: oldFirstPRect.x, 
-        y: oldFirstPRect.y, 
-        width: oldFirstPRect.width,
-        height: oldFirstPRect.height,
-        textContent: oldFirstP.textContent.substring(0, 50) + '...'
-      } : null
-    });
-    
     // Get container
     const pageViewport = chapterText.parentElement;
     
@@ -1156,34 +1136,10 @@ export class ReaderUI {
     // Force reflow to calculate all text layouts
     void newPageDiv.offsetHeight;
     
-    const layoutRect = newPageDiv.getBoundingClientRect();
-    const layoutFirstP = newPageDiv.querySelector('p') ? newPageDiv.querySelector('p').getBoundingClientRect() : null;
-    
-    console.log('📐 [LAYOUT CALCULATED]', {
-      x: layoutRect.x,
-      y: layoutRect.y,
-      width: layoutRect.width,
-      height: layoutRect.height,
-      firstParagraph: layoutFirstP ? { x: layoutFirstP.x, y: layoutFirstP.y, width: layoutFirstP.width } : null
-    });
-    
     // Remove pre-render class and add animation
     newPageDiv.classList.remove('pre-render');
     const animClass = direction === 'next' ? 'flipping-next' : 'flipping-prev';
     newPageDiv.classList.add(animClass);
-    
-    const animRect = newPageDiv.getBoundingClientRect();
-    const animFirstP = newPageDiv.querySelector('p') ? newPageDiv.querySelector('p').getBoundingClientRect() : null;
-    
-    console.log('🎬 [ANIMATION START]', { 
-      x: animRect.x,
-      y: animRect.y,
-      width: animRect.width,
-      height: animRect.height,
-      fontSmoothing: window.getComputedStyle(newPageDiv).webkitFontSmoothing,
-      textAlign: window.getComputedStyle(newPageDiv).textAlign,
-      firstParagraph: animFirstP ? { x: animFirstP.x, y: animFirstP.y, width: animFirstP.width } : null
-    });
     
     // Update page number immediately
     this.currentPageInChapter = targetPage;
@@ -1209,26 +1165,6 @@ export class ReaderUI {
       chapterText.remove();
     }
     newPageDiv.classList.remove(animClass);
-    
-    const finalRect = newPageDiv.getBoundingClientRect();
-    const finalFirstP = newPageDiv.querySelector('p');
-    const finalFirstPRect = finalFirstP ? finalFirstP.getBoundingClientRect() : null;
-    
-    console.log('📍 [FINAL POSITION]', {
-      x: finalRect.x,
-      y: finalRect.y,
-      width: finalRect.width,
-      height: finalRect.height,
-      fontSmoothing: window.getComputedStyle(newPageDiv).webkitFontSmoothing,
-      textAlign: window.getComputedStyle(newPageDiv).textAlign,
-      firstParagraph: finalFirstPRect ? { 
-        x: finalFirstPRect.x, 
-        y: finalFirstPRect.y, 
-        width: finalFirstPRect.width,
-        height: finalFirstPRect.height,
-        textContent: finalFirstP.textContent.substring(0, 50) + '...'
-      } : null
-    });
     
     // Restore scrollbar
     pageViewport.classList.remove('flipping');
