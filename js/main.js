@@ -114,16 +114,15 @@ class BooksWithMusicApp {
     });
   }
 
-  updateSettingsUserInfo(user) {
-    const settingsUserInfo = document.getElementById("settings-user-info");
-    const settingsUserName = document.getElementById("settings-user-name");
-
-    if (settingsUserInfo && settingsUserName && user) {
-      settingsUserName.textContent = user.displayName || "User";
-      settingsUserInfo.style.display = "block";
-    } else if (settingsUserInfo) {
-      settingsUserInfo.style.display = "none";
+  buildSettingsPayload(settings, user) {
+    if (!user) {
+      return { ...settings };
     }
+
+    return {
+      ...settings,
+      userEmail: user.email || null,
+    };
   }
 
   buildSettingsPayload(settings, user) {
@@ -264,9 +263,6 @@ class BooksWithMusicApp {
           menuEmail.textContent = user.email;
         }
 
-        // Update settings panel user info
-        this.updateSettingsUserInfo(user);
-        
         // Setup sign out handler for reader page
         const signOutBtnReader = document.getElementById("sign-out-btn-reader");
         if (signOutBtnReader && !signOutBtnReader.dataset.handlerAdded) {
