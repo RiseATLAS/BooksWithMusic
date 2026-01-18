@@ -316,6 +316,9 @@ export class SettingsUI {
     this.syncPageIndicatorSettings();
     window.dispatchEvent(new CustomEvent('settings:pageIndicatorChanged'));
 
+    this.syncPageIndicatorSettings();
+    window.dispatchEvent(new CustomEvent('settings:pageIndicatorChanged'));
+
     // Ensure pagination updates after initial settings apply
     this._emitLayoutChanged('init');
   }
