@@ -19,6 +19,28 @@ export function initAuth() {
   console.log(' Firebase Auth initialized');
 }
 
+function getDevAuthUser() {
+  return {
+    uid: 'dev-user',
+    email: 'dev@local.test',
+    displayName: 'Dev User',
+    photoURL: ''
+  };
+}
+
+function isDevAuthEnabled() {
+  const isLocalhost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+  if (!isLocalhost) {
+    return false;
+  }
+  const params = new URLSearchParams(window.location.search);
+  const enabled = params.has('devAuth') || localStorage.getItem('bwm-dev-auth') === 'true';
+  if (enabled) {
+    localStorage.setItem('bwm-dev-auth', 'true');
+  }
+  return enabled;
+}
+
 /**
  * Sign in with Google using popup
  * @returns {Promise<Object>} User object with uid, email, displayName, photoURL
@@ -100,6 +122,11 @@ export async function signInWithGoogle() {
  * @throws {Error} If sign-out fails
  */
 export async function signOut() {
+  if (isDevAuthEnabled()) {
+    localStorage.removeItem('bwm-dev-auth');
+    return;
+  }
+
   if (!auth.currentUser) {
     return;
   }
@@ -119,6 +146,11 @@ export async function signOut() {
  * @returns {Function} Unsubscribe function
  */
 export function onAuthStateChanged(callback) {
+  if (isDevAuthEnabled()) {
+    callback(getDevAuthUser());
+    return () => {};
+  }
+
   return firebaseOnAuthStateChanged(auth, (user) => {
     if (user) {
       callback({
@@ -138,6 +170,10 @@ export function onAuthStateChanged(callback) {
  * @returns {Object|null} User object or null if not signed in
  */
 export function getCurrentUser() {
+  if (isDevAuthEnabled()) {
+    return getDevAuthUser();
+  }
+
   if (!auth.currentUser) {
     return null;
   }

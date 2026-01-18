@@ -19,9 +19,10 @@ export class SettingsUI {
       brightness: 100,
       pageColor: prefersDark ? 'black' : 'white',
       pageWarmth: 0,
-      showProgress: true,
-      showChapterTitle: true,
-      showBookPageNumbers: true, // true = full book pages, false = chapter pages only
+      showBookPageCount: true,
+      showBookProgress: true,
+      showChapterPageCount: false,
+      showChapterCount: false,
       musicEnabled: true,
       autoPlay: false,
       crossfadeDuration: 3,
@@ -178,26 +179,32 @@ export class SettingsUI {
       this.saveSettings();
     });
 
-    // Show progress
-    document.getElementById('show-progress')?.addEventListener('change', (e) => {
-      this.settings.showProgress = e.target.checked;
-      this.applyShowProgress();
+    const updatePageIndicator = () => {
+      window.dispatchEvent(new CustomEvent('settings:pageIndicatorChanged'));
+    };
+
+    document.getElementById('show-book-page-count')?.addEventListener('change', (e) => {
+      this.settings.showBookPageCount = e.target.checked;
       this.saveSettings();
+      updatePageIndicator();
     });
 
-    // Show chapter title
-    document.getElementById('show-chapter-title')?.addEventListener('change', (e) => {
-      this.settings.showChapterTitle = e.target.checked;
-      this.applyShowChapterTitle();
+    document.getElementById('show-book-progress')?.addEventListener('change', (e) => {
+      this.settings.showBookProgress = e.target.checked;
       this.saveSettings();
+      updatePageIndicator();
     });
 
-    // Show book page numbers (vs chapter page numbers)
-    document.getElementById('show-book-page-numbers')?.addEventListener('change', (e) => {
-      this.settings.showBookPageNumbers = e.target.checked;
+    document.getElementById('show-chapter-page-count')?.addEventListener('change', (e) => {
+      this.settings.showChapterPageCount = e.target.checked;
       this.saveSettings();
-      // Trigger page indicator update
-      window.dispatchEvent(new CustomEvent('settings:pageNumbersChanged'));
+      updatePageIndicator();
+    });
+
+    document.getElementById('show-chapter-count')?.addEventListener('change', (e) => {
+      this.settings.showChapterCount = e.target.checked;
+      this.saveSettings();
+      updatePageIndicator();
     });
 
     // Crossfade duration
@@ -245,6 +252,8 @@ export class SettingsUI {
   showSettings() {
     const panel = document.getElementById('settings-panel');
     if (panel) {
+      document.getElementById('music-panel')?.classList.remove('show');
+      document.getElementById('music-settings-panel')?.classList.remove('show');
       panel.classList.add('show');
     }
   }
@@ -263,12 +272,24 @@ export class SettingsUI {
       // Merge saved settings with current defaults (in case new settings were added)
       this.settings = { ...this.settings, ...savedSettings };
     }
+    if (
+      this.settings.showBookPageNumbers === false &&
+      this.settings.showBookPageCount === undefined &&
+      this.settings.showChapterPageCount === undefined
+    ) {
+      this.settings.showBookPageCount = false;
+      this.settings.showChapterPageCount = true;
+    }
   }
 
   async syncToFirestore() {
     if (auth.currentUser) {
       try {
-        await saveUserSettings(auth.currentUser.uid, this.settings);
+        const settingsPayload = {
+          ...this.settings,
+          userEmail: auth.currentUser.email || null
+        };
+        await saveUserSettings(auth.currentUser.uid, settingsPayload);
       } catch (error) {
         console.error('Failed to sync settings to Firestore:', error);
       }
@@ -292,11 +313,33 @@ export class SettingsUI {
     this.applyBrightness();
     this.applyPageColor();
     this.applyPageWarmth();
-    this.applyShowProgress();
-    this.applyShowChapterTitle();
+    this.syncPageIndicatorSettings();
+    window.dispatchEvent(new CustomEvent('settings:pageIndicatorChanged'));
 
     // Ensure pagination updates after initial settings apply
     this._emitLayoutChanged('init');
+  }
+
+  syncPageIndicatorSettings() {
+    const showBookPageCount = document.getElementById('show-book-page-count');
+    if (showBookPageCount) {
+      showBookPageCount.checked = this.settings.showBookPageCount !== false;
+    }
+
+    const showBookProgress = document.getElementById('show-book-progress');
+    if (showBookProgress) {
+      showBookProgress.checked = this.settings.showBookProgress !== false;
+    }
+
+    const showChapterPageCount = document.getElementById('show-chapter-page-count');
+    if (showChapterPageCount) {
+      showChapterPageCount.checked = this.settings.showChapterPageCount === true;
+    }
+
+    const showChapterCount = document.getElementById('show-chapter-count');
+    if (showChapterCount) {
+      showChapterCount.checked = this.settings.showChapterCount === true;
+    }
   }
 
   applyTheme() {
@@ -593,20 +636,6 @@ export class SettingsUI {
     }, 50);
   }
 
-  applyShowProgress() {
-    const progressBar = document.querySelector('.reading-progress');
-    if (progressBar) {
-      progressBar.style.display = this.settings.showProgress ? 'block' : 'none';
-    }
-  }
-
-  applyShowChapterTitle() {
-    const chapterTitle = document.getElementById('chapter-title');
-    if (chapterTitle) {
-      chapterTitle.style.display = this.settings.showChapterTitle ? 'block' : 'none';
-    }
-  }
-
   getSettings() {
     return { ...this.settings };
   }
@@ -671,15 +700,6 @@ export class SettingsUI {
     if (pageWarmthInput) pageWarmthInput.value = this.settings.pageWarmth;
     if (pageWarmthValue) pageWarmthValue.textContent = `${this.settings.pageWarmth}%`;
 
-    const showProgressCheckbox = document.getElementById('show-progress');
-    if (showProgressCheckbox) showProgressCheckbox.checked = this.settings.showProgress;
-
-    const showChapterTitleCheckbox = document.getElementById('show-chapter-title');
-    if (showChapterTitleCheckbox) showChapterTitleCheckbox.checked = this.settings.showChapterTitle;
-
-    const showBookPageNumbersCheckbox = document.getElementById('show-book-page-numbers');
-    if (showBookPageNumbersCheckbox) showBookPageNumbersCheckbox.checked = this.settings.showBookPageNumbers;
-
     const crossfadeInput = document.getElementById('crossfade-duration');
     const crossfadeValue = document.getElementById('crossfade-value');
     if (crossfadeInput) crossfadeInput.value = this.settings.crossfadeDuration;
@@ -690,5 +710,7 @@ export class SettingsUI {
 
     const autoPlayCheckbox = document.getElementById('auto-play-panel');
     if (autoPlayCheckbox) autoPlayCheckbox.checked = this.settings.autoPlay;
+
+    this.syncPageIndicatorSettings();
   }
 }

@@ -99,10 +99,12 @@ export class MusicPanelUI {
     
     document.body.appendChild(warning);
     
-    // Open music panel when button clicked
+    // Open music settings panel when button clicked
     document.getElementById('open-music-settings-btn')?.addEventListener('click', () => {
-      const panel = document.getElementById('music-panel');
+      const panel = document.getElementById('music-settings-panel');
       if (panel) {
+        document.getElementById('settings-panel')?.classList.remove('show');
+        document.getElementById('music-panel')?.classList.remove('show');
         panel.classList.add('show');
       }
       warning.remove();
@@ -272,15 +274,29 @@ export class MusicPanelUI {
       this.togglePanel();
     });
 
+    document.getElementById('music-settings-toggle')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.toggleSettingsPanel();
+    });
+
     // Click outside to close music panel
     document.addEventListener('click', (e) => {
       const panel = document.getElementById('music-panel');
       const musicToggle = document.getElementById('music-toggle');
+      const settingsPanel = document.getElementById('music-settings-panel');
+      const musicSettingsToggle = document.getElementById('music-settings-toggle');
       
       if (panel && panel.classList.contains('show')) {
         // Check if click is outside the panel and not on the music toggle button
         if (!panel.contains(e.target) && !musicToggle?.contains(e.target)) {
           this.hidePanel();
+        }
+      }
+
+      if (settingsPanel && settingsPanel.classList.contains('show')) {
+        if (!settingsPanel.contains(e.target) && !musicSettingsToggle?.contains(e.target)) {
+          settingsPanel.classList.remove('show');
         }
       }
     });
@@ -625,6 +641,23 @@ export class MusicPanelUI {
   togglePanel() {
     const panel = document.getElementById('music-panel');
     if (panel) {
+      const shouldShow = !panel.classList.contains('show');
+      if (shouldShow) {
+        document.getElementById('settings-panel')?.classList.remove('show');
+        document.getElementById('music-settings-panel')?.classList.remove('show');
+      }
+      panel.classList.toggle('show');
+    }
+  }
+
+  toggleSettingsPanel() {
+    const panel = document.getElementById('music-settings-panel');
+    if (panel) {
+      const shouldShow = !panel.classList.contains('show');
+      if (shouldShow) {
+        document.getElementById('settings-panel')?.classList.remove('show');
+        document.getElementById('music-panel')?.classList.remove('show');
+      }
       panel.classList.toggle('show');
     }
   }
@@ -665,8 +698,12 @@ export class MusicPanelUI {
     // Get shift points to mark which tracks play at mood changes
     const shiftPoints = this.currentShiftPoints || [];
     
+    const isPlaying = this.audioPlayer?.isPlaying?.() ?? false;
     playlistEl.innerHTML = this.playlist.map((track, index) => {
       const isShiftTrack = index < shiftPoints.length && shiftPoints[index]?.page;
+      const isCurrent = index === this.currentTrackIndex;
+      const playState = isCurrent ? (isPlaying ? 'playing' : 'paused') : 'queued';
+      const playIcon = isCurrent ? (isPlaying ? '▶' : '⏸') : '•';
       
       // Concise shift info
       let shiftInfo = '';
@@ -687,9 +724,13 @@ export class MusicPanelUI {
       const categories = [energy, tempo, tags].filter(c => c).join(' • ');
       
       return `
-        <div class="playlist-item ${index === this.currentTrackIndex ? 'active' : ''} ${isShiftTrack ? 'shift-point' : ''}" 
+        <div class="playlist-item ${isCurrent ? 'active' : ''} ${isShiftTrack ? 'shift-point' : ''} ${isCurrent ? 'is-current' : ''} ${isPlaying && isCurrent ? 'is-playing' : ''}" 
              data-track-index="${index}"
              title="${track.title} by ${track.artist || 'Unknown'}${shiftInfo ? ' • ' + shiftInfo : ''}">
+          <div class="playlist-status" aria-hidden="true">
+            <span class="playlist-status-icon">${playIcon}</span>
+            <span class="playlist-status-text">${playState}</span>
+          </div>
           <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem;">
             <div style="flex: 1; min-width: 0;">
               <div class="track-title" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500;">
@@ -744,7 +785,6 @@ export class MusicPanelUI {
     }
 
     // Update UI
-    this.updateCurrentTrackInfo(track);
     this.updatePlaylistSelection();
 
     // Play audio with AudioPlayer.playTrack()
@@ -786,22 +826,8 @@ export class MusicPanelUI {
     setTimeout(() => toast.remove(), 5000);
   }
 
-  updateCurrentTrackInfo(track) {
-    if (!track) return;
-    
-    const trackInfoEl = document.getElementById('current-track');
-    if (trackInfoEl) {
-      trackInfoEl.innerHTML = `
-        <div class="track-title">${this.escapeHtml(track.title || 'Unknown Track')}</div>
-        <div class="track-artist">${this.escapeHtml(track.artist || 'Unknown')}</div>
-      `;
-    }
-  }
-
   updatePlaylistSelection() {
-    document.querySelectorAll('.playlist-item').forEach((item, index) => {
-      item.classList.toggle('active', index === this.currentTrackIndex);
-    });
+    this.renderPlaylist();
   }
 
   async togglePlayPause() {
@@ -882,6 +908,7 @@ export class MusicPanelUI {
       }
       btn.title = isPlaying ? 'Pause' : 'Play';
     }
+    this.renderPlaylist();
   }
 
   previousTrack() {
