@@ -245,6 +245,7 @@ export class SettingsUI {
   showSettings() {
     const panel = document.getElementById('settings-panel');
     if (panel) {
+      document.getElementById('music-panel')?.classList.remove('show');
       panel.classList.add('show');
     }
   }
@@ -268,7 +269,11 @@ export class SettingsUI {
   async syncToFirestore() {
     if (auth.currentUser) {
       try {
-        await saveUserSettings(auth.currentUser.uid, this.settings);
+        const settingsPayload = {
+          ...this.settings,
+          userEmail: auth.currentUser.email || null
+        };
+        await saveUserSettings(auth.currentUser.uid, settingsPayload);
       } catch (error) {
         console.error('Failed to sync settings to Firestore:', error);
       }
