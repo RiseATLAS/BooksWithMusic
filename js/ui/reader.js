@@ -414,19 +414,19 @@ export class ReaderUI {
     let touchStartTime = 0;
 
     document.addEventListener('touchstart', (e) => {
-      touchStartX = e.changedTouches[0].screenX;
-      touchStartY = e.changedTouches[0].screenY;
+      touchStartX = e.changedTouches[0].clientX;
+      touchStartY = e.changedTouches[0].clientY;
       touchStartTime = Date.now();
     }, { passive: true });
 
     document.addEventListener('touchend', (e) => {
-      touchEndX = e.changedTouches[0].screenX;
-      touchEndY = e.changedTouches[0].screenY;
+      touchEndX = e.changedTouches[0].clientX;
+      touchEndY = e.changedTouches[0].clientY;
       const touchDuration = Date.now() - touchStartTime;
-      this.handleTouch(touchDuration);
+      this.handleTouch(touchDuration, touchEndX, touchEndY);
     }, { passive: true });
 
-    this.handleTouch = (duration) => {
+    this.handleTouch = (duration, endX, endY) => {
       const swipeThreshold = 50; // minimum distance for swipe
       const tapThreshold = 10; // maximum movement for tap
       const tapTimeThreshold = 300; // maximum time for tap (ms)
@@ -439,14 +439,22 @@ export class ReaderUI {
         // On mobile, tap in text area toggles fullscreen
         if (window.innerWidth <= 768) {
           // Check if tap target is the text area specifically
-          const tapTarget = document.elementFromPoint(touchEndX, touchEndY);
+          const tapTarget = document.elementFromPoint(endX, endY);
+          
+          console.log('Tap detected at:', endX, endY, 'Target:', tapTarget?.className);
+          
           const isTextArea = tapTarget && (
             tapTarget.classList.contains('chapter-text') ||
-            tapTarget.closest('.chapter-text')
+            tapTarget.closest('.chapter-text') ||
+            tapTarget.classList.contains('page-viewport') ||
+            tapTarget.closest('.page-viewport')
           );
+
+          console.log('Is text area?', isTextArea);
 
           // Only toggle fullscreen if tapping on the text area
           if (isTextArea) {
+            console.log('Toggling fullscreen!');
             this.toggleFullscreen();
             return;
           }
