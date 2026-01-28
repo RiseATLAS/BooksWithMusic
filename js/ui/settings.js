@@ -97,9 +97,6 @@ export class SettingsUI {
       }
       this.applyFontSize();
       this.saveSettings();
-      
-      // Check for overflow after font size change
-      setTimeout(() => this.checkAndAdjustForOverflow(), 300);
     });
 
     // Line height
@@ -113,9 +110,6 @@ export class SettingsUI {
       this.applyLineHeight();
       this.saveSettings();
       this._emitLayoutChanged('lineHeight');
-      
-      // Check for overflow after line height change
-      setTimeout(() => this.checkAndAdjustForOverflow(), 300);
     });
 
     // Font family
@@ -158,9 +152,6 @@ export class SettingsUI {
       this.applyPageDensity();
       this.saveSettings();
       this._emitLayoutChanged('pageDensity');
-      
-      // Check for overflow after density change
-      setTimeout(() => this.checkAndAdjustForOverflow(), 300);
     });
 
     // Auto-calibrate page density button
@@ -446,11 +437,19 @@ export class SettingsUI {
    * Also calibrates optimal page width based on viewport
    */
   calibratePageDensity() {
+    console.log('=== CALIBRATION START ===');
+    
     // Get the actual page container (where pages are rendered)
     const pageContainer = document.querySelector('.page-container');
     const chapterText = document.querySelector('.chapter-text');
     
+    console.log('Elements found:', { 
+      pageContainer: !!pageContainer, 
+      chapterText: !!chapterText 
+    });
+    
     if (!pageContainer) {
+      console.error('No page container found!');
       this.showToast('Please open a book first to calibrate page size.', 'error');
       return;
     }
@@ -459,6 +458,8 @@ export class SettingsUI {
     const fontSize = this.settings.fontSize || 18;
     const lineHeightMultiplier = this.settings.lineHeight || 1.6;
     const lineHeight = fontSize * lineHeightMultiplier;
+    
+    console.log('Font settings:', { fontSize, lineHeightMultiplier, lineHeight });
     
     // Validate values
     if (isNaN(fontSize) || fontSize <= 0) {
@@ -476,12 +477,14 @@ export class SettingsUI {
     const containerHeight = pageContainer.clientHeight;
     const containerWidth = pageContainer.clientWidth;
     
-    console.log(`📐 Calibration | Container:${containerWidth}×${containerHeight}px | Font:${fontSize}px | LineH:${lineHeight}px (${lineHeightMultiplier})`);
+    console.log('Container dimensions:', { containerWidth, containerHeight });
     
     // Cap page width to current container width (don't exceed available space)
     // Use 95% of container width to leave some breathing room
     const maxPageWidth = Math.floor(containerWidth * 0.95);
     const calibratedPageWidth = Math.max(400, Math.min(maxPageWidth, 2000));
+    
+    console.log('Page width calculation:', { maxPageWidth, calibratedPageWidth });
     
     if (containerHeight <= 100) {
       console.error('Container too small:', containerHeight);
@@ -495,12 +498,16 @@ export class SettingsUI {
     if (chapterText) {
       // Use the actual chapter-text client height (already accounts for its padding)
       textHeight = chapterText.clientHeight;
+      console.log('Using chapterText.clientHeight:', textHeight);
     } else {
       // Fallback: Use page-container with conservative padding estimate
       textHeight = containerHeight - 144;
+      console.log('Using fallback textHeight:', textHeight);
     }
     
     const textWidth = containerWidth - 96; // 48px * 2 horizontal padding
+    
+    console.log('Text dimensions:', { textWidth, textHeight });
     
     // Validate dimensions
     if (textHeight <= 0 || textWidth <= 0) {
@@ -510,12 +517,26 @@ export class SettingsUI {
     }
     
     // Calculate lines that fit (reduce by 10% for safety margin)
-    const linesPerPage = Math.floor((textHeight / lineHeight) * 0.9);
+    const rawLines = textHeight / lineHeight;
+    const linesWithMargin = rawLines * 0.9;
+    const linesPerPage = Math.floor(linesWithMargin);
+    
+    console.log('Lines calculation:', { 
+      rawLines, 
+      linesWithMargin, 
+      linesPerPage 
+    });
     
     // Calculate average characters per line
     // Use a more conservative character width estimation
     const charWidthFactor = this.settings.fontFamily === 'monospace' ? 0.65 : 0.6;
     const avgCharsPerLine = Math.floor(textWidth / (fontSize * charWidthFactor));
+    
+    console.log('Chars per line calculation:', { 
+      charWidthFactor, 
+      avgCharsPerLine,
+      fontFamily: this.settings.fontFamily
+    });
     
     // Validate calculations
     if (isNaN(linesPerPage) || linesPerPage <= 0 || isNaN(avgCharsPerLine) || avgCharsPerLine <= 0) {
@@ -531,10 +552,12 @@ export class SettingsUI {
     const maxLines = Math.floor(linesPerPage * 1.5);
     const clampedMax = Math.max(10, Math.min(100, maxLines));
     
-    console.log(`📐 Calibration results | Lines/page:${linesPerPage} | Chars/line:${avgCharsPerLine} | Max:${clampedMax} lines | PageW:${calibratedPageWidth}px`);
+    console.log('Max calculation:', { maxLines, clampedMax });
     
     // Clamp to reasonable range (10-100 lines)
     let calibratedDensity = Math.max(10, Math.min(clampedMax, calibratedLines));
+    
+    console.log('Final calibrated density:', calibratedDensity);
     
     // Update page width first
     this.settings.pageWidth = calibratedPageWidth;
@@ -571,8 +594,8 @@ export class SettingsUI {
     
     // Show feedback with all details in one compact log line
     console.log(`📏 Page Calibration | Viewport:${containerWidth}×${containerHeight}px | PageW:${calibratedPageWidth}px (${Math.round(calibratedPageWidth/containerWidth*100)}%) | Text:${textWidth}×${textHeight}px | Font:${fontSize}px LH:${lineHeight.toFixed(2)}px | ✓ Density:${calibratedDensity} lines/page`);
-    
-    this.showToast(`✓ Calibrated: ${calibratedPageWidth}px width, ${calibratedDensity} lines per page`, 'success');    
+        console.log('=== CALIBRATION END ===');
+        this.showToast(`✓ Calibrated: ${calibratedPageWidth}px width, ${calibratedDensity} lines per page`, 'success');    
   }
 
   checkAndAdjustForOverflow() {
