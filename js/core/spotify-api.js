@@ -1,0 +1,427 @@
+/**
+ * SpotifyAPI - Spotify Web API Integration
+ * 
+ * RESPONSIBILITIES:
+ * - Search Spotify catalog using recommendations API
+ * - Get track audio features (energy, valence, tempo, etc.)
+ * - Create playlists in user's Spotify account
+ * - Control playback via Spotify Connect API
+ * - Handle rate limiting and errors
+ * - Convert MoodProcessor output to Spotify parameters
+ * 
+ * INTEGRATION NOTES:
+ * - This is ONE of TWO music sources (see SPOTIFY-INTEGRATION.md)
+ * - Used when settings.musicSource === "spotify"
+ * - Requires user authentication (spotify-auth.js)
+ * - Returns track objects with Spotify URIs (not direct URLs)
+ * - Works with spotify-player.js for playback control
+ * - See music-api-factory.js for API selection logic
+ * 
+ * API FEATURES:
+ * - Recommendations: Get tracks based on audio features + genres
+ * - Audio Features: Precise mood matching (energy, valence, tempo, etc.)
+ * - Search: Text-based search with filters
+ * - Playback Control: Play/pause/skip via Spotify Connect
+ * 
+ * REFERENCES:
+ * - Web API Reference: https://developer.spotify.com/documentation/web-api
+ * - Recommendations: https://developer.spotify.com/documentation/web-api/reference/get-recommendations
+ * - Audio Features: https://developer.spotify.com/documentation/web-api/reference/get-audio-features
+ */
+
+import { SpotifyAuth } from '../auth/spotify-auth.js';
+import { SpotifyMapper } from '../mappers/spotify-mapper.js';
+
+export class SpotifyAPI {
+  constructor() {
+    this.auth = new SpotifyAuth();
+    this.mapper = new SpotifyMapper();
+    this.baseURL = 'https://api.spotify.com/v1';
+    
+    // Rate limiting
+    this.lastRequestTime = 0;
+    this.minRequestInterval = 100; // 100ms between requests
+    this.rateLimitedUntil = 0;
+    
+    // Cache for search results
+    this.cache = new Map();
+  }
+
+  /**
+   * Check if API is configured and user is authenticated
+   */
+  async isConfigured() {
+    return await this.auth.isAuthenticated();
+  }
+
+  /**
+   * Search for tracks using Spotify Recommendations API
+   * This is the primary method for finding mood-matched music
+   * 
+   * @param {Array<string>} keywords - Keywords from MoodProcessor
+   * @param {number} limit - Number of tracks to return
+   * @param {Object} chapterAnalysis - Full chapter analysis from MoodProcessor
+   * @returns {Array} Array of track objects
+   */
+  async searchTracks(keywords, limit = 20, chapterAnalysis = null, bookProfile = null) {
+    if (!await this.isConfigured()) {
+      console.warn('⚠️ Spotify not authenticated');
+      return [];
+    }
+
+    // Get settings
+    const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
+    const instrumentalOnly = settings.instrumentalOnly !== false;
+
+    // If we have chapter analysis, use recommendations API (better results)
+    if (chapterAnalysis) {
+      return await this._getRecommendations(chapterAnalysis, bookProfile, limit, instrumentalOnly);
+    }
+
+    // Fallback to text search
+    return await this._textSearch(keywords, limit, instrumentalOnly);
+  }
+
+  /**
+   * Get recommendations using Spotify's advanced audio features
+   * @private
+   */
+  async _getRecommendations(chapterAnalysis, bookProfile, limit, instrumentalOnly) {
+    const query = this.mapper.buildRecommendationsQuery(chapterAnalysis, bookProfile, instrumentalOnly);
+    query.limit = limit;
+
+    const queryString = this.mapper.formatQueryForURL(query);
+    const endpoint = `/recommendations?${queryString}`;
+
+    console.log(`🎵 Spotify Query | Genres:[${query.seed_genres.split(',').join(', ')}] | E${query.target_energy} V${query.target_valence} T${query.target_tempo} I${query.target_instrumentalness}`);
+
+    try {
+      const data = await this._makeRequest(endpoint);
+      
+      if (!data || !data.tracks) {
+        console.warn('⚠️ No tracks in Spotify response');
+        return [];
+      }
+
+      const tracks = data.tracks.map(track => this._formatTrack(track));
+      console.log(`✅ Found ${tracks.length} Spotify tracks`);
+      
+      return tracks;
+    } catch (error) {
+      console.error('❌ Spotify recommendations error:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Text-based search (fallback method)
+   * @private
+   */
+  async _textSearch(keywords, limit, instrumentalOnly) {
+    const query = keywords.join(' ');
+    let searchQuery = `track:${query}`;
+    
+    if (instrumentalOnly) {
+      searchQuery += ' genre:instrumental OR genre:ambient OR genre:classical';
+    }
+
+    const endpoint = `/search?q=${encodeURIComponent(searchQuery)}&type=track&limit=${limit}`;
+
+    try {
+      const data = await this._makeRequest(endpoint);
+      
+      if (!data || !data.tracks || !data.tracks.items) {
+        return [];
+      }
+
+      return data.tracks.items.map(track => this._formatTrack(track));
+    } catch (error) {
+      console.error('❌ Spotify search error:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Search for tracks using query terms (compatibility with Freesound API interface)
+   * This method provides the same interface as Freesound's searchByQuery
+   * 
+   * @param {Array<string>} queryTerms - Terms to search for (e.g., ['epic', 'orchestral'])
+   * @param {number} limit - Number of results
+   * @returns {Array} Array of track objects
+   */
+  async searchByQuery(queryTerms, limit = 15) {
+    if (!await this.isConfigured()) {
+      console.warn('⚠️ Spotify not authenticated');
+      return [];
+    }
+
+    // Get settings
+    const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
+    const instrumentalOnly = settings.instrumentalOnly !== false;
+
+    // For Spotify, we'll use text search with genre hints
+    // Convert query terms to Spotify-friendly search
+    const searchTerms = queryTerms.map(term => {
+      // Map common music terms to Spotify genres
+      const genreMap = {
+        'epic': 'genre:epic genre:orchestral',
+        'orchestral': 'genre:orchestral genre:classical',
+        'ambient': 'genre:ambient',
+        'cinematic': 'genre:cinematic genre:soundtrack',
+        'piano': 'genre:piano genre:classical',
+        'jazz': 'genre:jazz',
+        'classical': 'genre:classical',
+        'electronic': 'genre:electronic',
+        'folk': 'genre:folk',
+        'world': 'genre:world-music'
+      };
+      
+      return genreMap[term.toLowerCase()] || term;
+    });
+
+    // Build search query
+    let searchQuery = searchTerms.slice(0, 3).join(' ');
+    
+    if (instrumentalOnly) {
+      searchQuery += ' genre:instrumental';
+    }
+
+    const endpoint = `/search?q=${encodeURIComponent(searchQuery)}&type=track&limit=${limit}`;
+
+    try {
+      const data = await this._makeRequest(endpoint);
+      
+      if (!data || !data.tracks || !data.tracks.items) {
+        return [];
+      }
+
+      const tracks = data.tracks.items.map(track => this._formatTrack(track));
+      
+      // Filter for instrumental if needed
+      if (instrumentalOnly && tracks.length > 0) {
+        // Get audio features to check instrumentalness
+        const trackIds = tracks.map(t => t.id);
+        const features = await this.getAudioFeatures(trackIds);
+        
+        return tracks.map((track, index) => {
+          if (features[index]) {
+            track.energy = features[index].energy;
+            track.valence = features[index].valence;
+            track.tempo = features[index].tempo;
+            track.instrumentalness = features[index].instrumentalness;
+          }
+          return track;
+        }).filter(track => !track.instrumentalness || track.instrumentalness > 0.5);
+      }
+
+      return tracks;
+    } catch (error) {
+      console.error('❌ Spotify searchByQuery error:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get audio features for multiple tracks
+   * Used for more precise track scoring
+   */
+  async getAudioFeatures(trackIds) {
+    if (!trackIds || trackIds.length === 0) return [];
+
+    const ids = trackIds.join(',');
+    const endpoint = `/audio-features?ids=${ids}`;
+
+    try {
+      const data = await this._makeRequest(endpoint);
+      return data.audio_features || [];
+    } catch (error) {
+      console.error('❌ Error getting audio features:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Create a playlist in user's Spotify account
+   */
+  async createPlaylist(userId, name, description, trackUris) {
+    // Get user ID if not provided
+    if (!userId) {
+      const user = await this.getCurrentUser();
+      userId = user.id;
+    }
+
+    // Create playlist
+    const createEndpoint = `/users/${userId}/playlists`;
+    const playlistData = {
+      name,
+      description,
+      public: false
+    };
+
+    try {
+      const playlist = await this._makeRequest(createEndpoint, 'POST', playlistData);
+      
+      // Add tracks to playlist
+      if (trackUris && trackUris.length > 0) {
+        const addTracksEndpoint = `/playlists/${playlist.id}/tracks`;
+        await this._makeRequest(addTracksEndpoint, 'POST', { uris: trackUris });
+      }
+
+      console.log(`✅ Created Spotify playlist: ${name}`);
+      return playlist;
+    } catch (error) {
+      console.error('❌ Error creating playlist:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get current user's profile
+   */
+  async getCurrentUser() {
+    try {
+      return await this._makeRequest('/me');
+    } catch (error) {
+      console.error('❌ Error getting user profile:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get user's available devices
+   */
+  async getDevices() {
+    try {
+      const data = await this._makeRequest('/me/player/devices');
+      return data.devices || [];
+    } catch (error) {
+      console.error('❌ Error getting devices:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Format Spotify track to our standard format
+   * @private
+   */
+  _formatTrack(spotifyTrack) {
+    return {
+      id: spotifyTrack.id,
+      uri: spotifyTrack.uri,  // Spotify URI (needed for playback)
+      title: spotifyTrack.name,
+      artist: spotifyTrack.artists.map(a => a.name).join(', '),
+      album: spotifyTrack.album?.name,
+      duration: Math.round(spotifyTrack.duration_ms / 1000), // Convert to seconds
+      url: spotifyTrack.external_urls?.spotify,  // Web player URL
+      previewUrl: spotifyTrack.preview_url,  // 30-second preview
+      imageUrl: spotifyTrack.album?.images?.[0]?.url,
+      source: 'spotify',
+      
+      // Audio features (if available, otherwise will be fetched separately)
+      energy: spotifyTrack.energy,
+      valence: spotifyTrack.valence,
+      tempo: spotifyTrack.tempo,
+      instrumentalness: spotifyTrack.instrumentalness,
+      
+      // Tags (we can infer from genres)
+      tags: this._inferTags(spotifyTrack)
+    };
+  }
+
+  /**
+   * Infer tags from Spotify track data
+   * @private
+   */
+  _inferTags(track) {
+    const tags = [];
+    
+    // Add artist genres if available
+    if (track.artists && track.artists[0]?.genres) {
+      tags.push(...track.artists[0].genres);
+    }
+    
+    // Infer from track name
+    const nameLower = track.name.toLowerCase();
+    if (nameLower.includes('instrumental')) tags.push('instrumental');
+    if (nameLower.includes('piano')) tags.push('piano');
+    if (nameLower.includes('acoustic')) tags.push('acoustic');
+    if (nameLower.includes('orchestra')) tags.push('orchestral');
+    
+    return tags;
+  }
+
+  /**
+   * Make authenticated request to Spotify API
+   * @private
+   */
+  async _makeRequest(endpoint, method = 'GET', body = null) {
+    // Check rate limit
+    const now = Date.now();
+    if (now < this.rateLimitedUntil) {
+      throw new Error('Rate limited by Spotify API. Please wait.');
+    }
+
+    // Enforce minimum interval between requests
+    const timeSinceLastRequest = now - this.lastRequestTime;
+    if (timeSinceLastRequest < this.minRequestInterval) {
+      const delay = this.minRequestInterval - timeSinceLastRequest;
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+
+    // Get access token (will auto-refresh if expired)
+    const token = await this.auth.getAccessToken();
+    if (!token) {
+      throw new Error('No Spotify access token available. Please authenticate.');
+    }
+
+    const url = `${this.baseURL}${endpoint}`;
+    const options = {
+      method,
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    };
+
+    if (body) {
+      options.body = JSON.stringify(body);
+    }
+
+    this.lastRequestTime = Date.now();
+
+    try {
+      const response = await fetch(url, options);
+
+      // Handle rate limiting
+      if (response.status === 429) {
+        const retryAfter = parseInt(response.headers.get('Retry-After') || '60');
+        this.rateLimitedUntil = Date.now() + (retryAfter * 1000);
+        throw new Error(`Spotify API rate limit reached. Retry after ${retryAfter} seconds.`);
+      }
+
+      // Handle authentication errors
+      if (response.status === 401) {
+        // Token might be invalid, try refreshing
+        console.warn('⚠️ Spotify token invalid, attempting refresh...');
+        await this.auth.refreshAccessToken();
+        // Retry the request (but only once to avoid infinite loop)
+        throw new Error('Token refreshed, please retry request');
+      }
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(`Spotify API error: ${error.error?.message || error.error || response.statusText}`);
+      }
+
+      // Handle empty responses (e.g., from DELETE requests)
+      if (response.status === 204) {
+        return { success: true };
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('❌ Spotify API request failed:', error);
+      throw error;
+    }
+  }
+}

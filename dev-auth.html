@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BooksWithMusic Dev Auth Helper</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div style="max-width: 720px; margin: 4rem auto; padding: 2rem; background: var(--bg-secondary); border-radius: 16px; border: 1px solid var(--border);">
+    <h1 style="margin-bottom: 1rem;">Local Dev Auth Helper</h1>
+    <p style="margin-bottom: 1.5rem; color: var(--text-secondary);">
+      This page enables a local-only dev login for testing UI flows without Firebase authentication.
+      It only works on <strong>localhost</strong> or <strong>127.0.0.1</strong>.
+    </p>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
+      <button id="enable-dev-auth" class="btn btn-primary">Enable Dev Auth</button>
+      <button id="disable-dev-auth" class="btn btn-secondary">Disable Dev Auth</button>
+    </div>
+    <p id="dev-auth-status" style="margin-top: 1rem; color: var(--text-secondary);"></p>
+
+    <div style="margin-top: 2rem; display: flex; flex-wrap: wrap; gap: 1rem;">
+      <a class="btn btn-primary" href="index.html?devAuth=1">Open Library (Dev Auth)</a>
+      <a class="btn btn-secondary" href="reader.html?devAuth=1">Open Reader (Dev Auth)</a>
+    </div>
+  </div>
+
+  <script>
+    const status = document.getElementById('dev-auth-status');
+
+    document.getElementById('enable-dev-auth')?.addEventListener('click', () => {
+      localStorage.setItem('bwm-dev-auth', 'true');
+      if (status) {
+        status.textContent = 'Dev auth enabled. Open a page with ?devAuth=1.';
+      }
+    });
+
+    document.getElementById('disable-dev-auth')?.addEventListener('click', () => {
+      localStorage.removeItem('bwm-dev-auth');
+      if (status) {
+        status.textContent = 'Dev auth disabled.';
+      }
+    });
+  </script>
+</body>
+</html>
