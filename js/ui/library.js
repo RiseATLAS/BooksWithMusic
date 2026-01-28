@@ -203,7 +203,16 @@ export class BookLibrary {
                     // Compress the base64 data to reduce size
                     console.log(`Original size: ${(base64Data.length / 1024).toFixed(2)} KB`);
                     const compressed = pako.deflate(base64Data, { level: 9 });
-                    const compressedBase64 = btoa(String.fromCharCode.apply(null, compressed));
+                    
+                    // Convert to base64 using chunked approach to avoid call stack limit
+                    let compressedBase64 = '';
+                    const chunkSize = 8192;
+                    for (let i = 0; i < compressed.length; i += chunkSize) {
+                        const chunk = compressed.subarray(i, Math.min(i + chunkSize, compressed.length));
+                        compressedBase64 += String.fromCharCode.apply(null, chunk);
+                    }
+                    compressedBase64 = btoa(compressedBase64);
+                    
                     console.log(`Compressed size: ${(compressedBase64.length / 1024).toFixed(2)} KB`);
                     console.log(`Compression ratio: ${((1 - compressedBase64.length / base64Data.length) * 100).toFixed(1)}%`);
                     
@@ -297,7 +306,14 @@ export class BookLibrary {
                     compressedBytes[i] = compressedBinary.charCodeAt(i);
                 }
                 const decompressed = pako.inflate(compressedBytes);
-                base64Data = String.fromCharCode.apply(null, decompressed);
+                
+                // Convert to string using chunked approach to avoid call stack limit
+                base64Data = '';
+                const chunkSize = 8192;
+                for (let i = 0; i < decompressed.length; i += chunkSize) {
+                    const chunk = decompressed.subarray(i, Math.min(i + chunkSize, decompressed.length));
+                    base64Data += String.fromCharCode.apply(null, chunk);
+                }
             }
             
             // Convert base64 to ArrayBuffer
