@@ -216,11 +216,18 @@ export class BookLibrary {
                     console.log(`Compressed size: ${(compressedBase64.length / 1024).toFixed(2)} KB`);
                     console.log(`Compression ratio: ${((1 - compressedBase64.length / base64Data.length) * 100).toFixed(1)}%`);
                     
+                    // Prepare metadata - exclude cover if too large (>100KB) to avoid Firestore limits
+                    let coverImage = parsed.coverImage || '';
+                    if (coverImage.length > 100000) {
+                        console.log('⚠️ Cover image too large for Firestore, storing in IndexedDB only');
+                        coverImage = ''; // Don't store in Firestore
+                    }
+                    
                     const bookData = {
                         id: parsed.id,
                         title: parsed.title || 'Unknown Title',
                         author: parsed.author || 'Unknown Author',
-                        cover: parsed.coverImage || '',
+                        cover: coverImage,
                         addedDate: new Date().toISOString(),
                         lastOpened: null,
                         progress: 0,
@@ -244,9 +251,10 @@ export class BookLibrary {
                         await saveBook(userId, bookData.id, bookData, compressedBase64);
                     }
                     
-                    // Also save to local cache (without fileData to save space)
+                    // Also save to local cache with full cover image
                     if (this.cacheInitialized) {
-                        await this.localDb.saveBook(bookData);
+                        const cacheData = { ...bookData, cover: parsed.coverImage || '' };
+                        await this.localDb.saveBook(cacheData);
                     }
                     
                     await this.loadBooks();
