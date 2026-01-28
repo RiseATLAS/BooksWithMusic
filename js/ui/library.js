@@ -216,11 +216,6 @@ export class BookLibrary {
                     console.log(`Compressed size: ${(compressedBase64.length / 1024).toFixed(2)} KB`);
                     console.log(`Compression ratio: ${((1 - compressedBase64.length / base64Data.length) * 100).toFixed(1)}%`);
                     
-                    if (compressedBase64.length > 1000000) { // ~1MB limit for Firestore
-                        alert('Book is too large even after compression. Please try a smaller book.');
-                        return;
-                    }
-                    
                     const bookData = {
                         id: parsed.id,
                         title: parsed.title || 'Unknown Title',
@@ -234,7 +229,20 @@ export class BookLibrary {
                     };
                     
                     const userId = auth.currentUser.uid;
-                    await saveBook(userId, bookData.id, bookData, compressedBase64);
+                    
+                    // If compressed data exceeds 900KB, split into chunks
+                    if (compressedBase64.length > 900000) {
+                        console.log('📦 Book is large, using chunked storage...');
+                        const { saveBookChunks } = await import('../storage/firestore-storage.js');
+                        const totalChunks = await saveBookChunks(userId, bookData.id, compressedBase64, 500000);
+                        bookData.chunked = true;
+                        bookData.totalChunks = totalChunks;
+                        // Save metadata without fileData
+                        await saveBook(userId, bookData.id, bookData, null);
+                    } else {
+                        // Save normally with fileData
+                        await saveBook(userId, bookData.id, bookData, compressedBase64);
+                    }
                     
                     // Also save to local cache (without fileData to save space)
                     if (this.cacheInitialized) {
@@ -291,28 +299,54 @@ export class BookLibrary {
             fullBook = book;
         }
         
-        if (fullBook && fullBook.fileData) {
+        if (fullBook && (fullBook.fileData || fullBook.chunked)) {
             // Decode base64 and parse EPUB to get chapters
             const { EPUBParser } = await import('../core/epub-parser.js');
             const parser = new EPUBParser();
             
-            // Decompress if data was compressed
-            let base64Data = fullBook.fileData;
-            if (fullBook.compressed) {
+            let base64Data;
+            
+            // If data is chunked, reassemble it
+            if (fullBook.chunked) {
+                const { getBookChunks } = await import('../storage/firestore-storage.js');
+                const userId = auth.currentUser.uid;
+                const compressedData = await getBookChunks(userId, bookId, fullBook.totalChunks);
+                
+                // Decompress the reassembled data
                 console.log('Decompressing book data...');
-                const compressedBinary = atob(base64Data);
+                const compressedBinary = atob(compressedData);
                 const compressedBytes = new Uint8Array(compressedBinary.length);
                 for (let i = 0; i < compressedBinary.length; i++) {
                     compressedBytes[i] = compressedBinary.charCodeAt(i);
                 }
                 const decompressed = pako.inflate(compressedBytes);
                 
-                // Convert to string using chunked approach to avoid call stack limit
+                // Convert to string using chunked approach
                 base64Data = '';
                 const chunkSize = 8192;
                 for (let i = 0; i < decompressed.length; i += chunkSize) {
                     const chunk = decompressed.subarray(i, Math.min(i + chunkSize, decompressed.length));
                     base64Data += String.fromCharCode.apply(null, chunk);
+                }
+            } else {
+                // Decompress if data was compressed
+                base64Data = fullBook.fileData;
+                if (fullBook.compressed) {
+                    console.log('Decompressing book data...');
+                    const compressedBinary = atob(base64Data);
+                    const compressedBytes = new Uint8Array(compressedBinary.length);
+                    for (let i = 0; i < compressedBinary.length; i++) {
+                        compressedBytes[i] = compressedBinary.charCodeAt(i);
+                    }
+                    const decompressed = pako.inflate(compressedBytes);
+                    
+                    // Convert to string using chunked approach to avoid call stack limit
+                    base64Data = '';
+                    const chunkSize = 8192;
+                    for (let i = 0; i < decompressed.length; i += chunkSize) {
+                        const chunk = decompressed.subarray(i, Math.min(i + chunkSize, decompressed.length));
+                        base64Data += String.fromCharCode.apply(null, chunk);
+                    }
                 }
             }
             

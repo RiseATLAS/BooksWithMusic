@@ -131,7 +131,7 @@ export async function saveBookMetadata(userId, bookId, metadata) {
  * @param {string} userId - User's unique ID
  * @param {string} bookId - Book's unique ID
  * @param {Object} metadata - Book metadata (title, author, etc.)
- * @param {string} fileBase64 - EPUB file as base64 string
+ * @param {string} fileBase64 - EPUB file as base64 string (or null if using chunks)
  * @returns {Promise<string>} Book ID if saved, throws error if limit reached
  */
 export async function saveBook(userId, bookId, metadata, fileBase64) {
@@ -141,13 +141,93 @@ export async function saveBook(userId, bookId, metadata, fileBase64) {
     throw new Error('Maximum 10 books allowed per user. Delete a book to add more.');
   }
   const bookRef = doc(db, 'users', userId, 'books', bookId);
-  await setDoc(bookRef, {
+  
+  // If fileBase64 is provided, store it directly, otherwise it's stored in chunks
+  const dataToSave = {
     ...metadata,
-    fileData: fileBase64,
     createdAt: serverTimestamp(),
     lastRead: serverTimestamp()
-  }, { merge: true });
+  };
+  
+  if (fileBase64) {
+    dataToSave.fileData = fileBase64;
+  }
+  
+  await setDoc(bookRef, dataToSave, { merge: true });
   return bookId;
+}
+
+/**
+ * Save book data as chunks in Firestore
+ * @param {string} userId - User's unique ID
+ * @param {string} bookId - Book's unique ID
+ * @param {string} data - Base64 data to chunk
+ * @param {number} chunkSize - Size of each chunk (default 500KB)
+ * @returns {Promise<number>} Number of chunks saved
+ */
+export async function saveBookChunks(userId, bookId, data, chunkSize = 500000) {
+  const totalChunks = Math.ceil(data.length / chunkSize);
+  console.log(`📦 Splitting into ${totalChunks} chunks...`);
+  
+  for (let i = 0; i < totalChunks; i++) {
+    const chunkData = data.slice(i * chunkSize, (i + 1) * chunkSize);
+    const chunkRef = doc(db, 'users', userId, 'books', bookId, 'chunks', i.toString());
+    await setDoc(chunkRef, {
+      data: chunkData,
+      index: i,
+      createdAt: serverTimestamp()
+    });
+    console.log(`✓ Saved chunk ${i + 1}/${totalChunks}`);
+  }
+  
+  return totalChunks;
+}
+
+/**
+ * Get book data from chunks
+ * @param {string} userId - User's unique ID
+ * @param {string} bookId - Book's unique ID
+ * @param {number} totalChunks - Total number of chunks to retrieve
+ * @returns {Promise<string>} Reassembled data
+ */
+export async function getBookChunks(userId, bookId, totalChunks) {
+  console.log(`📦 Retrieving ${totalChunks} chunks...`);
+  let reassembledData = '';
+  
+  for (let i = 0; i < totalChunks; i++) {
+    const chunkRef = doc(db, 'users', userId, 'books', bookId, 'chunks', i.toString());
+    const chunkSnap = await getDoc(chunkRef);
+    
+    if (!chunkSnap.exists()) {
+      throw new Error(`Missing chunk ${i}`);
+    }
+    
+    reassembledData += chunkSnap.data().data;
+    console.log(`✓ Retrieved chunk ${i + 1}/${totalChunks}`);
+  }
+  
+  return reassembledData;
+}
+
+/**
+ * Delete book chunks from Firestore
+ * @param {string} userId - User's unique ID
+ * @param {string} bookId - Book's unique ID
+ * @param {number} totalChunks - Total number of chunks to delete
+ * @returns {Promise<void>}
+ */
+export async function deleteBookChunks(userId, bookId, totalChunks) {
+  if (!totalChunks) return;
+  
+  console.log(`🗑️ Deleting ${totalChunks} chunks...`);
+  for (let i = 0; i < totalChunks; i++) {
+    const chunkRef = doc(db, 'users', userId, 'books', bookId, 'chunks', i.toString());
+    try {
+      await deleteDoc(chunkRef);
+    } catch (error) {
+      console.warn(`Could not delete chunk ${i}:`, error);
+    }
+  }
 }
 
 /**
@@ -202,14 +282,23 @@ export async function getUserBooks(userId) {
 }
 
 /**
- * Delete book metadata from Firestore
+ * Delete book metadata from Firestore (and chunks if they exist)
  * @param {string} userId - User's unique ID
  * @param {string} bookId - Book's unique ID
  * @returns {Promise<void>}
  */
 export async function deleteBookMetadata(userId, bookId) {
   try {
+    // Get book metadata to check if it has chunks
     const bookRef = doc(db, 'users', userId, 'books', bookId);
+    const bookSnap = await getDoc(bookRef);
+    
+    if (bookSnap.exists() && bookSnap.data().chunked) {
+      // Delete chunks first
+      await deleteBookChunks(userId, bookId, bookSnap.data().totalChunks);
+    }
+    
+    // Delete the book metadata
     await deleteDoc(bookRef);
     
     console.log(` Metadata deleted for book ${bookId}`);
