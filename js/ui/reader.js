@@ -1418,19 +1418,27 @@ export class ReaderUI {
       // Calculate character offset for robust page restoration
       this.currentCharOffset = this.calculateCharOffset();
       
-      // Save to Firestore if user is signed in
+      const progressData = {
+        currentChapter: this.currentChapterIndex,
+        currentPageInChapter: this.currentPageInChapter,
+        currentCharOffset: this.currentCharOffset, // Save character offset
+        progress: progress
+      };
+      
+      // Save to IndexedDB (always, for offline support and local caching)
+      try {
+        await this.db.updateBook(this.currentBook.id, progressData);
+      } catch (dbError) {
+        console.warn('Failed to save progress to IndexedDB:', dbError);
+      }
+      
+      // Save to Firestore if user is signed in (for cross-device sync)
       const userId = auth.currentUser?.uid;
       if (userId) {
-        await saveBookProgress(userId, this.currentBook.id, {
-          currentChapter: this.currentChapterIndex,
-          currentPageInChapter: this.currentPageInChapter,
-          currentCharOffset: this.currentCharOffset, // Save character offset
-          progress: progress
-        });
+        await saveBookProgress(userId, this.currentBook.id, progressData);
       }
 
-      // Progress saved to DB, no need to keep large data in sessionStorage
-      // Book ID is already stored for page refresh
+      // Progress saved to both DB and Firestore for redundancy
     } catch (error) {
       console.error(' Error saving progress:', error);
       console.error('Book ID:', this.currentBook?.id);
