@@ -434,9 +434,9 @@ export class SettingsUI {
   }
 
   applyPageDensity() {
-    // Notify reader to update charsPerPage
+    // Notify reader to update lines per page (converted to chars internally)
     window.dispatchEvent(new CustomEvent('pageDensityChanged', { 
-      detail: { charsPerPage: this.settings.pageDensity } 
+      detail: { linesPerPage: this.settings.pageDensity } 
     }));
   }
 
@@ -589,7 +589,7 @@ export class SettingsUI {
           
           // Use 88% safety margin (more aggressive) for better fit
           calibratedDensity = Math.floor(calibratedDensity * overflowRatio * 0.88);
-          calibratedDensity = Math.max(600, calibratedDensity); // Don't go below minimum
+          calibratedDensity = Math.max(10, calibratedDensity); // Don't go below minimum (10 lines)
           
           this.settings.pageDensity = calibratedDensity;
           this.applyPageDensity();
@@ -603,8 +603,8 @@ export class SettingsUI {
           console.log(`🔄 Iteration ${iterations} | Density:${calibratedDensity} | Content:${contentHeight}px vs Available:${availableHeight}px`);
           
           // Break if we're at minimum and still overflowing
-          if (calibratedDensity === 600 && contentHeight > availableHeight + tolerance) {
-            console.warn(`⚠️ Reached minimum density (600) but content still overflows by ${contentHeight - availableHeight}px`);
+          if (calibratedDensity === 10 && contentHeight > availableHeight + tolerance) {
+            console.warn(`⚠️ Reached minimum density (10 lines) but content still overflows by ${contentHeight - availableHeight}px`);
             break;
           }
         }
@@ -673,8 +673,8 @@ export class SettingsUI {
       const currentDensity = this.settings.pageDensity;
       const adjustedDensity = Math.floor(currentDensity * overflowRatio * 0.85);
       
-      // Clamp to minimum
-      const newDensity = Math.max(600, adjustedDensity);
+      // Clamp to minimum (10 lines)
+      const newDensity = Math.max(10, adjustedDensity);
       
       if (newDensity < currentDensity) {
         console.log(`📉 Auto-adjusting density: ${currentDensity} → ${newDensity} lines/page (reduction: ${Math.round((1 - newDensity/currentDensity) * 100)}%)`);
@@ -857,7 +857,7 @@ export class SettingsUI {
     const pageDensityInput = document.getElementById('page-density');
     const pageDensityValue = document.getElementById('page-density-value');
     if (pageDensityInput) pageDensityInput.value = this.settings.pageDensity;
-    if (pageDensityValue) pageDensityValue.textContent = `${this.settings.pageDensity} chars`;
+    if (pageDensityValue) pageDensityValue.textContent = `${this.settings.pageDensity} lines`;
 
     const brightnessInput = document.getElementById('brightness');
     const brightnessValue = document.getElementById('brightness-value');
