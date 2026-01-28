@@ -516,37 +516,29 @@ export class SettingsUI {
       return;
     }
     
-    // Measure actual current page content to see real line count
-    let linesPerPage;
-    if (chapterText && chapterText.textContent.trim().length > 0) {
-      // Get current page height with actual content
-      const actualContentHeight = chapterText.scrollHeight;
-      
-      // Calculate raw lines based on measured content
-      const measuredLines = Math.floor(actualContentHeight / lineHeight);
-      
-      // Apply 10% safety margin
-      linesPerPage = Math.floor(measuredLines * 0.9);
-      
-      console.log('Lines calculation (from actual content):', { 
-        actualContentHeight,
-        lineHeight,
-        measuredLines,
-        linesPerPage,
-        note: 'Based on currently rendered page'
-      });
-    } else {
-      // Fallback if no content
-      const rawLines = textHeight / lineHeight;
-      linesPerPage = Math.floor(rawLines * 0.75);
-      
-      console.log('Lines calculation (fallback):', { 
-        textHeight,
-        lineHeight,
-        rawLines,
-        linesPerPage
-      });
-    }
+    // Calculate lines based on available container height, not current overflowing content
+    const actualContentHeight = chapterText ? chapterText.scrollHeight : textHeight;
+    const availableHeight = textHeight; // Use container height, not overflow
+    
+    // If content is overflowing, we need to calculate based on what SHOULD fit
+    const isOverflowing = actualContentHeight > availableHeight;
+    
+    // Calculate raw lines that fit in the available space
+    const rawLines = availableHeight / lineHeight;
+    
+    // Apply 10% safety margin for paragraph spacing
+    const linesPerPage = Math.floor(rawLines * 0.9);
+    
+    console.log('Lines calculation:', { 
+      actualContentHeight,
+      availableHeight,
+      isOverflowing,
+      overflow: isOverflowing ? `${actualContentHeight - availableHeight}px` : 'none',
+      lineHeight,
+      rawLines: rawLines.toFixed(2),
+      linesPerPage,
+      note: isOverflowing ? 'Current page is overflowing - calculating based on available space' : 'Based on container height'
+    });
     
     // Verify line height calculation with actual rendered content
     if (chapterText) {
