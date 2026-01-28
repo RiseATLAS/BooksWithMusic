@@ -509,10 +509,14 @@ export class SettingsUI {
     // Calculate total chars per page and add 20% more text for better page utilization
     const calculatedChars = Math.floor((linesPerPage * avgCharsPerLine) * 1.20);
     
-    console.log(`📐 Calibration results | Lines/page:${linesPerPage} | Chars/line:${avgCharsPerLine} | Chars/page:${calculatedChars} | PageW:${calibratedPageWidth}px`);
+    // Calculate maximum capacity (2.5x the optimal for those who want denser pages)
+    const maxCapacity = Math.floor(calculatedChars * 2.5);
+    const clampedMax = Math.max(1000, Math.min(10000, maxCapacity));
+    
+    console.log(`📐 Calibration results | Lines/page:${linesPerPage} | Chars/line:${avgCharsPerLine} | Chars/page:${calculatedChars} | Max:${clampedMax} | PageW:${calibratedPageWidth}px`);
     
     // Clamp to reasonable range
-    const calibratedDensity = Math.max(600, Math.min(3000, calculatedChars));
+    const calibratedDensity = Math.max(600, Math.min(clampedMax, calculatedChars));
     
     // Update settings for both page width and density
     this.settings.pageWidth = calibratedPageWidth;
@@ -524,10 +528,13 @@ export class SettingsUI {
     if (pageWidthInput) pageWidthInput.value = calibratedPageWidth;
     if (pageWidthValue) pageWidthValue.textContent = `${calibratedPageWidth}px`;
     
-    // Update page density UI
+    // Update page density UI and set dynamic max
     const pageDensityInput = document.getElementById('page-density');
     const pageDensityValue = document.getElementById('page-density-value');
-    if (pageDensityInput) pageDensityInput.value = calibratedDensity;
+    if (pageDensityInput) {
+      pageDensityInput.max = clampedMax;
+      pageDensityInput.value = calibratedDensity;
+    }
     if (pageDensityValue) {
       const words = Math.round(calibratedDensity / 6);
       pageDensityValue.textContent = `${calibratedDensity} chars (~${words} words)`;
