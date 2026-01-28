@@ -368,15 +368,20 @@ export class BookLibrary {
             
             const parsed = await parser.parse(arrayBuffer);
             
-            const bookForReader = {
-                id: bookId,
-                title: book.title || 'Unknown Title',
-                author: book.author || 'Unknown Author',
-                chapters: parsed.chapters,
-                images: parsed.images ? Array.from(parsed.images.entries()) : []
-            };
+            // Store parsed book in IndexedDB for reader to access
+            if (this.cacheInitialized) {
+                await this.localDb.saveBook({
+                    id: bookId,
+                    title: book.title || 'Unknown Title',
+                    author: book.author || 'Unknown Author',
+                    chapters: parsed.chapters,
+                    images: parsed.images ? Array.from(parsed.images.entries()) : [],
+                    parsedData: true // Flag to indicate this has parsed data
+                });
+            }
             
-            sessionStorage.setItem('currentBook', JSON.stringify(bookForReader));
+            // Store only book ID in sessionStorage (avoid quota issues)
+            sessionStorage.setItem('currentBookId', bookId);
             window.location.href = './reader.html';
         } else {
             alert('Book data not found. Please re-import the book.');

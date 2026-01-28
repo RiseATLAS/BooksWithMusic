@@ -166,16 +166,21 @@ export class ReaderUI {
   }
 
   async initializeReader() {
-    const bookData = sessionStorage.getItem('currentBook');
+    const bookId = sessionStorage.getItem('currentBookId');
     
-    if (!bookData) {
+    if (!bookId) {
       alert('No book selected. Redirecting to library...');
       window.location.href = './index.html';
       return;
     }
 
     try {
-      const book = JSON.parse(bookData);
+      // Load book data from IndexedDB
+      const book = await this.db.getBook(bookId);
+      
+      if (!book) {
+        throw new Error('Book not found in database');
+      }
       
       // Validate book data
       if (!book.chapters || book.chapters.length === 0) {
@@ -1424,21 +1429,8 @@ export class ReaderUI {
         });
       }
 
-      // Keep sessionStorage in sync so refresh resumes correctly even before DB reads.
-      try {
-        const raw = sessionStorage.getItem('currentBook');
-        if (raw) {
-          const stored = JSON.parse(raw);
-          if (stored?.id === this.currentBook.id) {
-            stored.currentChapter = this.currentChapterIndex;
-            stored.currentPageInChapter = this.currentPageInChapter;
-            stored.currentCharOffset = this.currentCharOffset; // Save to session storage too
-            sessionStorage.setItem('currentBook', JSON.stringify(stored));
-          }
-        }
-      } catch (error) {
-        console.warn(' Failed to sync sessionStorage:', error.message);
-      }
+      // Progress saved to DB, no need to keep large data in sessionStorage
+      // Book ID is already stored for page refresh
     } catch (error) {
       console.error(' Error saving progress:', error);
       console.error('Book ID:', this.currentBook?.id);
