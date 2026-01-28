@@ -51,6 +51,13 @@ class BooksWithMusicApp {
           await this.reader._musicInitPromise;
         }
 
+        // Auto-calibrate page density on first load
+        setTimeout(() => {
+          if (this.settings && typeof this.settings.calibratePageDensity === 'function') {
+            this.settings.calibratePageDensity();
+          }
+        }, 500);
+
         // Setup auth UI for reader page
         this.setupAuthUI(true);
       } else {
