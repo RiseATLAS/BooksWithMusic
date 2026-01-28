@@ -538,7 +538,8 @@ export class SettingsUI {
         font-family: ${this.settings.fontFamily};
         width: ${textWidth}px;
       `;
-      testDiv.textContent = 'Test line\n'.repeat(5); // 5 lines of text
+      // Use actual HTML line breaks instead of \n
+      testDiv.innerHTML = 'Test line<br>'.repeat(5); // 5 lines of text
       chapterText.appendChild(testDiv);
       
       const actualHeight = testDiv.scrollHeight;
