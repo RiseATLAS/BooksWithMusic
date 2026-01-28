@@ -516,21 +516,39 @@ export class SettingsUI {
       return;
     }
     
-    // Calculate lines that fit
-    // Need aggressive safety margin because:
-    // 1. Long lines wrap and take multiple vertical lines
-    // 2. Paragraph spacing
-    // 3. Chapter headings
-    // Use 67% of theoretical max to account for text wrapping
-    const rawLines = textHeight / lineHeight;
-    const linesWithMargin = rawLines * 0.67;
-    const linesPerPage = Math.floor(linesWithMargin);
+    // Test with actual paragraph content to see how many lines really fit
+    const testContent = document.createElement('div');
+    testContent.style.cssText = `
+      position: absolute;
+      visibility: hidden;
+      font-size: ${fontSize}px;
+      line-height: ${lineHeightMultiplier};
+      font-family: ${this.settings.fontFamily};
+      width: ${textWidth}px;
+    `;
+    
+    // Use realistic paragraph text that will wrap
+    const testParagraph = 'This is a sample paragraph of text that represents typical book content with reasonable sentence length that will wrap naturally across multiple lines when rendered in the reading container.';
+    testContent.innerHTML = `<p>${testParagraph}</p>`.repeat(50); // 50 paragraphs
+    
+    chapterText.appendChild(testContent);
+    const testHeight = testContent.scrollHeight;
+    chapterText.removeChild(testContent);
+    
+    // Calculate how many times this test content fits
+    const testFitRatio = textHeight / testHeight;
+    const estimatedParagraphs = Math.floor(testFitRatio * 50);
+    
+    // Estimate lines based on actual measured content (each test paragraph averages ~3 wrapped lines)
+    const avgLinesPerParagraph = testHeight / 50 / lineHeight;
+    const linesPerPage = Math.floor(estimatedParagraphs * avgLinesPerParagraph * 0.9); // 10% safety margin
     
     console.log('Lines calculation:', { 
-      rawLines, 
-      linesWithMargin, 
-      linesPerPage,
-      note: '67% margin accounts for text wrapping'
+      testHeight,
+      testFitRatio,
+      estimatedParagraphs,
+      avgLinesPerParagraph: avgLinesPerParagraph.toFixed(2),
+      linesPerPage
     });
     
     // Verify line height calculation with actual rendered content
