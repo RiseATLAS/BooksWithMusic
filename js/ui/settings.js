@@ -554,48 +554,60 @@ export class SettingsUI {
       this.settings.pageDensity = calibratedDensity;
       this.applyPageDensity();
       
-      // Wait for layout to settle
-      await new Promise(resolve => setTimeout(resolve, 150));
+      // Wait for layout to settle (longer delay for more accurate measurement)
+      await new Promise(resolve => setTimeout(resolve, 250));
       
       // Trigger pagination update
       this._emitLayoutChanged('calibration');
       
-      // Wait for pagination
-      await new Promise(resolve => setTimeout(resolve, 150));
+      // Wait for pagination (longer delay)
+      await new Promise(resolve => setTimeout(resolve, 250));
       
-      // Check for overflow
-      const contentHeight = chapterText.scrollHeight;
+      // Check for overflow with accurate padding calculation
       const chapterStyles = window.getComputedStyle(chapterText);
       const paddingTop = parseFloat(chapterStyles.paddingTop) || 0;
       const paddingBottom = parseFloat(chapterStyles.paddingBottom) || 0;
       const availableHeight = containerHeight - paddingTop - paddingBottom;
       
-      console.log(`🔍 Overflow check | Content:${contentHeight}px vs Available:${availableHeight}px (Container:${containerHeight}px - Padding:${paddingTop + paddingBottom}px)`);
+      // Use a tighter tolerance (10px instead of 20px) for more accurate detection
+      const tolerance = 10;
+      let contentHeight = chapterText.scrollHeight;
       
-      if (contentHeight > availableHeight + 20) {
+      console.log(`🔍 Overflow check | Content:${contentHeight}px vs Available:${availableHeight}px (Container:${containerHeight}px - Padding:${paddingTop + paddingBottom}px) | Tolerance:${tolerance}px`);
+      
+      if (contentHeight > availableHeight + tolerance) {
         // Content overflows - iteratively reduce density until it fits
         const overflow = contentHeight - availableHeight;
         console.log(`⚠️ Overflow detected: ${overflow}px | Adjusting density...`);
         
         let iterations = 0;
-        const maxIterations = 5;
+        const maxIterations = 8; // More iterations for better convergence
         
-        while (iterations < maxIterations && chapterText.scrollHeight > availableHeight + 20) {
-          // Calculate reduction ratio
+        while (iterations < maxIterations && chapterText.scrollHeight > availableHeight + tolerance) {
+          // Calculate reduction ratio with more conservative safety margin
           const currentContentHeight = chapterText.scrollHeight;
           const overflowRatio = availableHeight / currentContentHeight;
-          calibratedDensity = Math.floor(calibratedDensity * overflowRatio * 0.92); // 92% for safety margin
+          
+          // Use 88% safety margin (more aggressive) for better fit
+          calibratedDensity = Math.floor(calibratedDensity * overflowRatio * 0.88);
           calibratedDensity = Math.max(600, calibratedDensity); // Don't go below minimum
           
           this.settings.pageDensity = calibratedDensity;
           this.applyPageDensity();
           
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise(resolve => setTimeout(resolve, 150));
           this._emitLayoutChanged('calibration');
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise(resolve => setTimeout(resolve, 150));
           
           iterations++;
-          console.log(`🔄 Iteration ${iterations} | Density:${calibratedDensity} | Content:${chapterText.scrollHeight}px`);
+          contentHeight = chapterText.scrollHeight;
+          console.log(`🔄 Iteration ${iterations} | Density:${calibratedDensity} | Content:${contentHeight}px vs Available:${availableHeight}px`);
+          
+          // Break if we're at minimum and still overflowing
+          if (calibratedDensity === 600 && contentHeight > availableHeight + tolerance) {
+            console.warn(`⚠️ Reached minimum density (600) but content still overflows by ${contentHeight - availableHeight}px`);
+            break;
+          }
         }
         
         console.log(`✓ Converged after ${iterations} iterations | Final density:${calibratedDensity}`);
@@ -641,25 +653,33 @@ export class SettingsUI {
       return; // Not in reading view
     }
     
+    // Get accurate measurements with padding
     const containerHeight = pageContainer.clientHeight;
+    const chapterStyles = window.getComputedStyle(chapterText);
+    const paddingTop = parseFloat(chapterStyles.paddingTop) || 0;
+    const paddingBottom = parseFloat(chapterStyles.paddingBottom) || 0;
+    const availableHeight = containerHeight - paddingTop - paddingBottom;
     const contentHeight = chapterText.scrollHeight;
     
-    // Check if content is overflowing vertically (with 20px tolerance)
-    if (contentHeight > containerHeight + 20) {
-      const overflow = contentHeight - containerHeight;
-      console.log(`⚠️ Text overflow detected: ${overflow}px beyond container`);
+    // Use tighter tolerance (10px) for more accurate detection
+    const tolerance = 10;
+    
+    // Check if content is overflowing vertically
+    if (contentHeight > availableHeight + tolerance) {
+      const overflow = contentHeight - availableHeight;
+      console.log(`⚠️ Text overflow detected: ${overflow}px beyond available space (Content:${contentHeight}px vs Available:${availableHeight}px)`);
       
       // Calculate how much we need to reduce density
-      // Estimate: roughly proportional reduction
-      const overflowRatio = containerHeight / contentHeight;
+      // Use more aggressive ratio (85% safety margin)
+      const overflowRatio = availableHeight / contentHeight;
       const currentDensity = this.settings.pageDensity;
-      const adjustedDensity = Math.floor(currentDensity * overflowRatio * 0.95); // 95% to add safety margin
+      const adjustedDensity = Math.floor(currentDensity * overflowRatio * 0.85);
       
       // Clamp to minimum
       const newDensity = Math.max(600, adjustedDensity);
       
       if (newDensity < currentDensity) {
-        console.log(`📉 Auto-adjusting density: ${currentDensity} → ${newDensity} chars/page`);
+        console.log(`📉 Auto-adjusting density: ${currentDensity} → ${newDensity} chars/page (reduction: ${Math.round((1 - newDensity/currentDensity) * 100)}%)`);
         
         this.settings.pageDensity = newDensity;
         
