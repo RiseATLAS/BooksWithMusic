@@ -446,9 +446,11 @@ export class SettingsUI {
    * Calculates how many characters fit comfortably on one page
    * Also calibrates optimal page width based on viewport
    */
-  calibratePageDensity() {
+  async calibratePageDensity() {
     // Get the actual page container (where pages are rendered)
     const pageContainer = document.querySelector('.page-container');
+    const chapterText = document.querySelector('.chapter-text');
+    
     if (!pageContainer) {
       this.showToast('Please open a book first to calibrate page size.', 'error');
       return;
@@ -525,17 +527,68 @@ export class SettingsUI {
     console.log(`📐 Calibration results | Lines/page:${linesPerPage} | Chars/line:${avgCharsPerLine} | Chars/page:${calculatedChars} | Max:${clampedMax} | PageW:${calibratedPageWidth}px`);
     
     // Clamp to reasonable range
-    const calibratedDensity = Math.max(600, Math.min(clampedMax, calculatedChars));
+    let calibratedDensity = Math.max(600, Math.min(clampedMax, calculatedChars));
     
-    // Update settings for both page width and density
+    // Update page width first
     this.settings.pageWidth = calibratedPageWidth;
-    this.settings.pageDensity = calibratedDensity;
-    
-    // Update page width UI
     const pageWidthInput = document.getElementById('page-width');
     const pageWidthValue = document.getElementById('page-width-value');
     if (pageWidthInput) pageWidthInput.value = calibratedPageWidth;
     if (pageWidthValue) pageWidthValue.textContent = `${calibratedPageWidth}px`;
+    this.applyPageWidth();
+    
+    // Smart calibration: Test the density and check for overflow
+    // Apply the calculated density and check if content fits
+    if (chapterText) {
+      this.settings.pageDensity = calibratedDensity;
+      this.applyPageDensity();
+      
+      // Wait for layout to settle
+      await new Promise(resolve => setTimeout(resolve, 150));
+      
+      // Trigger pagination update
+      this._emitLayoutChanged('calibration');
+      
+      // Wait for pagination
+      await new Promise(resolve => setTimeout(resolve, 150));
+      
+      // Check for overflow
+      const contentHeight = chapterText.scrollHeight;
+      const availableHeight = pageContainer.clientHeight;
+      
+      console.log(`🔍 Overflow check | Content:${contentHeight}px vs Container:${availableHeight}px`);
+      
+      if (contentHeight > availableHeight + 20) {
+        // Content overflows - iteratively reduce density until it fits
+        const overflow = contentHeight - availableHeight;
+        console.log(`⚠️ Overflow detected: ${overflow}px | Adjusting density...`);
+        
+        let iterations = 0;
+        const maxIterations = 5;
+        
+        while (iterations < maxIterations && chapterText.scrollHeight > pageContainer.clientHeight + 20) {
+          // Calculate reduction ratio
+          const currentContentHeight = chapterText.scrollHeight;
+          const overflowRatio = availableHeight / currentContentHeight;
+          calibratedDensity = Math.floor(calibratedDensity * overflowRatio * 0.92); // 92% for safety margin
+          calibratedDensity = Math.max(600, calibratedDensity); // Don't go below minimum
+          
+          this.settings.pageDensity = calibratedDensity;
+          this.applyPageDensity();
+          
+          await new Promise(resolve => setTimeout(resolve, 100));
+          this._emitLayoutChanged('calibration');
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          iterations++;
+          console.log(`🔄 Iteration ${iterations} | Density:${calibratedDensity} | Content:${chapterText.scrollHeight}px`);
+        }
+        
+        console.log(`✓ Converged after ${iterations} iterations | Final density:${calibratedDensity}`);
+      } else {
+        console.log(`✓ No overflow detected | Density fits perfectly`);
+      }
+    }
     
     // Update page density UI and set dynamic max
     const pageDensityInput = document.getElementById('page-density');
@@ -549,9 +602,8 @@ export class SettingsUI {
       pageDensityValue.textContent = `${calibratedDensity} chars (~${words} words)`;
     }
     
-    // Save and apply both settings
+    // Save final settings
     this.saveSettings();
-    this.applyPageWidth();
     this.applyPageDensity();
     this._emitLayoutChanged('calibration');
     
