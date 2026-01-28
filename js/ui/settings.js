@@ -516,40 +516,37 @@ export class SettingsUI {
       return;
     }
     
-    // Test with actual paragraph content to see how many lines really fit
-    const testContent = document.createElement('div');
-    testContent.style.cssText = `
-      position: absolute;
-      visibility: hidden;
-      font-size: ${fontSize}px;
-      line-height: ${lineHeightMultiplier};
-      font-family: ${this.settings.fontFamily};
-      width: ${textWidth}px;
-    `;
-    
-    // Use realistic paragraph text that will wrap
-    const testParagraph = 'This is a sample paragraph of text that represents typical book content with reasonable sentence length that will wrap naturally across multiple lines when rendered in the reading container.';
-    testContent.innerHTML = `<p>${testParagraph}</p>`.repeat(50); // 50 paragraphs
-    
-    chapterText.appendChild(testContent);
-    const testHeight = testContent.scrollHeight;
-    chapterText.removeChild(testContent);
-    
-    // Calculate how many times this test content fits
-    const testFitRatio = textHeight / testHeight;
-    const estimatedParagraphs = Math.floor(testFitRatio * 50);
-    
-    // Estimate lines based on actual measured content (each test paragraph averages ~3 wrapped lines)
-    const avgLinesPerParagraph = testHeight / 50 / lineHeight;
-    const linesPerPage = Math.floor(estimatedParagraphs * avgLinesPerParagraph * 0.9); // 10% safety margin
-    
-    console.log('Lines calculation:', { 
-      testHeight,
-      testFitRatio,
-      estimatedParagraphs,
-      avgLinesPerParagraph: avgLinesPerParagraph.toFixed(2),
-      linesPerPage
-    });
+    // Measure actual current page content to see real line count
+    let linesPerPage;
+    if (chapterText && chapterText.textContent.trim().length > 0) {
+      // Get current page height with actual content
+      const actualContentHeight = chapterText.scrollHeight;
+      
+      // Calculate raw lines based on measured content
+      const measuredLines = Math.floor(actualContentHeight / lineHeight);
+      
+      // Apply 10% safety margin
+      linesPerPage = Math.floor(measuredLines * 0.9);
+      
+      console.log('Lines calculation (from actual content):', { 
+        actualContentHeight,
+        lineHeight,
+        measuredLines,
+        linesPerPage,
+        note: 'Based on currently rendered page'
+      });
+    } else {
+      // Fallback if no content
+      const rawLines = textHeight / lineHeight;
+      linesPerPage = Math.floor(rawLines * 0.75);
+      
+      console.log('Lines calculation (fallback):', { 
+        textHeight,
+        lineHeight,
+        rawLines,
+        linesPerPage
+      });
+    }
     
     // Verify line height calculation with actual rendered content
     if (chapterText) {
