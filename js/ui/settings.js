@@ -491,9 +491,20 @@ export class SettingsUI {
     }
     
     // The page container is the actual text area, so use its dimensions directly
-    // Only account for the chapter-text padding (48px left/right, varies top/bottom)
+    // Get the actual available height by checking if chapterText exists
+    let textHeight;
+    if (chapterText) {
+      // Use actual computed dimensions - more accurate
+      const chapterStyles = window.getComputedStyle(chapterText);
+      const paddingTop = parseFloat(chapterStyles.paddingTop) || 0;
+      const paddingBottom = parseFloat(chapterStyles.paddingBottom) || 0;
+      textHeight = containerHeight - paddingTop - paddingBottom;
+    } else {
+      // Fallback: Conservative estimate for vertical padding
+      textHeight = containerHeight - 144;
+    }
+    
     const textWidth = containerWidth - 96; // 48px * 2 horizontal padding
-    const textHeight = containerHeight - 144; // Conservative estimate for vertical padding
     
     // Validate dimensions
     if (textHeight <= 0 || textWidth <= 0) {
@@ -554,9 +565,12 @@ export class SettingsUI {
       
       // Check for overflow
       const contentHeight = chapterText.scrollHeight;
-      const availableHeight = pageContainer.clientHeight;
+      const chapterStyles = window.getComputedStyle(chapterText);
+      const paddingTop = parseFloat(chapterStyles.paddingTop) || 0;
+      const paddingBottom = parseFloat(chapterStyles.paddingBottom) || 0;
+      const availableHeight = containerHeight - paddingTop - paddingBottom;
       
-      console.log(`🔍 Overflow check | Content:${contentHeight}px vs Container:${availableHeight}px`);
+      console.log(`🔍 Overflow check | Content:${contentHeight}px vs Available:${availableHeight}px (Container:${containerHeight}px - Padding:${paddingTop + paddingBottom}px)`);
       
       if (contentHeight > availableHeight + 20) {
         // Content overflows - iteratively reduce density until it fits
@@ -566,7 +580,7 @@ export class SettingsUI {
         let iterations = 0;
         const maxIterations = 5;
         
-        while (iterations < maxIterations && chapterText.scrollHeight > pageContainer.clientHeight + 20) {
+        while (iterations < maxIterations && chapterText.scrollHeight > availableHeight + 20) {
           // Calculate reduction ratio
           const currentContentHeight = chapterText.scrollHeight;
           const overflowRatio = availableHeight / currentContentHeight;
