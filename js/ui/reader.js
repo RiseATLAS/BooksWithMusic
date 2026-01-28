@@ -52,13 +52,24 @@ export class ReaderUI {
 
   /**
    * Get page density (chars per page) from settings
+   * Note: pageDensity is stored as lines per page, converted to chars here
    */
   getPageDensityFromSettings() {
     try {
       const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
-      return settings.pageDensity || 1200; // Default to 1200 if not set
+      if (settings && settings.pageDensity) {
+        // pageDensity is now lines per page, convert to characters
+        const linesPerPage = settings.pageDensity;
+        const fontSize = settings.fontSize || 18;
+        const pageWidth = settings.pageWidth || 650;
+        const charWidthFactor = settings.fontFamily === 'monospace' ? 0.65 : 0.6;
+        const avgCharsPerLine = Math.floor((pageWidth - 96) / (fontSize * charWidthFactor));
+        return linesPerPage * avgCharsPerLine;
+      }
+      // Default: 30 lines * ~50 chars per line = 1500 chars
+      return 1500;
     } catch {
-      return 1200;
+      return 1500;
     }
   }
 
@@ -554,7 +565,15 @@ export class ReaderUI {
 
     // Listen for page density changes from settings
     window.addEventListener('pageDensityChanged', async (e) => {
-      const newDensity = e.detail.charsPerPage;
+      const linesPerPage = e.detail.linesPerPage;
+      
+      // Convert lines to chars using current settings
+      const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
+      const fontSize = settings.fontSize || 18;
+      const pageWidth = settings.pageWidth || 650;
+      const charWidthFactor = settings.fontFamily === 'monospace' ? 0.65 : 0.6;
+      const avgCharsPerLine = Math.floor((pageWidth - 96) / (fontSize * charWidthFactor));
+      const newDensity = linesPerPage * avgCharsPerLine;
       
       // Skip if density hasn't actually changed (e.g., during initial settings load)
       if (newDensity === this.charsPerPage) {

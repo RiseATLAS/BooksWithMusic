@@ -13,7 +13,7 @@ export class SettingsUI {
       fontFamily: 'serif',
       textAlign: 'left',
       pageWidth: 650,
-      pageDensity: 1200, // Characters per page
+      pageDensity: 30, // Lines per page
       brightness: 100,
       pageColor: 'cream',
       pageWarmth: 10,
@@ -147,14 +147,13 @@ export class SettingsUI {
       this._emitLayoutChanged('pageWidth');
     });
 
-    // Page density (characters per page)
+    // Page density (lines per page)
     const pageDensityInput = document.getElementById('page-density');
     const pageDensityValue = document.getElementById('page-density-value');
     pageDensityInput?.addEventListener('input', (e) => {
       this.settings.pageDensity = parseInt(e.target.value);
       if (pageDensityValue) {
-        const words = Math.round(this.settings.pageDensity / 6); // Avg 6 chars per word
-        pageDensityValue.textContent = `${this.settings.pageDensity} chars (~${words} words)`;
+        pageDensityValue.textContent = `${this.settings.pageDensity} lines`;
       }
       this.applyPageDensity();
       this.saveSettings();
@@ -528,17 +527,17 @@ export class SettingsUI {
       return;
     }
     
-    // Calculate total chars per page and add 20% more text for better page utilization
-    const calculatedChars = Math.floor((linesPerPage * avgCharsPerLine) * 1.20);
+    // Calculate lines per page as the density metric
+    const calibratedLines = linesPerPage;
     
-    // Calculate maximum capacity (2.5x the optimal for those who want denser pages)
-    const maxCapacity = Math.floor(calculatedChars * 2.5);
-    const clampedMax = Math.max(1000, Math.min(10000, maxCapacity));
+    // Calculate maximum capacity (1.5x the optimal for those who want denser pages)
+    const maxLines = Math.floor(linesPerPage * 1.5);
+    const clampedMax = Math.max(10, Math.min(100, maxLines));
     
-    console.log(`📐 Calibration results | Lines/page:${linesPerPage} | Chars/line:${avgCharsPerLine} | Chars/page:${calculatedChars} | Max:${clampedMax} | PageW:${calibratedPageWidth}px`);
+    console.log(`📐 Calibration results | Lines/page:${linesPerPage} | Chars/line:${avgCharsPerLine} | Max:${clampedMax} lines | PageW:${calibratedPageWidth}px`);
     
-    // Clamp to reasonable range
-    let calibratedDensity = Math.max(600, Math.min(clampedMax, calculatedChars));
+    // Clamp to reasonable range (10-100 lines)
+    let calibratedDensity = Math.max(10, Math.min(clampedMax, calibratedLines));
     
     // Update page width first
     this.settings.pageWidth = calibratedPageWidth;
@@ -624,8 +623,7 @@ export class SettingsUI {
       pageDensityInput.value = calibratedDensity;
     }
     if (pageDensityValue) {
-      const words = Math.round(calibratedDensity / 6);
-      pageDensityValue.textContent = `${calibratedDensity} chars (~${words} words)`;
+      pageDensityValue.textContent = `${calibratedDensity} lines`;
     }
     
     // Save final settings
@@ -636,13 +634,13 @@ export class SettingsUI {
     // Emit pageDensityChanged event for reader.js
     // The reader will use character offset to restore the user's position after re-pagination
     window.dispatchEvent(new CustomEvent('pageDensityChanged', {
-      detail: { charsPerPage: calibratedDensity }
+      detail: { linesPerPage: calibratedDensity }
     }));
     
     // Show feedback with all details in one compact log line
-    console.log(`📏 Page Calibration | Viewport:${containerWidth}×${containerHeight}px | PageW:${calibratedPageWidth}px (${Math.round(calibratedPageWidth/containerWidth*100)}%) | Text:${textWidth}×${textHeight}px | Font:${fontSize}px LH:${lineHeight.toFixed(2)}px | Lines:${linesPerPage} Chars/line:${avgCharsPerLine} | ✓ Density:${calibratedDensity} chars/page`);
+    console.log(`📏 Page Calibration | Viewport:${containerWidth}×${containerHeight}px | PageW:${calibratedPageWidth}px (${Math.round(calibratedPageWidth/containerWidth*100)}%) | Text:${textWidth}×${textHeight}px | Font:${fontSize}px LH:${lineHeight.toFixed(2)}px | ✓ Density:${calibratedDensity} lines/page`);
     
-    this.showToast(`✓ Calibrated: ${calibratedPageWidth}px width, ${calibratedDensity} chars/page (~${Math.round(calibratedDensity / 6)} words)`, 'success');    
+    this.showToast(`✓ Calibrated: ${calibratedPageWidth}px width, ${calibratedDensity} lines per page`, 'success');    
   }
 
   checkAndAdjustForOverflow() {
@@ -679,7 +677,7 @@ export class SettingsUI {
       const newDensity = Math.max(600, adjustedDensity);
       
       if (newDensity < currentDensity) {
-        console.log(`📉 Auto-adjusting density: ${currentDensity} → ${newDensity} chars/page (reduction: ${Math.round((1 - newDensity/currentDensity) * 100)}%)`);
+        console.log(`📉 Auto-adjusting density: ${currentDensity} → ${newDensity} lines/page (reduction: ${Math.round((1 - newDensity/currentDensity) * 100)}%)`);
         
         this.settings.pageDensity = newDensity;
         
@@ -688,15 +686,14 @@ export class SettingsUI {
         const pageDensityValue = document.getElementById('page-density-value');
         if (pageDensityInput) pageDensityInput.value = newDensity;
         if (pageDensityValue) {
-          const words = Math.round(newDensity / 6);
-          pageDensityValue.textContent = `${newDensity} chars (~${words} words)`;
+          pageDensityValue.textContent = `${newDensity} lines`;
         }
         
         this.saveSettings();
         this.applyPageDensity();
         this._emitLayoutChanged('pageDensity');
         
-        this.showToast(`Auto-adjusted page density to fit viewport (${newDensity} chars)`, 'info');
+        this.showToast(`Auto-adjusted page density to fit viewport (${newDensity} lines)`, 'info');
       }
     }
   }
