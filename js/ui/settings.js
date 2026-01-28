@@ -516,15 +516,21 @@ export class SettingsUI {
       return;
     }
     
-    // Calculate lines that fit (reduce by 10% for safety margin)
+    // Calculate lines that fit
+    // Need aggressive safety margin because:
+    // 1. Long lines wrap and take multiple vertical lines
+    // 2. Paragraph spacing
+    // 3. Chapter headings
+    // Use 67% of theoretical max to account for text wrapping
     const rawLines = textHeight / lineHeight;
-    const linesWithMargin = rawLines * 0.9;
+    const linesWithMargin = rawLines * 0.67;
     const linesPerPage = Math.floor(linesWithMargin);
     
     console.log('Lines calculation:', { 
       rawLines, 
       linesWithMargin, 
-      linesPerPage 
+      linesPerPage,
+      note: '67% margin accounts for text wrapping'
     });
     
     // Verify line height calculation with actual rendered content

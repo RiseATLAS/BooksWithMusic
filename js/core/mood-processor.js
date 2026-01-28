@@ -808,7 +808,7 @@ export class MoodProcessor {
       }
       chapterInfo.push(`Tags:[${(chapterAnalysis.musicTags || []).slice(0, 5).join(',')}${(chapterAnalysis.musicTags || []).length > 5 ? '...' : ''}]`);
     }
-    console.log('\n' + chapterInfo.join(' | '));
+    // Disabled: console.log('\n' + chapterInfo.join(' | '));
     
     // Log available track pool info
     if (this.verboseLogging) {
@@ -1218,10 +1218,11 @@ export class MoodProcessor {
         const groupKey = `${primaryTag}_E${track.energy || '?'}`;
         console.log(`      ${idx + 1}. "${track.title}" | ${groupKey} | [${tags}]`);
       });
-    } else {
-      // Clean mode: just show chapter and track count
-      console.log(`   🎵 ${selectedTracks.length} tracks selected`);
     }
+    // Disabled in clean mode
+    // else {
+    //   console.log(`   🎵 ${selectedTracks.length} tracks selected`);
+    // }
     
     return selectedTracks;
   }
