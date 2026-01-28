@@ -178,6 +178,11 @@ export async function saveBookChunks(userId, bookId, data, chunkSize = 500000) {
       createdAt: serverTimestamp()
     });
     console.log(`✓ Saved chunk ${i + 1}/${totalChunks}`);
+    
+    // Small delay between chunks to avoid overwhelming Firestore write stream
+    if (i < totalChunks - 1) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
   }
   
   return totalChunks;
