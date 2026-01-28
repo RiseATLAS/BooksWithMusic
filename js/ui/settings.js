@@ -445,7 +445,7 @@ export class SettingsUI {
    * Calculates how many characters fit comfortably on one page
    * Also calibrates optimal page width based on viewport
    */
-  async calibratePageDensity() {
+  calibratePageDensity() {
     // Get the actual page container (where pages are rendered)
     const pageContainer = document.querySelector('.page-container');
     const chapterText = document.querySelector('.chapter-text');
@@ -489,17 +489,14 @@ export class SettingsUI {
       return;
     }
     
-    // The page container is the actual text area, so use its dimensions directly
-    // Get the actual available height by checking if chapterText exists
+    // Calculate available text height
+    // The page-container is the viewport, chapter-text is where content actually renders
     let textHeight;
     if (chapterText) {
-      // Use actual computed dimensions - more accurate
-      const chapterStyles = window.getComputedStyle(chapterText);
-      const paddingTop = parseFloat(chapterStyles.paddingTop) || 0;
-      const paddingBottom = parseFloat(chapterStyles.paddingBottom) || 0;
-      textHeight = containerHeight - paddingTop - paddingBottom;
+      // Use the actual chapter-text client height (already accounts for its padding)
+      textHeight = chapterText.clientHeight;
     } else {
-      // Fallback: Conservative estimate for vertical padding
+      // Fallback: Use page-container with conservative padding estimate
       textHeight = containerHeight - 144;
     }
     
@@ -512,8 +509,8 @@ export class SettingsUI {
       return;
     }
     
-    // Calculate lines that fit
-    const linesPerPage = Math.floor(textHeight / lineHeight);
+    // Calculate lines that fit (reduce by 10% for safety margin)
+    const linesPerPage = Math.floor((textHeight / lineHeight) * 0.9);
     
     // Calculate average characters per line
     // Use a more conservative character width estimation
@@ -547,73 +544,8 @@ export class SettingsUI {
     if (pageWidthValue) pageWidthValue.textContent = `${calibratedPageWidth}px`;
     this.applyPageWidth();
     
-    // Smart calibration: Test the density and check for overflow
-    // Apply the calculated density and check if content fits
-    if (chapterText) {
-      this.settings.pageDensity = calibratedDensity;
-      this.applyPageDensity();
-      
-      // Wait for layout to settle (longer delay for more accurate measurement)
-      await new Promise(resolve => setTimeout(resolve, 250));
-      
-      // Trigger pagination update
-      this._emitLayoutChanged('calibration');
-      
-      // Wait for pagination (longer delay)
-      await new Promise(resolve => setTimeout(resolve, 250));
-      
-      // Check for overflow with accurate padding calculation
-      const chapterStyles = window.getComputedStyle(chapterText);
-      const paddingTop = parseFloat(chapterStyles.paddingTop) || 0;
-      const paddingBottom = parseFloat(chapterStyles.paddingBottom) || 0;
-      const availableHeight = containerHeight - paddingTop - paddingBottom;
-      
-      // Use a tighter tolerance (10px instead of 20px) for more accurate detection
-      const tolerance = 10;
-      let contentHeight = chapterText.scrollHeight;
-      
-      console.log(`🔍 Overflow check | Content:${contentHeight}px vs Available:${availableHeight}px (Container:${containerHeight}px - Padding:${paddingTop + paddingBottom}px) | Tolerance:${tolerance}px`);
-      
-      if (contentHeight > availableHeight + tolerance) {
-        // Content overflows - iteratively reduce density until it fits
-        const overflow = contentHeight - availableHeight;
-        console.log(`⚠️ Overflow detected: ${overflow}px | Adjusting density...`);
-        
-        let iterations = 0;
-        const maxIterations = 8; // More iterations for better convergence
-        
-        while (iterations < maxIterations && chapterText.scrollHeight > availableHeight + tolerance) {
-          // Calculate reduction ratio with more conservative safety margin
-          const currentContentHeight = chapterText.scrollHeight;
-          const overflowRatio = availableHeight / currentContentHeight;
-          
-          // Use 88% safety margin (more aggressive) for better fit
-          calibratedDensity = Math.floor(calibratedDensity * overflowRatio * 0.88);
-          calibratedDensity = Math.max(10, calibratedDensity); // Don't go below minimum (10 lines)
-          
-          this.settings.pageDensity = calibratedDensity;
-          this.applyPageDensity();
-          
-          await new Promise(resolve => setTimeout(resolve, 150));
-          this._emitLayoutChanged('calibration');
-          await new Promise(resolve => setTimeout(resolve, 150));
-          
-          iterations++;
-          contentHeight = chapterText.scrollHeight;
-          console.log(`🔄 Iteration ${iterations} | Density:${calibratedDensity} | Content:${contentHeight}px vs Available:${availableHeight}px`);
-          
-          // Break if we're at minimum and still overflowing
-          if (calibratedDensity === 10 && contentHeight > availableHeight + tolerance) {
-            console.warn(`⚠️ Reached minimum density (10 lines) but content still overflows by ${contentHeight - availableHeight}px`);
-            break;
-          }
-        }
-        
-        console.log(`✓ Converged after ${iterations} iterations | Final density:${calibratedDensity}`);
-      } else {
-        console.log(`✓ No overflow detected | Density fits perfectly`);
-      }
-    }
+    // Apply the calculated density
+    this.settings.pageDensity = calibratedDensity;
     
     // Update page density UI and set dynamic max
     const pageDensityInput = document.getElementById('page-density');
