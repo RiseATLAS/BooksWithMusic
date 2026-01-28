@@ -527,6 +527,33 @@ export class SettingsUI {
       linesPerPage 
     });
     
+    // Verify line height calculation with actual rendered content
+    if (chapterText) {
+      const testDiv = document.createElement('div');
+      testDiv.style.cssText = `
+        position: absolute;
+        visibility: hidden;
+        font-size: ${fontSize}px;
+        line-height: ${lineHeightMultiplier};
+        font-family: ${this.settings.fontFamily};
+        width: ${textWidth}px;
+      `;
+      testDiv.textContent = 'Test line\n'.repeat(5); // 5 lines of text
+      chapterText.appendChild(testDiv);
+      
+      const actualHeight = testDiv.scrollHeight;
+      const actualLineHeight = actualHeight / 5; // Divide by number of lines
+      
+      chapterText.removeChild(testDiv);
+      
+      console.log('Line height verification:', {
+        calculatedLineHeight: lineHeight,
+        actualLineHeight: actualLineHeight,
+        difference: Math.abs(lineHeight - actualLineHeight),
+        percentDiff: Math.round(Math.abs(lineHeight - actualLineHeight) / lineHeight * 100) + '%'
+      });
+    }
+    
     // Calculate average characters per line
     // Use a more conservative character width estimation
     const charWidthFactor = this.settings.fontFamily === 'monospace' ? 0.65 : 0.6;
