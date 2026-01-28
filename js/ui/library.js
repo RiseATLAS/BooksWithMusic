@@ -171,6 +171,38 @@ export class BookLibrary {
         }
     }
 
+    async resizeCoverImage(base64Image, maxWidth, maxHeight) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            
+            img.onload = () => {
+                // Calculate new dimensions maintaining aspect ratio
+                let width = img.width;
+                let height = img.height;
+                
+                if (width > maxWidth || height > maxHeight) {
+                    const ratio = Math.min(maxWidth / width, maxHeight / height);
+                    width = Math.floor(width * ratio);
+                    height = Math.floor(height * ratio);
+                }
+                
+                // Create canvas and resize
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                
+                // Convert to JPEG with 0.7 quality for better compression
+                const resizedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+                resolve(resizedBase64);
+            };
+            
+            img.onerror = () => reject(new Error('Failed to load image'));
+            img.src = base64Image;
+        });
+    }
+
     async importBook(file) {
         try {
             if (!auth.currentUser) {
@@ -216,11 +248,17 @@ export class BookLibrary {
                     console.log(`Compressed size: ${(compressedBase64.length / 1024).toFixed(2)} KB`);
                     console.log(`Compression ratio: ${((1 - compressedBase64.length / base64Data.length) * 100).toFixed(1)}%`);
                     
-                    // Prepare metadata - exclude cover if too large (>100KB) to avoid Firestore limits
+                    // Handle cover image - downscale if too large to fit in Firestore
                     let coverImage = parsed.coverImage || '';
-                    if (coverImage.length > 100000) {
-                        console.log('⚠️ Cover image too large for Firestore, storing in IndexedDB only');
-                        coverImage = ''; // Don't store in Firestore
+                    if (coverImage && coverImage.length > 100000) {
+                        console.log(`📸 Cover image too large (${(coverImage.length / 1024).toFixed(0)}KB), downscaling...`);
+                        try {
+                            coverImage = await this.resizeCoverImage(coverImage, 300, 450);
+                            console.log(`✅ Cover resized to ${(coverImage.length / 1024).toFixed(0)}KB`);
+                        } catch (error) {
+                            console.warn('⚠️ Failed to resize cover, storing in IndexedDB only:', error);
+                            coverImage = ''; // Don't store in Firestore if resize fails
+                        }
                     }
                     
                     const bookData = {
