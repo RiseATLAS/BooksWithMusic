@@ -97,6 +97,9 @@ export class SettingsUI {
       }
       this.applyFontSize();
       this.saveSettings();
+      
+      // Check for overflow after font size change
+      setTimeout(() => this.checkAndAdjustForOverflow(), 300);
     });
 
     // Line height
@@ -110,6 +113,9 @@ export class SettingsUI {
       this.applyLineHeight();
       this.saveSettings();
       this._emitLayoutChanged('lineHeight');
+      
+      // Check for overflow after line height change
+      setTimeout(() => this.checkAndAdjustForOverflow(), 300);
     });
 
     // Font family
@@ -153,6 +159,9 @@ export class SettingsUI {
       this.applyPageDensity();
       this.saveSettings();
       this._emitLayoutChanged('pageDensity');
+      
+      // Check for overflow after density change
+      setTimeout(() => this.checkAndAdjustForOverflow(), 300);
     });
 
     // Auto-calibrate page density button
@@ -556,6 +565,54 @@ export class SettingsUI {
     console.log(`📏 Page Calibration | Viewport:${containerWidth}×${containerHeight}px | PageW:${calibratedPageWidth}px (${Math.round(calibratedPageWidth/containerWidth*100)}%) | Text:${textWidth}×${textHeight}px | Font:${fontSize}px LH:${lineHeight.toFixed(2)}px | Lines:${linesPerPage} Chars/line:${avgCharsPerLine} | ✓ Density:${calibratedDensity} chars/page`);
     
     this.showToast(`✓ Calibrated: ${calibratedPageWidth}px width, ${calibratedDensity} chars/page (~${Math.round(calibratedDensity / 6)} words)`, 'success');    
+  }
+
+  checkAndAdjustForOverflow() {
+    const pageContainer = document.querySelector('.page-container');
+    const chapterText = document.querySelector('.chapter-text');
+    
+    if (!pageContainer || !chapterText) {
+      return; // Not in reading view
+    }
+    
+    const containerHeight = pageContainer.clientHeight;
+    const contentHeight = chapterText.scrollHeight;
+    
+    // Check if content is overflowing vertically (with 20px tolerance)
+    if (contentHeight > containerHeight + 20) {
+      const overflow = contentHeight - containerHeight;
+      console.log(`⚠️ Text overflow detected: ${overflow}px beyond container`);
+      
+      // Calculate how much we need to reduce density
+      // Estimate: roughly proportional reduction
+      const overflowRatio = containerHeight / contentHeight;
+      const currentDensity = this.settings.pageDensity;
+      const adjustedDensity = Math.floor(currentDensity * overflowRatio * 0.95); // 95% to add safety margin
+      
+      // Clamp to minimum
+      const newDensity = Math.max(600, adjustedDensity);
+      
+      if (newDensity < currentDensity) {
+        console.log(`📉 Auto-adjusting density: ${currentDensity} → ${newDensity} chars/page`);
+        
+        this.settings.pageDensity = newDensity;
+        
+        // Update UI
+        const pageDensityInput = document.getElementById('page-density');
+        const pageDensityValue = document.getElementById('page-density-value');
+        if (pageDensityInput) pageDensityInput.value = newDensity;
+        if (pageDensityValue) {
+          const words = Math.round(newDensity / 6);
+          pageDensityValue.textContent = `${newDensity} chars (~${words} words)`;
+        }
+        
+        this.saveSettings();
+        this.applyPageDensity();
+        this._emitLayoutChanged('pageDensity');
+        
+        this.showToast(`Auto-adjusted page density to fit viewport (${newDensity} chars)`, 'info');
+      }
+    }
   }
 
   applyBrightness() {
