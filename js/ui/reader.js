@@ -662,12 +662,12 @@ export class ReaderUI {
         console.log(`📐 Layout changed (${reason}) - recalculating shift points...`);
         console.log(`📍 Before re-pagination: chapter ${this.currentChapterIndex}, page ${this.currentPageInChapter}`);
         
-        // Clear cached pages to force re-pagination
-        this.chapterPages = {};
-        
-        // Calculate current character offset BEFORE re-pagination
+        // Calculate current character offset BEFORE clearing cached pages
         const currentOffset = this.calculateCharOffset();
         console.log(`📍 Character offset calculated: ${currentOffset}`);
+        
+        // Now clear cached pages to force re-pagination
+        this.chapterPages = {};
         
         // Re-load current chapter with new pagination
         if (this.currentChapterIndex >= 0 && this.chapters.length > 0) {
