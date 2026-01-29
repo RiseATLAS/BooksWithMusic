@@ -1527,15 +1527,6 @@ export class ReaderUI {
     const animClass = direction === 'next' ? 'flipping-next' : 'flipping-prev';
     newPageDiv.classList.add(animClass);
     
-    // Check for overflow after content is rendered
-    // This ensures page density is adjusted if content doesn't fit
-    if (window.settingsManager) {
-      // Use a small delay to ensure layout is complete
-      setTimeout(() => {
-        window.settingsManager.checkAndAdjustForOverflow();
-      }, 50);
-    }
-    
     // Update page number immediately
     this.currentPageInChapter = targetPage;
     this.currentPage = this.calculateCurrentPageNumber();
@@ -1563,6 +1554,14 @@ export class ReaderUI {
     
     // Restore scrollbar
     pageViewport.classList.remove('flipping');
+    
+    // Check for overflow AFTER animation completes and old page is removed
+    // This ensures we're measuring the final, stable layout
+    if (window.settingsManager) {
+      setTimeout(() => {
+        window.settingsManager.checkAndAdjustForOverflow();
+      }, 100);
+    }
   }
 
   async goToNextPage() {
