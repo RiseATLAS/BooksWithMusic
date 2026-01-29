@@ -1771,13 +1771,17 @@ body.reader-page::-webkit-scrollbar {
 }
 
 /* Hide page indicator (display options) in fullscreen mode - all devices */
-:fullscreen .page-indicator,
-:fullscreen #reader-view .page-indicator,
-:-webkit-full-screen .page-indicator,
-:-webkit-full-screen #reader-view .page-indicator,
-:-moz-full-screen .page-indicator,
-:-ms-fullscreen .page-indicator {
+/* Use higher specificity to ensure it overrides */
+html:fullscreen .page-indicator,
+html:-webkit-full-screen .page-indicator,
+html:-moz-full-screen .page-indicator,
+html:-ms-fullscreen .page-indicator,
+:root:fullscreen .page-indicator,
+:root:-webkit-full-screen .page-indicator {
   display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 /* Also hide on iOS fullscreen (standalone mode - added to home screen) */
