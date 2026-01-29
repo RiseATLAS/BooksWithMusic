@@ -1772,7 +1772,9 @@ body.reader-page::-webkit-scrollbar {
 
 /* Hide page indicator (display options) in fullscreen mode - all devices */
 :fullscreen .page-indicator,
+:fullscreen #reader-view .page-indicator,
 :-webkit-full-screen .page-indicator,
+:-webkit-full-screen #reader-view .page-indicator,
 :-moz-full-screen .page-indicator,
 :-ms-fullscreen .page-indicator {
   display: none !important;
