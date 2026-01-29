@@ -439,6 +439,19 @@ export class SettingsUI {
   calibratePageDensity() {
     console.log('=== CALIBRATION START ===');
     
+    // Check if in fullscreen and ensure page indicator stays hidden
+    const isFullscreen = document.fullscreenElement || 
+                        document.webkitFullscreenElement || 
+                        document.mozFullScreenElement || 
+                        document.msFullscreenElement;
+    
+    const pageIndicator = document.querySelector('.page-indicator');
+    
+    if (isFullscreen && pageIndicator) {
+      console.log('📍 In fullscreen - ensuring page indicator remains hidden during calibration');
+      pageIndicator.style.display = 'none';
+    }
+    
     // Get the actual page container (where pages are rendered)
     const pageContainer = document.querySelector('.page-container');
     const chapterText = document.querySelector('.chapter-text');
