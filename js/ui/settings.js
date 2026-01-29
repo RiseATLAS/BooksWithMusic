@@ -439,18 +439,6 @@ export class SettingsUI {
   calibratePageDensity() {
     console.log('=== CALIBRATION START ===');
     
-    // Check if in fullscreen mode - calibration should not run in fullscreen
-    const isFullscreen = document.fullscreenElement || 
-                        document.webkitFullscreenElement || 
-                        document.mozFullScreenElement || 
-                        document.msFullscreenElement;
-    
-    if (isFullscreen) {
-      console.warn('⚠️ Cannot calibrate in fullscreen mode');
-      this.showToast('Please exit fullscreen mode before calibrating', 'warning');
-      return;
-    }
-    
     // Get the actual page container (where pages are rendered)
     const pageContainer = document.querySelector('.page-container');
     const chapterText = document.querySelector('.chapter-text');
