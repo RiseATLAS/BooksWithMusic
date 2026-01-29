@@ -660,12 +660,14 @@ export class ReaderUI {
       
       if (paginationAffectingChanges.includes(reason)) {
         console.log(`📐 Layout changed (${reason}) - recalculating shift points...`);
+        console.log(`📍 Before re-pagination: chapter ${this.currentChapterIndex}, page ${this.currentPageInChapter}`);
         
         // Clear cached pages to force re-pagination
         this.chapterPages = {};
         
         // Calculate current character offset BEFORE re-pagination
         const currentOffset = this.calculateCharOffset();
+        console.log(`📍 Character offset calculated: ${currentOffset}`);
         
         // Re-load current chapter with new pagination
         if (this.currentChapterIndex >= 0 && this.chapters.length > 0) {
@@ -676,12 +678,15 @@ export class ReaderUI {
           
           // Restore position using character offset
           const newPage = this.findPageByCharOffset(this.currentChapterIndex, currentOffset);
+          console.log(`📍 Page from character offset: ${newPage}, current page: ${this.currentPageInChapter}`);
+          
           if (newPage !== this.currentPageInChapter) {
             this.currentPageInChapter = newPage;
             this.renderCurrentPage();
             this.currentPage = this.calculateCurrentPageNumber();
             this.totalPages = this.calculateTotalPages();
             this.updatePageIndicator();
+            console.log(`📍 After re-pagination: chapter ${this.currentChapterIndex}, page ${this.currentPageInChapter}`);
           }
           
           // Shift points are automatically recalculated in loadChapter via _analyzeChapterSections
@@ -1574,11 +1579,6 @@ export class ReaderUI {
     });
     
     if (window.settingsManager && typeof window.settingsManager.checkAndAdjustForOverflow === 'function') {
-      // Reset overflow check tracking to allow checking this new page
-      if (typeof window.settingsManager.resetOverflowCheck === 'function') {
-        window.settingsManager.resetOverflowCheck();
-      }
-      
       setTimeout(() => {
         console.log('🔍 Running overflow check now...');
         window.settingsManager.checkAndAdjustForOverflow();
