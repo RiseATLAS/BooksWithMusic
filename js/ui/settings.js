@@ -655,12 +655,17 @@ export class SettingsUI {
       });
       
       var calibratedDensity = Math.max(1000, Math.min(10000, calibratedChars));
+      
+      // Store for later logging
+      var wasOverflowing = originalScrollHeight > originalClientHeight * 1.1;
+      var calibrationMethod = wasOverflowing ? 'direct-ratio' : 'overflow-forced';
     } else {
       // Fallback if no chapterText available
       var calibratedLines = linesPerPage;
       var maxLines = Math.floor(linesPerPage * 1.5);
       var clampedMax = Math.max(10, Math.min(100, maxLines));
       var calibratedDensity = Math.max(10, Math.min(clampedMax, calibratedLines));
+      var calibrationMethod = 'fallback';
     }
     
     // Calculate average characters per line
@@ -689,7 +694,7 @@ export class SettingsUI {
       viewport: `${containerWidth}×${containerHeight}px`,
       fontSize: fontSize,
       lineHeight: lineHeight.toFixed(2),
-      method: originalScrollHeight <= originalClientHeight * 1.1 ? 'overflow-forced' : 'direct-ratio'
+      method: calibrationMethod || 'unknown'
     });
     
     // Update page width first
