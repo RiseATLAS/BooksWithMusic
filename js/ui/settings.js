@@ -540,11 +540,11 @@ export class SettingsUI {
       note: isOverflowing ? 'Current page is overflowing - calculating based on available space' : 'Based on container height'
     });
     
-    // Measure actual rendered content
+    // Measure actual rendered content with text wrapping
     if (chapterText && chapterText.textContent.trim()) {
       // Get actual content from the page
       const actualContent = chapterText.textContent.trim();
-      const hasContent = actualContent.length > 100; // Need sufficient content for accurate measurement
+      const hasContent = actualContent.length > 100;
       
       console.log('Content measurement:', {
         hasContent,
@@ -557,111 +557,77 @@ export class SettingsUI {
         return;
       }
       
-      // Get all computed styles and measurements
+      // Get computed styles
       const computedStyle = window.getComputedStyle(chapterText);
-      const actualScrollHeight = chapterText.scrollHeight;
-      const actualClientHeight = chapterText.clientHeight;
-      const actualOffsetHeight = chapterText.offsetHeight;
-      
-      // Get computed font metrics
       const computedFontSize = parseFloat(computedStyle.fontSize);
       const computedLineHeight = parseFloat(computedStyle.lineHeight);
       const computedPaddingTop = parseFloat(computedStyle.paddingTop);
       const computedPaddingBottom = parseFloat(computedStyle.paddingBottom);
-      const computedMarginTop = parseFloat(computedStyle.marginTop);
-      const computedMarginBottom = parseFloat(computedStyle.marginBottom);
       
-      // Get paragraph spacing (check first <p> element)
-      const firstParagraph = chapterText.querySelector('p');
-      let paragraphMargin = 0;
-      let paragraphCount = 0;
-      if (firstParagraph) {
-        const pStyle = window.getComputedStyle(firstParagraph);
-        paragraphMargin = parseFloat(pStyle.marginBottom) || 0;
-        paragraphCount = chapterText.querySelectorAll('p').length;
-      }
+      const currentScrollHeight = chapterText.scrollHeight;
+      const currentClientHeight = chapterText.clientHeight;
       
-      console.log('📊 REAL PAGE MEASUREMENTS:', {
-        scrollHeight: actualScrollHeight,
-        clientHeight: actualClientHeight,
-        offsetHeight: actualOffsetHeight,
+      console.log('📊 CURRENT PAGE STATE:', {
+        scrollHeight: currentScrollHeight,
+        clientHeight: currentClientHeight,
+        isOverflowing: currentScrollHeight > currentClientHeight,
+        overflowAmount: currentScrollHeight - currentClientHeight,
         computedFontSize,
         computedLineHeight,
         paddingTop: computedPaddingTop,
-        paddingBottom: computedPaddingBottom,
-        marginTop: computedMarginTop,
-        marginBottom: computedMarginBottom,
-        totalPadding: computedPaddingTop + computedPaddingBottom,
-        paragraphMargin,
-        paragraphCount,
-        estimatedParagraphSpacing: paragraphMargin * paragraphCount,
-        contentArea: actualClientHeight - computedPaddingTop - computedPaddingBottom,
-        isOverflowing: actualScrollHeight > actualClientHeight,
-        overflowAmount: actualScrollHeight - actualClientHeight
+        paddingBottom: computedPaddingBottom
       });
       
-      // Calculate how many lines actually fit in the visible area
-      const effectiveHeight = actualClientHeight - computedPaddingTop - computedPaddingBottom;
-      const linesThatFit = Math.floor(effectiveHeight / computedLineHeight);
+      // The key insight: if content is overflowing, we need to figure out how many
+      // LOGICAL lines (each may wrap to multiple visual lines) actually fit
       
-      console.log('📏 VISUAL LINE COUNT:', {
-        effectiveHeight,
-        computedLineHeight,
-        rawLineCount: (effectiveHeight / computedLineHeight).toFixed(2),
-        flooredLines: linesThatFit,
-        note: 'This is how many lines actually fit in the visible area'
-      });
+      // Calculate how many logical lines are currently in the content
+      const currentLogicalLines = Math.round(currentScrollHeight / computedLineHeight);
       
-      // MANUAL COUNT VERIFICATION: Try to count actual rendered lines
-      // Create a test span to measure single line height
-      const testSpan = document.createElement('span');
-      testSpan.style.cssText = window.getComputedStyle(chapterText).cssText;
-      testSpan.style.position = 'absolute';
-      testSpan.style.visibility = 'hidden';
-      testSpan.style.whiteSpace = 'nowrap';
-      testSpan.textContent = 'M'; // Use 'M' as it's typically the tallest character
-      chapterText.appendChild(testSpan);
-      const singleCharHeight = testSpan.offsetHeight;
-      chapterText.removeChild(testSpan);
+      // Calculate available height for content
+      const availableHeight = currentClientHeight - computedPaddingTop - computedPaddingBottom;
       
-      // Now count how many of those fit
-      const manualLineCount = Math.floor(effectiveHeight / singleCharHeight);
+      // If content fits perfectly or underflows, we can use theoretical calculation
+      // If content overflows, we need to estimate the wrapping factor
+      let calibratedLines;
       
-      console.log('🧪 MANUAL VERIFICATION:', {
-        singleCharHeight,
-        effectiveHeight,
-        manualLineCount,
-        difference: manualLineCount - linesThatFit,
-        note: 'Measuring actual rendered character height'
-      });
+      if (currentScrollHeight <= currentClientHeight) {
+        // Content fits - use theoretical max
+        calibratedLines = Math.floor(availableHeight / computedLineHeight);
+        console.log('✅ CONTENT FITS:', {
+          availableHeight,
+          computedLineHeight,
+          theoreticalLines: calibratedLines,
+          method: 'Theoretical calculation (no overflow)'
+        });
+      } else {
+        // Content overflows - we need to account for wrapping
+        // The ratio of scroll height to visible height tells us the wrapping factor
+        const overflowRatio = currentScrollHeight / currentClientHeight;
+        
+        // Current logical lines don't all fit, so calculate how many would fit
+        const linesThatWouldFit = Math.floor(currentLogicalLines / overflowRatio);
+        
+        console.log('⚠️ CONTENT OVERFLOWS:', {
+          currentLogicalLines,
+          overflowRatio: overflowRatio.toFixed(2),
+          linesThatWouldFit,
+          calculation: `floor(${currentLogicalLines} / ${overflowRatio.toFixed(2)}) = ${linesThatWouldFit}`,
+          note: 'Some lines wrap to 2-3 visual lines'
+        });
+        
+        // Use 90% of that to be conservative
+        calibratedLines = Math.floor(linesThatWouldFit * 0.9);
+        
+        console.log('📉 APPLYING SAFETY MARGIN:', {
+          linesThatWouldFit,
+          safetyMargin: '10%',
+          finalCalibration: calibratedLines,
+          note: 'Conservative estimate accounting for wrapping'
+        });
+      }
       
-      // Also calculate how many lines are in the current content (including overflow)
-      const totalLinesInContent = Math.round(actualScrollHeight / computedLineHeight);
-      
-      console.log('📄 CONTENT LINE COUNT:', {
-        scrollHeight: actualScrollHeight,
-        linesInContent: totalLinesInContent,
-        visibleLines: linesThatFit,
-        hiddenLines: Math.max(0, totalLinesInContent - linesThatFit),
-        note: totalLinesInContent > linesThatFit ? '⚠️ Content overflows!' : '✓ Content fits'
-      });
-      
-      // Use the actual visible line count as our calibration
-      var calibratedLines = linesThatFit;
-      
-      console.log('✅ CALIBRATED RESULT:', {
-        measuredVisibleLines: linesThatFit,
-        calibratedDensity: calibratedLines,
-        method: 'Direct measurement from visible area',
-        note: 'Using exact line count that fits in viewport'
-      });
-      
-      // Calculate maximum capacity (1.5x the optimal for those who want denser pages)
-      var maxLines = Math.floor(calibratedLines * 1.5);
-      var clampedMax = Math.max(10, Math.min(100, maxLines));
-      
-      // Clamp to reasonable range (10-100 lines)
-      var calibratedDensity = Math.max(10, Math.min(clampedMax, calibratedLines));
+      var calibratedDensity = Math.max(10, Math.min(100, calibratedLines));
     } else {
       // Fallback if no chapterText available
       var calibratedLines = linesPerPage;
