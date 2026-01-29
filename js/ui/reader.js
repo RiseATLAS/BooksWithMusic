@@ -1555,6 +1555,18 @@ export class ReaderUI {
     // Restore scrollbar
     pageViewport.classList.remove('flipping');
     
+    // Clean up any duplicate chapter-text elements that might have accumulated
+    const allChapterTexts = pageViewport.querySelectorAll('.chapter-text');
+    if (allChapterTexts.length > 1) {
+      console.warn(`⚠️ Found ${allChapterTexts.length} chapter-text elements, cleaning up...`);
+      allChapterTexts.forEach((element, index) => {
+        if (index < allChapterTexts.length - 1) {
+          element.remove();
+          console.log(`  Removed duplicate chapter-text element ${index + 1}`);
+        }
+      });
+    }
+    
     // Check for overflow AFTER animation completes and old page is removed
     // This ensures we're measuring the final, stable layout
     if (window.settingsManager) {

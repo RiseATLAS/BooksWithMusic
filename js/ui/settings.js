@@ -757,79 +757,81 @@ export class SettingsUI {
   }
 
   async checkAndAdjustForOverflow() {
-    const chapterText = document.querySelector('.chapter-text');
-    const pageContainer = document.querySelector('.page-container');
-    
-    console.log('🔍 OVERFLOW CHECK: Starting...', { 
-      hasChapterText: !!chapterText, 
-      hasPageContainer: !!pageContainer 
-    });
-    
-    if (!chapterText || !pageContainer) {
-      console.log('⚠️ OVERFLOW CHECK: Missing elements, skipping');
-      return;
-    }
-
-    // Get the bounding rectangles
-    const containerRect = chapterText.getBoundingClientRect();
-    const containerBottom = containerRect.bottom;
-    
-    // Get all text content elements (paragraphs, divs, etc.)
-    const contentElements = chapterText.querySelectorAll('p, div, h1, h2, h3, h4, h5, h6, span, li');
-    
-    if (contentElements.length === 0) {
-      console.log('⚠️ OVERFLOW CHECK: No content elements found');
+    // Prevent recursive calls
+    if (this._isCheckingOverflow) {
+      console.log('🔍 OVERFLOW CHECK: Already in progress, skipping');
       return;
     }
     
-    // Check the last few elements to see if they're cut off
-    const lastElements = Array.from(contentElements).slice(-3);
-    let isOverflowing = false;
-    let overflowAmount = 0;
+    this._isCheckingOverflow = true;
     
-    for (const element of lastElements) {
-      const elementRect = element.getBoundingClientRect();
-      if (elementRect.bottom > containerBottom) {
-        isOverflowing = true;
-        overflowAmount = Math.max(overflowAmount, elementRect.bottom - containerBottom);
+    try {
+      const chapterText = document.querySelector('.chapter-text');
+      const pageContainer = document.querySelector('.page-container');
+      
+      console.log('🔍 OVERFLOW CHECK: Starting...', { 
+        hasChapterText: !!chapterText, 
+        hasPageContainer: !!pageContainer 
+      });
+      
+      if (!chapterText || !pageContainer) {
+        console.log('⚠️ OVERFLOW CHECK: Missing elements, skipping');
+        return;
       }
-    }
-    
-    console.log('🔍 OVERFLOW CHECK: Visibility check', {
-      containerBottom,
-      lastElementsCount: lastElements.length,
-      isOverflowing,
-      overflowAmount: Math.round(overflowAmount) + 'px',
-      containerHeight: Math.round(containerRect.height) + 'px'
-    });
-    
-    if (!isOverflowing) {
-      console.log('✅ OVERFLOW CHECK: No overflow detected, all content visible');
-      return;
-    }
-    
-    console.log(`⚠️ OVERFLOW DETECTED: Content extends ${Math.round(overflowAmount)}px beyond container`);
-    
-    let adjusted = false;
-    let safetyMargin = 0.90; // 10% margin for first try
-    let tries = 0;
-    let maxTries = 5;
-    
-    while (isOverflowing && tries < maxTries) {
-      tries++;
+
+      // Get the bounding rectangles
+      const containerRect = chapterText.getBoundingClientRect();
+      const containerBottom = containerRect.bottom;
+      
+      // Get all text content elements (paragraphs, divs, etc.)
+      const contentElements = chapterText.querySelectorAll('p, div, h1, h2, h3, h4, h5, h6, span, li');
+      
+      if (contentElements.length === 0) {
+        console.log('⚠️ OVERFLOW CHECK: No content elements found');
+        return;
+      }
+      
+      // Check the last few elements to see if they're cut off
+      const lastElements = Array.from(contentElements).slice(-3);
+      let isOverflowing = false;
+      let overflowAmount = 0;
+      
+      for (const element of lastElements) {
+        const elementRect = element.getBoundingClientRect();
+        if (elementRect.bottom > containerBottom) {
+          isOverflowing = true;
+          overflowAmount = Math.max(overflowAmount, elementRect.bottom - containerBottom);
+        }
+      }
+      
+      console.log('🔍 OVERFLOW CHECK: Visibility check', {
+        containerBottom,
+        lastElementsCount: lastElements.length,
+        isOverflowing,
+        overflowAmount: Math.round(overflowAmount) + 'px',
+        containerHeight: Math.round(containerRect.height) + 'px'
+      });
+      
+      if (!isOverflowing) {
+        console.log('✅ OVERFLOW CHECK: No overflow detected, all content visible');
+        return;
+      }
+      
+      console.log(`⚠️ OVERFLOW DETECTED: Content extends ${Math.round(overflowAmount)}px beyond container`);
       
       // Calculate reduction based on visible vs total height
       const visibleRatio = (containerRect.height - overflowAmount) / containerRect.height;
       const currentDensity = this.settings.pageDensity;
+      const safetyMargin = 0.88; // 12% margin
       const adjustedDensity = Math.floor(currentDensity * visibleRatio * safetyMargin);
       const newDensity = Math.max(100, adjustedDensity);
       
       if (newDensity >= currentDensity) {
         console.log('⚠️ Cannot reduce density further');
-        break;
+        return;
       }
       
-      console.log(`📉 Auto-adjusting density (try ${tries}/${maxTries}): ${currentDensity} → ${newDensity} chars/page (reduction: ${Math.round((1 - newDensity/currentDensity) * 100)}%)`);
+      console.log(`📉 Auto-adjusting density: ${currentDensity} → ${newDensity} chars/page (reduction: ${Math.round((1 - newDensity/currentDensity) * 100)}%)`);
       
       this.settings.pageDensity = newDensity;
       
@@ -840,47 +842,14 @@ export class SettingsUI {
       if (pageDensityValue) pageDensityValue.textContent = `${newDensity} chars`;
       
       this.saveSettings();
-      this.applyPageDensity();
-      this._emitLayoutChanged('pageDensity');
-      adjusted = true;
       
-      // Wait for re-pagination
-      await new Promise(r => setTimeout(r, 300));
+      // Don't call applyPageDensity or _emitLayoutChanged here
+      // Just save the setting and let the next page load use it
+      console.log(`✅ OVERFLOW CHECK: Density saved for next pagination`);
+      this.showToast(`Page density will be adjusted to ${newDensity} chars on next page`, 'info');
       
-      // Re-check overflow
-      const updatedChapterText = document.querySelector('.chapter-text');
-      if (!updatedChapterText) break;
-      
-      const updatedContainerRect = updatedChapterText.getBoundingClientRect();
-      const updatedContainerBottom = updatedContainerRect.bottom;
-      const updatedContentElements = updatedChapterText.querySelectorAll('p, div, h1, h2, h3, h4, h5, h6, span, li');
-      const updatedLastElements = Array.from(updatedContentElements).slice(-3);
-      
-      isOverflowing = false;
-      overflowAmount = 0;
-      
-      for (const element of updatedLastElements) {
-        const elementRect = element.getBoundingClientRect();
-        if (elementRect.bottom > updatedContainerBottom) {
-          isOverflowing = true;
-          overflowAmount = Math.max(overflowAmount, elementRect.bottom - updatedContainerBottom);
-        }
-      }
-      
-      console.log(`🔄 Re-checked after adjustment: isOverflowing=${isOverflowing}, overflowAmount=${Math.round(overflowAmount)}px`);
-      
-      // Use more aggressive margin after first try
-      safetyMargin = 0.85;
-    }
-    
-    if (adjusted) {
-      if (isOverflowing) {
-        console.log(`❌ OVERFLOW CHECK: Failed to fit content after ${tries} tries`);
-        this.showToast('Could not fit page content after adjustments. Try reducing page density manually.', 'error');
-      } else {
-        console.log(`✅ OVERFLOW CHECK: Successfully adjusted to ${this.settings.pageDensity} chars/page`);
-        this.showToast(`Page density adjusted to ${this.settings.pageDensity} chars to fit content`, 'info');
-      }
+    } finally {
+      this._isCheckingOverflow = false;
     }
   }
 
