@@ -728,16 +728,14 @@ export class ReaderUI {
       }
       
       // Debug: Log actual dimensions being used
-      if (window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1')) {
-        console.log('📐 Layout Engine Dimensions:', {
-          textWidth: Math.round(textWidth),
-          pageHeight,
-          textHeight,
-          fontSize,
-          lineHeight,
-          maxLinesPerPage
-        });
-      }
+      console.log('📐 Layout Engine Dimensions:', {
+        textWidth: Math.round(textWidth),
+        pageHeight,
+        textHeight,
+        fontSize,
+        lineHeight,
+        maxLinesPerPage
+      });
       
       // Parse HTML content into structured blocks
       const contentBlocks = this._parseContentToBlocks(chapterContent, chapterTitle);
@@ -1115,11 +1113,6 @@ export class ReaderUI {
    * Debug: Log sample of page content to verify line breaks
    */
   _logPageContentSample(pageContent) {
-    // Only log in development (check if running on localhost)
-    if (!window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')) {
-      return;
-    }
-    
     // Extract first 500 characters
     const sample = pageContent.substring(0, 500);
     
