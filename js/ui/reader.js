@@ -336,7 +336,7 @@ export class ReaderUI {
     });
 
     // Listen for fullscreen changes
-    const handleFullscreenChange = () => {
+    const handleFullscreenChange = async () => {
       const controls = document.querySelector('.reader-controls');
       const pageIndicator = document.querySelector('.page-indicator');
       
@@ -358,7 +358,6 @@ export class ReaderUI {
         
         if (isMobile) {
           // On mobile, leave the toggle class alone
-          return;
         } else {
           // On desktop fullscreen - add hover listeners to show/hide controls
           if (controls) {
@@ -376,6 +375,34 @@ export class ReaderUI {
         // Exited fullscreen - remove desktop fullscreen class
         if (controls) {
           controls.classList.remove('desktop-fullscreen-mode');
+        }
+      }
+      
+      // Re-paginate when fullscreen changes (available height changes)
+      if (this.currentChapterIndex >= 0 && this.chapters.length > 0) {
+        console.log('📐 Fullscreen changed - re-paginating with new dimensions...');
+        
+        // Get current position before re-pagination
+        const currentPosition = this.getBlockPosition();
+        
+        // Clear cached pages
+        this.chapterPages = {};
+        this.chapterPageData = {};
+        
+        // Re-load chapter with new dimensions
+        await this.loadChapter(this.currentChapterIndex, {
+          pageInChapter: this.currentPageInChapter,
+          preservePage: true
+        });
+        
+        // Restore position
+        const newPage = this.findPageByBlockPosition(this.currentChapterIndex, currentPosition);
+        if (newPage !== this.currentPageInChapter) {
+          this.currentPageInChapter = newPage;
+          this.renderCurrentPage();
+          this.currentPage = this.calculateCurrentPageNumber();
+          this.totalPages = this.calculateTotalPages();
+          this.updatePageIndicator();
         }
       }
     };
