@@ -548,81 +548,53 @@ export class SettingsUI {
       
       console.log('Content measurement:', {
         hasContent,
-        contentLength: actualContent.length,
-        method: hasContent ? 'actual content' : 'test content'
+        contentLength: actualContent.length
       });
       
-      if (hasContent) {
-        // Use actual page content for measurement
-        const originalScrollHeight = chapterText.scrollHeight;
-        
-        // Measure single line height with actual styling
-        const singleLineDiv = document.createElement('div');
-        singleLineDiv.style.cssText = `
-          position: absolute;
-          visibility: hidden;
-          font-size: ${fontSize}px;
-          line-height: ${lineHeightMultiplier};
-          font-family: ${this.settings.fontFamily};
-          width: ${textWidth}px;
-        `;
-        singleLineDiv.textContent = 'Test line for height measurement';
-        chapterText.appendChild(singleLineDiv);
-        const singleLineHeight = singleLineDiv.scrollHeight;
-        chapterText.removeChild(singleLineDiv);
-        
-        // Calculate visual lines in actual content
-        const visualLinesInContent = Math.round(originalScrollHeight / singleLineHeight);
-        
-        console.log('Actual content analysis:', {
-          originalScrollHeight,
-          singleLineHeight,
-          visualLinesInContent,
-          calculatedLineHeight: lineHeight,
-          heightDifference: Math.abs(lineHeight - singleLineHeight).toFixed(2) + 'px'
-        });
-        
-        // Adjust lines per page calculation using actual single line height
-        const adjustedRawLines = availableHeight / singleLineHeight;
-        const adjustedLinesPerPage = Math.floor(adjustedRawLines * 0.85); // 15% margin for spacing and safety
-        
-        console.log('Calibration with actual content:', {
-          availableHeight,
-          singleLineHeight: singleLineHeight.toFixed(2),
-          rawLines: adjustedRawLines.toFixed(2),
-          withMargin: `${adjustedRawLines.toFixed(2)} × 0.85 = ${(adjustedRawLines * 0.85).toFixed(2)}`,
-          adjustedLinesPerPage,
-          note: 'Based on actual rendered content with wrapping (15% safety margin)'
-        });
-        
-        var calibratedLines = adjustedLinesPerPage;
-      } else {
-        // Fallback: use test content for measurement
-        const testDiv = document.createElement('div');
-        testDiv.style.cssText = `
-          position: absolute;
-          visibility: hidden;
-          font-size: ${fontSize}px;
-          line-height: ${lineHeightMultiplier};
-          font-family: ${this.settings.fontFamily};
-          width: ${textWidth}px;
-        `;
-        
-        testDiv.textContent = 'This is a test line that is long enough to potentially wrap when rendered at the current page width and font size settings.';
-        chapterText.appendChild(testDiv);
-        const testHeight = testDiv.scrollHeight;
-        chapterText.removeChild(testDiv);
-        
-        console.log('Test content measurement:', {
-          testHeight,
-          calculatedLineHeight: lineHeight,
-          note: 'Using test content (page has insufficient content)'
-        });
-        
-        const adjustedRawLines = availableHeight / testHeight;
-        const adjustedLinesPerPage = Math.floor(adjustedRawLines * 0.85); // 15% safety margin
-        var calibratedLines = adjustedLinesPerPage;
+      if (!hasContent) {
+        console.warn('⚠️ Insufficient content for calibration. Please open a book chapter first.');
+        this.showToast('Please open a book chapter to calibrate page density', 'error');
+        return;
       }
+      
+      // Use actual page content for measurement
+      const originalScrollHeight = chapterText.scrollHeight;
+      
+      // Calculate single line height from the actual content
+      // We know the total height and can estimate lines based on font metrics
+      const theoreticalLineHeight = fontSize * lineHeightMultiplier;
+      
+      // Use the theoretical line height for calculation
+      const singleLineHeight = theoreticalLineHeight;
+      
+      // Calculate visual lines in actual content
+      const visualLinesInContent = Math.round(originalScrollHeight / singleLineHeight);
+      
+      console.log('Actual content analysis:', {
+        contentLength: actualContent.length,
+        originalScrollHeight,
+        fontSize,
+        lineHeightMultiplier,
+        theoreticalLineHeight: theoreticalLineHeight.toFixed(2),
+        visualLinesInContent,
+        note: 'Measuring real page content with wrapping'
+      });
+      
+      // Adjust lines per page calculation using theoretical line height
+      const adjustedRawLines = availableHeight / singleLineHeight;
+      const adjustedLinesPerPage = Math.floor(adjustedRawLines * 0.85); // 15% margin for spacing and safety
+      
+      console.log('Calibration calculation:', {
+        availableHeight,
+        theoreticalLineHeight: singleLineHeight.toFixed(2),
+        rawLines: adjustedRawLines.toFixed(2),
+        safetyMargin: '15%',
+        calculation: `floor(${adjustedRawLines.toFixed(2)} × 0.85) = floor(${(adjustedRawLines * 0.85).toFixed(2)})`,
+        adjustedLinesPerPage,
+        note: 'Conservative estimate to prevent overflow'
+      });
+      
+      var calibratedLines = adjustedLinesPerPage;
       
       // Calculate maximum capacity (1.5x the optimal for those who want denser pages)
       var maxLines = Math.floor(calibratedLines * 1.5);
