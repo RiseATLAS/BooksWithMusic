@@ -699,9 +699,22 @@ export class ReaderUI {
       const lineHeightMultiplier = settings.lineHeight || 1.6;
       const lineHeight = fontSize * lineHeightMultiplier;
       
-      // Get page dimensions
-      const pageWidth = settings.pageWidth || 800;
-      const textWidth = pageWidth - (48 * 2); // Subtract horizontal padding
+      // Get ACTUAL rendered dimensions from DOM
+      const chapterText = document.querySelector('.chapter-text');
+      let textWidth;
+      
+      if (chapterText) {
+        // Get the actual content width (clientWidth excludes padding)
+        const rect = chapterText.getBoundingClientRect();
+        const styles = window.getComputedStyle(chapterText);
+        const paddingLeft = parseFloat(styles.paddingLeft) || 48;
+        const paddingRight = parseFloat(styles.paddingRight) || 48;
+        textWidth = rect.width - paddingLeft - paddingRight;
+      } else {
+        // Fallback: use settings
+        const pageWidth = settings.pageWidth || 800;
+        textWidth = pageWidth - (48 * 2); // Subtract horizontal padding
+      }
       
       // Calculate available height and max lines per page
       const pageHeight = this._calculatePageHeight();
@@ -712,6 +725,18 @@ export class ReaderUI {
       if (maxLinesPerPage < 5) {
         console.error('❌ Not enough space for content - falling back');
         return this._fallbackSplitPages(chapterContent, chapterTitle);
+      }
+      
+      // Debug: Log actual dimensions being used
+      if (window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1')) {
+        console.log('📐 Layout Engine Dimensions:', {
+          textWidth: Math.round(textWidth),
+          pageHeight,
+          textHeight,
+          fontSize,
+          lineHeight,
+          maxLinesPerPage
+        });
       }
       
       // Parse HTML content into structured blocks
