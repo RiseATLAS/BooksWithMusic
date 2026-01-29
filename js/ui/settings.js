@@ -564,68 +564,72 @@ export class SettingsUI {
       const computedPaddingTop = parseFloat(computedStyle.paddingTop);
       const computedPaddingBottom = parseFloat(computedStyle.paddingBottom);
       
-      const currentScrollHeight = chapterText.scrollHeight;
-      const currentClientHeight = chapterText.clientHeight;
+      // Save original content
+      const originalHTML = chapterText.innerHTML;
+      const originalScrollHeight = chapterText.scrollHeight;
+      const originalClientHeight = chapterText.clientHeight;
       
-      console.log('📊 CURRENT PAGE STATE:', {
-        scrollHeight: currentScrollHeight,
-        clientHeight: currentClientHeight,
-        isOverflowing: currentScrollHeight > currentClientHeight,
-        overflowAmount: currentScrollHeight - currentClientHeight,
+      console.log('📊 ORIGINAL PAGE STATE:', {
+        scrollHeight: originalScrollHeight,
+        clientHeight: originalClientHeight,
+        isOverflowing: originalScrollHeight > originalClientHeight,
+        contentLength: actualContent.length,
         computedFontSize,
         computedLineHeight,
         paddingTop: computedPaddingTop,
         paddingBottom: computedPaddingBottom
       });
       
-      // The key insight: if content is overflowing, we need to figure out how many
-      // LOGICAL lines (each may wrap to multiple visual lines) actually fit
+      // Temporarily add MORE content to force overflow and measure wrapping
+      // Repeat the content 3x to ensure we definitely overflow
+      chapterText.innerHTML = originalHTML + originalHTML + originalHTML;
       
-      // Calculate how many logical lines are currently in the content
-      const currentLogicalLines = Math.round(currentScrollHeight / computedLineHeight);
+      // Force reflow
+      chapterText.offsetHeight;
       
-      // Calculate available height for content
-      const availableHeight = currentClientHeight - computedPaddingTop - computedPaddingBottom;
+      const overflowScrollHeight = chapterText.scrollHeight;
+      const overflowClientHeight = chapterText.clientHeight;
       
-      // If content fits perfectly or underflows, we can use theoretical calculation
-      // If content overflows, we need to estimate the wrapping factor
-      let calibratedLines;
+      console.log('📏 OVERFLOW TEST (3x content):', {
+        scrollHeight: overflowScrollHeight,
+        clientHeight: overflowClientHeight,
+        overflowAmount: overflowScrollHeight - overflowClientHeight,
+        overflowRatio: (overflowScrollHeight / overflowClientHeight).toFixed(2)
+      });
       
-      if (currentScrollHeight <= currentClientHeight) {
-        // Content fits - use theoretical max
-        calibratedLines = Math.floor(availableHeight / computedLineHeight);
-        console.log('✅ CONTENT FITS:', {
-          availableHeight,
-          computedLineHeight,
-          theoreticalLines: calibratedLines,
-          method: 'Theoretical calculation (no overflow)'
-        });
-      } else {
-        // Content overflows - we need to account for wrapping
-        // The ratio of scroll height to visible height tells us the wrapping factor
-        const overflowRatio = currentScrollHeight / currentClientHeight;
-        
-        // Current logical lines don't all fit, so calculate how many would fit
-        const linesThatWouldFit = Math.floor(currentLogicalLines / overflowRatio);
-        
-        console.log('⚠️ CONTENT OVERFLOWS:', {
-          currentLogicalLines,
-          overflowRatio: overflowRatio.toFixed(2),
-          linesThatWouldFit,
-          calculation: `floor(${currentLogicalLines} / ${overflowRatio.toFixed(2)}) = ${linesThatWouldFit}`,
-          note: 'Some lines wrap to 2-3 visual lines'
-        });
-        
-        // Use 90% of that to be conservative
-        calibratedLines = Math.floor(linesThatWouldFit * 0.9);
-        
-        console.log('📉 APPLYING SAFETY MARGIN:', {
-          linesThatWouldFit,
-          safetyMargin: '10%',
-          finalCalibration: calibratedLines,
-          note: 'Conservative estimate accounting for wrapping'
-        });
-      }
+      // Calculate how many logical lines are in the 3x content
+      const availableHeight = overflowClientHeight - computedPaddingTop - computedPaddingBottom;
+      const totalLogicalLines = Math.round(overflowScrollHeight / computedLineHeight);
+      const visibleLogicalLines = Math.round(availableHeight / computedLineHeight);
+      
+      // The ratio tells us how much wrapping happens
+      const wrappingFactor = overflowScrollHeight / overflowClientHeight;
+      
+      // How many logical lines would fit in the visible area, accounting for wrapping?
+      const logicalLinesThatFit = Math.floor(visibleLogicalLines / (wrappingFactor / 3));
+      
+      console.log('🔢 WRAPPING ANALYSIS:', {
+        totalLogicalLines,
+        visibleLogicalLines,
+        wrappingFactor: wrappingFactor.toFixed(2),
+        adjustedFactor: (wrappingFactor / 3).toFixed(2),
+        logicalLinesThatFit,
+        note: 'Accounting for text wrapping at current width'
+      });
+      
+      // Restore original content
+      chapterText.innerHTML = originalHTML;
+      chapterText.offsetHeight; // Force reflow
+      
+      // Apply 10% safety margin
+      const calibratedLines = Math.floor(logicalLinesThatFit * 0.9);
+      
+      console.log('✅ FINAL CALIBRATION:', {
+        measuredWithWrapping: logicalLinesThatFit,
+        safetyMargin: '10%',
+        calibratedDensity: calibratedLines,
+        note: 'Using wrapping-aware measurement'
+      });
       
       var calibratedDensity = Math.max(10, Math.min(100, calibratedLines));
     } else {
