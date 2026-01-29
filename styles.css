@@ -1806,7 +1806,6 @@ html:-ms-fullscreen .page-indicator,
 :-webkit-full-screen .page-viewport {
   max-width: calc(100% - 40px) !important; /* Minimal side margins - only 20px each side for nav */
   padding: 20px 0 !important; /* Minimal top/bottom padding */
-  width: 100% !important; /* Use full available width */
   min-height: calc(100vh - 40px) !important; /* Use almost full height */
 }
 
@@ -1815,7 +1814,6 @@ html:-ms-fullscreen .page-indicator,
   padding: 16px 24px 32px !important; /* Minimal internal padding */
   top: 20px !important; /* Match reduced viewport padding */
   bottom: 20px !important;
-  width: 100% !important; /* Ensure full width usage */
   min-height: calc(100vh - 100px) !important; /* Maximize vertical space */
 }
 
