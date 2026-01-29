@@ -580,58 +580,55 @@ export class SettingsUI {
         paddingBottom: computedPaddingBottom
       });
       
-      // Temporarily add MORE content to force overflow and measure wrapping
-      // Repeat the content 3x to ensure we definitely overflow
-      chapterText.innerHTML = originalHTML + originalHTML + originalHTML;
+      // The key insight: pagination uses CHARACTER COUNT, not line count!
+      // We need to find how many characters actually fit on one visible page
       
-      // Force reflow
-      chapterText.offsetHeight;
+      // Count characters in the current (possibly truncated) content
+      const originalTextContent = chapterText.textContent || '';
+      const originalCharCount = originalTextContent.length;
       
-      const overflowScrollHeight = chapterText.scrollHeight;
-      const overflowClientHeight = chapterText.clientHeight;
-      
-      console.log('📏 OVERFLOW TEST (3x content):', {
-        scrollHeight: overflowScrollHeight,
-        clientHeight: overflowClientHeight,
-        overflowAmount: overflowScrollHeight - overflowClientHeight,
-        overflowRatio: (overflowScrollHeight / overflowClientHeight).toFixed(2)
+      console.log('� CHARACTER MEASUREMENT:', {
+        originalCharCount,
+        originalScrollHeight,
+        originalClientHeight,
+        charsPerPixel: (originalCharCount / originalScrollHeight).toFixed(2)
       });
       
-      // Calculate how many logical lines are in the 3x content
-      const availableHeight = overflowClientHeight - computedPaddingTop - computedPaddingBottom;
-      const totalLogicalLines = Math.round(overflowScrollHeight / computedLineHeight);
-      const visibleLogicalLines = Math.round(availableHeight / computedLineHeight);
+      // If content doesn't overflow, we can measure directly
+      // If it does overflow, calculate based on the ratio
+      let charsPerVisiblePage;
       
-      // The ratio tells us how much wrapping happens
-      const wrappingFactor = overflowScrollHeight / overflowClientHeight;
+      if (originalScrollHeight <= originalClientHeight) {
+        // Content fits - this IS one page worth
+        charsPerVisiblePage = originalCharCount;
+        console.log('✅ CONTENT FITS - DIRECT MEASUREMENT:', {
+          charsPerPage: charsPerVisiblePage,
+          note: 'Current content fits exactly, using as baseline'
+        });
+      } else {
+        // Content overflows - calculate what portion would fit
+        const visibleRatio = originalClientHeight / originalScrollHeight;
+        charsPerVisiblePage = Math.floor(originalCharCount * visibleRatio);
+        
+        console.log('� CONTENT OVERFLOWS - RATIO CALCULATION:', {
+          visibleRatio: visibleRatio.toFixed(2),
+          totalChars: originalCharCount,
+          visibleChars: charsPerVisiblePage,
+          calculation: `floor(${originalCharCount} × ${visibleRatio.toFixed(2)}) = ${charsPerVisiblePage}`
+        });
+      }
       
-      // How many logical lines would fit in the visible area, accounting for wrapping?
-      const logicalLinesThatFit = Math.floor(visibleLogicalLines / (wrappingFactor / 3));
-      
-      console.log('🔢 WRAPPING ANALYSIS:', {
-        totalLogicalLines,
-        visibleLogicalLines,
-        wrappingFactor: wrappingFactor.toFixed(2),
-        adjustedFactor: (wrappingFactor / 3).toFixed(2),
-        logicalLinesThatFit,
-        note: 'Accounting for text wrapping at current width'
-      });
-      
-      // Restore original content
-      chapterText.innerHTML = originalHTML;
-      chapterText.offsetHeight; // Force reflow
-      
-      // Apply 10% safety margin
-      const calibratedLines = Math.floor(logicalLinesThatFit * 0.9);
+      // Apply 10% safety margin for paragraph breaks and spacing
+      const calibratedChars = Math.floor(charsPerVisiblePage * 0.9);
       
       console.log('✅ FINAL CALIBRATION:', {
-        measuredWithWrapping: logicalLinesThatFit,
+        measuredChars: charsPerVisiblePage,
         safetyMargin: '10%',
-        calibratedDensity: calibratedLines,
-        note: 'Using wrapping-aware measurement'
+        calibratedChars,
+        note: 'Character-based pagination'
       });
       
-      var calibratedDensity = Math.max(10, Math.min(100, calibratedLines));
+      var calibratedDensity = Math.max(1000, Math.min(10000, calibratedChars));
     } else {
       // Fallback if no chapterText available
       var calibratedLines = linesPerPage;
