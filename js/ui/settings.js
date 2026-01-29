@@ -540,72 +540,88 @@ export class SettingsUI {
       note: isOverflowing ? 'Current page is overflowing - calculating based on available space' : 'Based on container height'
     });
     
-    // Verify line height calculation with actual rendered content
-    if (chapterText) {
-      const testDiv = document.createElement('div');
-      testDiv.style.cssText = `
-        position: absolute;
-        visibility: hidden;
-        font-size: ${fontSize}px;
-        line-height: ${lineHeightMultiplier};
-        font-family: ${this.settings.fontFamily};
-        width: ${textWidth}px;
-      `;
+    // Measure actual rendered line height with wrapping
+    if (chapterText && chapterText.textContent.trim()) {
+      // Get actual content from the page
+      const actualContent = chapterText.textContent.trim();
+      const hasContent = actualContent.length > 100; // Need sufficient content for accurate measurement
       
-      // Test with realistic paragraph that includes wrapping
-      // Use a mix of short and long lines to simulate real content
-      const testContent = [
-        'This is a test paragraph with multiple lines of varying lengths.',
-        'Some lines are short.',
-        'Other lines are significantly longer and will wrap to multiple visual lines when the text exceeds the available width of the container, which is important for accurate calibration.',
-        'Another short line.',
-        'And one more line that is moderately long and might wrap depending on the page width.'
-      ].join('<br>');
-      
-      testDiv.innerHTML = testContent;
-      chapterText.appendChild(testDiv);
-      
-      const actualHeight = testDiv.scrollHeight;
-      const logicalLines = 5; // 5 paragraph breaks
-      const actualLineHeight = actualHeight / logicalLines;
-      
-      // Now measure visual lines by dividing actual height by single line height
-      const singleLineDiv = document.createElement('div');
-      singleLineDiv.style.cssText = testDiv.style.cssText;
-      singleLineDiv.innerHTML = 'Single line test';
-      chapterText.appendChild(singleLineDiv);
-      const singleLineHeight = singleLineDiv.scrollHeight;
-      chapterText.removeChild(singleLineDiv);
-      
-      const visualLines = Math.round(actualHeight / singleLineHeight);
-      const wrappingFactor = visualLines / logicalLines;
-      
-      chapterText.removeChild(testDiv);
-      
-      console.log('Line height verification:', {
-        calculatedLineHeight: lineHeight,
-        actualLineHeight: actualLineHeight,
-        singleLineHeight: singleLineHeight,
-        visualLines: visualLines,
-        logicalLines: logicalLines,
-        wrappingFactor: wrappingFactor.toFixed(2),
-        difference: Math.abs(lineHeight - actualLineHeight),
-        percentDiff: Math.round(Math.abs(lineHeight - actualLineHeight) / lineHeight * 100) + '%'
+      console.log('Content measurement:', {
+        hasContent,
+        contentLength: actualContent.length,
+        method: hasContent ? 'actual content' : 'test content'
       });
       
-      // Adjust lines per page calculation to account for wrapping
-      // Use the actual single line height for more accurate calculation
-      const adjustedRawLines = availableHeight / singleLineHeight;
-      const adjustedLinesPerPage = Math.floor(adjustedRawLines * 0.9);
-      
-      console.log('Wrapping-adjusted calculation:', {
-        originalLinesPerPage: linesPerPage,
-        adjustedLinesPerPage: adjustedLinesPerPage,
-        difference: adjustedLinesPerPage - linesPerPage
-      });
-      
-      // Use the adjusted value
-      var calibratedLines = adjustedLinesPerPage;
+      if (hasContent) {
+        // Use actual page content for measurement
+        const originalScrollHeight = chapterText.scrollHeight;
+        
+        // Measure single line height with actual styling
+        const singleLineDiv = document.createElement('div');
+        singleLineDiv.style.cssText = `
+          position: absolute;
+          visibility: hidden;
+          font-size: ${fontSize}px;
+          line-height: ${lineHeightMultiplier};
+          font-family: ${this.settings.fontFamily};
+          width: ${textWidth}px;
+        `;
+        singleLineDiv.textContent = 'Test line for height measurement';
+        chapterText.appendChild(singleLineDiv);
+        const singleLineHeight = singleLineDiv.scrollHeight;
+        chapterText.removeChild(singleLineDiv);
+        
+        // Calculate visual lines in actual content
+        const visualLinesInContent = Math.round(originalScrollHeight / singleLineHeight);
+        
+        console.log('Actual content analysis:', {
+          originalScrollHeight,
+          singleLineHeight,
+          visualLinesInContent,
+          calculatedLineHeight: lineHeight,
+          heightDifference: Math.abs(lineHeight - singleLineHeight).toFixed(2) + 'px'
+        });
+        
+        // Adjust lines per page calculation using actual single line height
+        const adjustedRawLines = availableHeight / singleLineHeight;
+        const adjustedLinesPerPage = Math.floor(adjustedRawLines * 0.9); // 10% margin for spacing
+        
+        console.log('Calibration with actual content:', {
+          availableHeight,
+          singleLineHeight: singleLineHeight.toFixed(2),
+          rawLines: adjustedRawLines.toFixed(2),
+          adjustedLinesPerPage,
+          note: 'Based on actual rendered content with wrapping'
+        });
+        
+        var calibratedLines = adjustedLinesPerPage;
+      } else {
+        // Fallback: use test content for measurement
+        const testDiv = document.createElement('div');
+        testDiv.style.cssText = `
+          position: absolute;
+          visibility: hidden;
+          font-size: ${fontSize}px;
+          line-height: ${lineHeightMultiplier};
+          font-family: ${this.settings.fontFamily};
+          width: ${textWidth}px;
+        `;
+        
+        testDiv.textContent = 'This is a test line that is long enough to potentially wrap when rendered at the current page width and font size settings.';
+        chapterText.appendChild(testDiv);
+        const testHeight = testDiv.scrollHeight;
+        chapterText.removeChild(testDiv);
+        
+        console.log('Test content measurement:', {
+          testHeight,
+          calculatedLineHeight: lineHeight,
+          note: 'Using test content (page has insufficient content)'
+        });
+        
+        const adjustedRawLines = availableHeight / testHeight;
+        const adjustedLinesPerPage = Math.floor(adjustedRawLines * 0.9);
+        var calibratedLines = adjustedLinesPerPage;
+      }
       
       // Calculate maximum capacity (1.5x the optimal for those who want denser pages)
       var maxLines = Math.floor(calibratedLines * 1.5);
