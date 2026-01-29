@@ -620,30 +620,20 @@ export class SettingsUI {
       
       if (originalScrollHeight <= originalClientHeight * 1.1) {
         // Content barely fills the page - might be sparse (poetry, dialog, etc.)
-        // Add more content to force overflow and measure accurately
-        console.log('⚠️ SPARSE PAGE DETECTED - Adding content to measure overflow');
+        // Instead of tripling, just use what we have and be less conservative
+        console.log('⚠️ SPARSE PAGE DETECTED - Using measured content with minimal safety margin');
         
-        // Duplicate content multiple times to ensure overflow
-        chapterText.innerHTML = originalHTML + originalHTML + originalHTML;
-        chapterText.offsetHeight; // Force reflow
+        // For sparse pages, assume they can hold at least this much content
+        // We'll rely on overflow detection to catch actual overflows
+        charsPerVisiblePage = originalCharCount;
         
-        const tripleScrollHeight = chapterText.scrollHeight;
-        const tripleCharCount = originalCharCount * 3;
-        
-        // Calculate ratio based on overflow
-        const visibleRatio = originalClientHeight / tripleScrollHeight;
-        charsPerVisiblePage = Math.floor(tripleCharCount * visibleRatio);
-        
-        // Restore original content
-        chapterText.innerHTML = originalHTML;
-        chapterText.offsetHeight;
-        
-        console.log('📏 OVERFLOW-BASED MEASUREMENT:', {
-          tripleScrollHeight,
-          tripleCharCount,
-          visibleRatio: visibleRatio.toFixed(2),
+        console.log('📏 SPARSE PAGE MEASUREMENT:', {
+          originalScrollHeight,
+          originalClientHeight,
+          originalCharCount,
           measuredChars: charsPerVisiblePage,
-          note: 'Measured with forced overflow for accuracy'
+          fillRatio: (originalScrollHeight / originalClientHeight).toFixed(2),
+          note: 'Using actual content size - overflow check will catch issues'
         });
       } else {
         // Content already overflows - calculate what portion would fit
@@ -658,21 +648,22 @@ export class SettingsUI {
         });
       }
       
-      // Apply 6% safety margin for paragraph breaks, spacing, and edge cases
-      const calibratedChars = Math.floor(charsPerVisiblePage * 0.94);
+      // Apply 3% safety margin for paragraph breaks, spacing, and edge cases
+      // This is intentionally small - we rely on overflow detection to adjust if needed
+      const calibratedChars = Math.floor(charsPerVisiblePage * 0.97);
       
       console.log('✅ FINAL CALIBRATION:', {
         measuredChars: charsPerVisiblePage,
-        safetyMargin: '6%',
+        safetyMargin: '3%',
         calibratedChars,
-        note: 'Character-based pagination with safety margin for line breaks'
+        note: 'Character-based pagination with minimal safety margin - overflow detection will fine-tune'
       });
       
       var calibratedDensity = Math.max(1000, Math.min(10000, calibratedChars));
       
       // Store for later logging
       var wasOverflowing = originalScrollHeight > originalClientHeight * 1.1;
-      var calibrationMethod = wasOverflowing ? 'direct-ratio' : 'overflow-forced';
+      var calibrationMethod = wasOverflowing ? 'direct-ratio' : 'sparse-optimistic';
     } else {
       // Fallback if no chapterText available
       var calibratedLines = linesPerPage;
