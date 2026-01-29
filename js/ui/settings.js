@@ -584,14 +584,15 @@ export class SettingsUI {
         
         // Adjust lines per page calculation using actual single line height
         const adjustedRawLines = availableHeight / singleLineHeight;
-        const adjustedLinesPerPage = Math.floor(adjustedRawLines * 0.9); // 10% margin for spacing
+        const adjustedLinesPerPage = Math.floor(adjustedRawLines * 0.85); // 15% margin for spacing and safety
         
         console.log('Calibration with actual content:', {
           availableHeight,
           singleLineHeight: singleLineHeight.toFixed(2),
           rawLines: adjustedRawLines.toFixed(2),
+          withMargin: `${adjustedRawLines.toFixed(2)} × 0.85 = ${(adjustedRawLines * 0.85).toFixed(2)}`,
           adjustedLinesPerPage,
-          note: 'Based on actual rendered content with wrapping'
+          note: 'Based on actual rendered content with wrapping (15% safety margin)'
         });
         
         var calibratedLines = adjustedLinesPerPage;
@@ -619,7 +620,7 @@ export class SettingsUI {
         });
         
         const adjustedRawLines = availableHeight / testHeight;
-        const adjustedLinesPerPage = Math.floor(adjustedRawLines * 0.9);
+        const adjustedLinesPerPage = Math.floor(adjustedRawLines * 0.85); // 15% safety margin
         var calibratedLines = adjustedLinesPerPage;
       }
       
