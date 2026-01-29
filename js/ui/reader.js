@@ -1155,12 +1155,6 @@ export class ReaderUI {
     }
   }
 
-  _ensureViewportScrollHandler() {
-    // No longer needed in true page-based system
-    // Keeping stub for compatibility
-    return;
-  }
-
   _updateNavButtons() {
     const prevBtn = document.getElementById('prev-chapter');
     const nextBtn = document.getElementById('next-chapter');
@@ -1258,37 +1252,6 @@ export class ReaderUI {
     }
 
     return lh;
-  }
-
-  // ============================================
-  // DEPRECATED: Old scroll-based pagination methods
-  // These are kept as stubs for compatibility
-  // ============================================
-
-  async _repaginateAndRender({ waitForImages } = { waitForImages: true }) {
-    // Deprecated: Using page array system instead
-    // This is now handled by splitChapterIntoPages in loadChapter
-    return;
-  }
-
-  async _waitForContentLayout(containerEl, { waitForImages } = { waitForImages: true }) {
-    // Deprecated: No longer needed for page array system
-    return;
-  }
-
-  _applyPageOffset() {
-    // Deprecated: No scroll offset needed for page array system
-    return;
-  }
-
-  _scrollToPage(targetPage, { behavior = 'smooth' } = {}) {
-    // Deprecated: Using _flipToPage instead
-    return this._flipToPage(targetPage, targetPage > this.currentPageInChapter ? 'next' : 'prev');
-  }
-
-  _syncCurrentPageFromScroll() {
-    // Deprecated: No scroll syncing needed for page array system
-    return;
   }
 
   _notifyPageChange(oldPage, newPage) {
