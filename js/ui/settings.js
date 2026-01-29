@@ -756,10 +756,32 @@ export class SettingsUI {
     }, 500);
   }
 
+  _getCurrentPageKey() {
+    // Get a unique key for the current page to track overflow checks
+    const pageIndicator = document.querySelector('.page-indicator');
+    if (!pageIndicator) return 'unknown';
+    
+    const text = pageIndicator.textContent.trim();
+    return text; // e.g., "Page 7 of 12"
+  }
+
+  resetOverflowCheck() {
+    // Call this when user navigates to allow checking the new page
+    this._lastCheckedPage = null;
+    this._lastCheckWasOverflow = false;
+  }
+
   async checkAndAdjustForOverflow() {
     // Prevent recursive calls
     if (this._isCheckingOverflow) {
       console.log('🔍 OVERFLOW CHECK: Already in progress, skipping');
+      return;
+    }
+    
+    // Get current page info to avoid re-checking the same page after adjustment
+    const currentPageKey = this._getCurrentPageKey();
+    if (this._lastCheckedPage === currentPageKey && this._lastCheckWasOverflow) {
+      console.log('🔍 OVERFLOW CHECK: Skipping - this page was just adjusted');
       return;
     }
     
@@ -832,6 +854,10 @@ export class SettingsUI {
         containerHeight: Math.round(containerRect.height) + 'px'
       });
       
+      // Track this check
+      this._lastCheckedPage = currentPageKey;
+      this._lastCheckWasOverflow = isOverflowing;
+      
       if (!isOverflowing) {
         console.log('✅ OVERFLOW CHECK: No overflow detected, all content visible');
         return;
@@ -863,10 +889,13 @@ export class SettingsUI {
       
       this.saveSettings();
       
-      // Don't call applyPageDensity or _emitLayoutChanged here
-      // Just save the setting and let the next page load use it
-      console.log(`✅ OVERFLOW CHECK: Density saved for next pagination`);
-      this.showToast(`Page density will be adjusted to ${newDensity} chars on next page`, 'info');
+      console.log(`✅ OVERFLOW CHECK: Triggering re-pagination with new density`);
+      this.showToast(`Auto-adjusting page density to ${newDensity} chars`, 'info');
+      
+      // Trigger re-pagination by emitting layout change event
+      setTimeout(() => {
+        this._emitLayoutChanged('overflow-adjustment');
+      }, 100);
       
     } finally {
       this._isCheckingOverflow = false;

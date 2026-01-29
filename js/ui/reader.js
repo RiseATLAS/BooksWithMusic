@@ -1574,6 +1574,11 @@ export class ReaderUI {
     });
     
     if (window.settingsManager && typeof window.settingsManager.checkAndAdjustForOverflow === 'function') {
+      // Reset overflow check tracking to allow checking this new page
+      if (typeof window.settingsManager.resetOverflowCheck === 'function') {
+        window.settingsManager.resetOverflowCheck();
+      }
+      
       setTimeout(() => {
         console.log('🔍 Running overflow check now...');
         window.settingsManager.checkAndAdjustForOverflow();
