@@ -104,7 +104,12 @@ export class ReaderUI {
    */
   findPageByCharOffset(chapterIndex, targetOffset) {
     const pages = this.chapterPages[chapterIndex];
-    if (!pages || pages.length === 0) return 1;
+    if (!pages || pages.length === 0) {
+      console.warn('findPageByCharOffset: No pages found for chapter', chapterIndex);
+      return 1;
+    }
+    
+    console.log(`🔍 Finding page for offset ${targetOffset} in chapter ${chapterIndex} (${pages.length} total pages)`);
     
     let currentOffset = 0;
     for (let pageIndex = 0; pageIndex < pages.length; pageIndex++) {
@@ -114,6 +119,7 @@ export class ReaderUI {
       
       if (currentOffset + pageChars >= targetOffset) {
         // This page contains the target offset
+        console.log(`🔍 Found: page ${pageIndex + 1}, offset range: ${currentOffset}-${currentOffset + pageChars}`);
         return pageIndex + 1; // Pages are 1-indexed
       }
       
@@ -121,6 +127,7 @@ export class ReaderUI {
     }
     
     // If offset is beyond last page, return last page
+    console.log(`🔍 Offset ${targetOffset} beyond last page (total chars: ${currentOffset}), returning page ${pages.length}`);
     return pages.length;
   }
 
@@ -664,7 +671,8 @@ export class ReaderUI {
         
         // Calculate current character offset BEFORE clearing cached pages
         const currentOffset = this.calculateCharOffset();
-        console.log(`📍 Character offset calculated: ${currentOffset}`);
+        const oldTotalPages = this.chapterPages[this.currentChapterIndex]?.length || 0;
+        console.log(`📍 Character offset calculated: ${currentOffset}, old total pages: ${oldTotalPages}`);
         
         // Now clear cached pages to force re-pagination
         this.chapterPages = {};
@@ -675,6 +683,9 @@ export class ReaderUI {
             pageInChapter: this.currentPageInChapter, 
             preservePage: true 
           });
+          
+          const newTotalPages = this.chapterPages[this.currentChapterIndex]?.length || 0;
+          console.log(`📍 After loadChapter: new total pages: ${newTotalPages}`);
           
           // Restore position using character offset
           const newPage = this.findPageByCharOffset(this.currentChapterIndex, currentOffset);
