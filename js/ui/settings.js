@@ -13,7 +13,7 @@ export class SettingsUI {
       fontFamily: 'serif',
       textAlign: 'left',
       pageWidth: 650,
-      pageDensity: 30, // Lines per page
+      pageDensity: 5000, // Characters per page
       brightness: 100,
       pageColor: 'cream',
       pageWarmth: 10,
@@ -141,13 +141,13 @@ export class SettingsUI {
       this._emitLayoutChanged('pageWidth');
     });
 
-    // Page density (lines per page)
+    // Page density (characters per page)
     const pageDensityInput = document.getElementById('page-density');
     const pageDensityValue = document.getElementById('page-density-value');
     pageDensityInput?.addEventListener('input', (e) => {
       this.settings.pageDensity = parseInt(e.target.value);
       if (pageDensityValue) {
-        pageDensityValue.textContent = `${this.settings.pageDensity} lines`;
+        pageDensityValue.textContent = `${this.settings.pageDensity} chars`;
       }
       this.applyPageDensity();
       this.saveSettings();
@@ -425,9 +425,9 @@ export class SettingsUI {
   }
 
   applyPageDensity() {
-    // Notify reader to update lines per page (converted to chars internally)
+    // Notify reader to update page density (chars per page)
     window.dispatchEvent(new CustomEvent('pageDensityChanged', { 
-      detail: { linesPerPage: this.settings.pageDensity } 
+      detail: { charsPerPage: this.settings.pageDensity } 
     }));
   }
 
@@ -581,36 +581,62 @@ export class SettingsUI {
       });
       
       // The key insight: pagination uses CHARACTER COUNT, not line count!
-      // We need to find how many characters actually fit on one visible page
+      // We need to find out how many characters actually fit on one visible page
       
       // Count characters in the current (possibly truncated) content
       const originalTextContent = chapterText.textContent || '';
       const originalCharCount = originalTextContent.length;
       
-      console.log('� CHARACTER MEASUREMENT:', {
+      // Count paragraph breaks to detect sparse content
+      const paragraphCount = (originalHTML.match(/<p>/g) || []).length;
+      const avgCharsPerParagraph = paragraphCount > 0 ? originalCharCount / paragraphCount : originalCharCount;
+      
+      console.log('🔤 CHARACTER MEASUREMENT:', {
         originalCharCount,
         originalScrollHeight,
         originalClientHeight,
-        charsPerPixel: (originalCharCount / originalScrollHeight).toFixed(2)
+        charsPerPixel: (originalCharCount / originalScrollHeight).toFixed(2),
+        paragraphCount,
+        avgCharsPerParagraph: avgCharsPerParagraph.toFixed(0)
       });
       
-      // If content doesn't overflow, we can measure directly
-      // If it does overflow, calculate based on the ratio
+      // Strategy: Always force overflow to get accurate measurement
+      // This handles edge cases like sparse pages with many line breaks
       let charsPerVisiblePage;
       
-      if (originalScrollHeight <= originalClientHeight) {
-        // Content fits - this IS one page worth
-        charsPerVisiblePage = originalCharCount;
-        console.log('✅ CONTENT FITS - DIRECT MEASUREMENT:', {
-          charsPerPage: charsPerVisiblePage,
-          note: 'Current content fits exactly, using as baseline'
+      if (originalScrollHeight <= originalClientHeight * 1.1) {
+        // Content barely fills the page - might be sparse (poetry, dialog, etc.)
+        // Add more content to force overflow and measure accurately
+        console.log('⚠️ SPARSE PAGE DETECTED - Adding content to measure overflow');
+        
+        // Duplicate content multiple times to ensure overflow
+        chapterText.innerHTML = originalHTML + originalHTML + originalHTML;
+        chapterText.offsetHeight; // Force reflow
+        
+        const tripleScrollHeight = chapterText.scrollHeight;
+        const tripleCharCount = originalCharCount * 3;
+        
+        // Calculate ratio based on overflow
+        const visibleRatio = originalClientHeight / tripleScrollHeight;
+        charsPerVisiblePage = Math.floor(tripleCharCount * visibleRatio);
+        
+        // Restore original content
+        chapterText.innerHTML = originalHTML;
+        chapterText.offsetHeight;
+        
+        console.log('📏 OVERFLOW-BASED MEASUREMENT:', {
+          tripleScrollHeight,
+          tripleCharCount,
+          visibleRatio: visibleRatio.toFixed(2),
+          measuredChars: charsPerVisiblePage,
+          note: 'Measured with forced overflow for accuracy'
         });
       } else {
-        // Content overflows - calculate what portion would fit
+        // Content already overflows - calculate what portion would fit
         const visibleRatio = originalClientHeight / originalScrollHeight;
         charsPerVisiblePage = Math.floor(originalCharCount * visibleRatio);
         
-        console.log('� CONTENT OVERFLOWS - RATIO CALCULATION:', {
+        console.log('✅ CONTENT OVERFLOWS - RATIO CALCULATION:', {
           visibleRatio: visibleRatio.toFixed(2),
           totalChars: originalCharCount,
           visibleChars: charsPerVisiblePage,
@@ -618,14 +644,14 @@ export class SettingsUI {
         });
       }
       
-      // Apply 10% safety margin for paragraph breaks and spacing
-      const calibratedChars = Math.floor(charsPerVisiblePage * 0.9);
+      // Apply 15% safety margin for paragraph breaks, spacing, and edge cases
+      const calibratedChars = Math.floor(charsPerVisiblePage * 0.85);
       
       console.log('✅ FINAL CALIBRATION:', {
         measuredChars: charsPerVisiblePage,
-        safetyMargin: '10%',
+        safetyMargin: '15%',
         calibratedChars,
-        note: 'Character-based pagination'
+        note: 'Character-based pagination with safety margin for line breaks'
       });
       
       var calibratedDensity = Math.max(1000, Math.min(10000, calibratedChars));
@@ -657,6 +683,15 @@ export class SettingsUI {
     
     console.log('Final calibrated density:', calibratedDensity);
     
+    console.log('📋 CALIBRATION SUMMARY:', {
+      pageWidth: calibratedPageWidth,
+      charsPerPage: calibratedDensity,
+      viewport: `${containerWidth}×${containerHeight}px`,
+      fontSize: fontSize,
+      lineHeight: lineHeight.toFixed(2),
+      method: originalScrollHeight <= originalClientHeight * 1.1 ? 'overflow-forced' : 'direct-ratio'
+    });
+    
     // Update page width first
     this.settings.pageWidth = calibratedPageWidth;
     const pageWidthInput = document.getElementById('page-width');
@@ -668,32 +703,39 @@ export class SettingsUI {
     // Apply the calculated density
     this.settings.pageDensity = calibratedDensity;
     
-    // Update page density UI and set dynamic max
+    // Update page density UI (no need to set max - already set in HTML to 10000)
     const pageDensityInput = document.getElementById('page-density');
     const pageDensityValue = document.getElementById('page-density-value');
     if (pageDensityInput) {
-      pageDensityInput.max = clampedMax;
       pageDensityInput.value = calibratedDensity;
     }
     if (pageDensityValue) {
-      pageDensityValue.textContent = `${calibratedDensity} lines`;
+      pageDensityValue.textContent = `${calibratedDensity} chars`;
     }
     
     // Save final settings
     this.saveSettings();
     this.applyPageDensity();
+    
+    // VERIFICATION: After applying, check if content now fits properly
+    setTimeout(() => {
+      const verifyScrollHeight = chapterText ? chapterText.scrollHeight : 0;
+      const verifyClientHeight = chapterText ? chapterText.clientHeight : 0;
+      const verifyCharCount = chapterText ? (chapterText.textContent || '').length : 0;
+      const stillOverflowing = verifyScrollHeight > verifyClientHeight;
+      
+      console.log('🔍 POST-CALIBRATION VERIFICATION:', {
+        scrollHeight: verifyScrollHeight,
+        clientHeight: verifyClientHeight,
+        charCount: verifyCharCount,
+        isOverflowing: stillOverflowing,
+        overflowAmount: stillOverflowing ? verifyScrollHeight - verifyClientHeight : 0,
+        status: stillOverflowing ? '⚠️ Still overflowing (normal - will paginate)' : '✅ Fits perfectly',
+        note: 'This shows current page after calibration settings applied'
+      });
+    }, 100);
+    
     this._emitLayoutChanged('calibration');
-    
-    // Emit pageDensityChanged event for reader.js
-    // The reader will use character offset to restore the user's position after re-pagination
-    window.dispatchEvent(new CustomEvent('pageDensityChanged', {
-      detail: { linesPerPage: calibratedDensity }
-    }));
-    
-    // Show feedback with all details in one compact log line
-    console.log(`📏 Page Calibration | Viewport:${containerWidth}×${containerHeight}px | PageW:${calibratedPageWidth}px (${Math.round(calibratedPageWidth/containerWidth*100)}%) | Text:${textWidth}×${textHeight}px | Font:${fontSize}px LH:${lineHeight.toFixed(2)}px | ✓ Density:${calibratedDensity} lines/page`);
-        console.log('=== CALIBRATION END ===');
-        this.showToast(`✓ Calibrated: ${calibratedPageWidth}px width, ${calibratedDensity} lines per page`, 'success');    
   }
 
   checkAndAdjustForOverflow() {
@@ -739,14 +781,14 @@ export class SettingsUI {
         const pageDensityValue = document.getElementById('page-density-value');
         if (pageDensityInput) pageDensityInput.value = newDensity;
         if (pageDensityValue) {
-          pageDensityValue.textContent = `${newDensity} lines`;
+          pageDensityValue.textContent = `${newDensity} chars`;
         }
         
         this.saveSettings();
         this.applyPageDensity();
         this._emitLayoutChanged('pageDensity');
         
-        this.showToast(`Auto-adjusted page density to fit viewport (${newDensity} lines)`, 'info');
+        this.showToast(`Auto-adjusted page density to fit viewport (${newDensity} chars)`, 'info');
       }
     }
   }
@@ -910,7 +952,7 @@ export class SettingsUI {
     const pageDensityInput = document.getElementById('page-density');
     const pageDensityValue = document.getElementById('page-density-value');
     if (pageDensityInput) pageDensityInput.value = this.settings.pageDensity;
-    if (pageDensityValue) pageDensityValue.textContent = `${this.settings.pageDensity} lines`;
+    if (pageDensityValue) pageDensityValue.textContent = `${this.settings.pageDensity} chars`;
 
     const brightnessInput = document.getElementById('brightness');
     const brightnessValue = document.getElementById('brightness-value');

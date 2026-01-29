@@ -52,22 +52,16 @@ export class ReaderUI {
 
   /**
    * Get page density (chars per page) from settings
-   * Note: pageDensity is stored as lines per page, converted to chars here
    */
   getPageDensityFromSettings() {
     try {
       const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
       if (settings && settings.pageDensity) {
-        // pageDensity is now lines per page, convert to characters
-        const linesPerPage = settings.pageDensity;
-        const fontSize = settings.fontSize || 18;
-        const pageWidth = settings.pageWidth || 650;
-        const charWidthFactor = settings.fontFamily === 'monospace' ? 0.65 : 0.6;
-        const avgCharsPerLine = Math.floor((pageWidth - 96) / (fontSize * charWidthFactor));
-        return linesPerPage * avgCharsPerLine;
+        // pageDensity is now stored directly as characters per page
+        return settings.pageDensity;
       }
-      // Default: 30 lines * ~50 chars per line = 1500 chars
-      return 1500;
+      // Default: 5000 chars per page
+      return 5000;
     } catch {
       return 1500;
     }
