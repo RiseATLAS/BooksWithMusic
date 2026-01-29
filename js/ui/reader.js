@@ -388,9 +388,12 @@ export class ReaderUI {
       
       const isMobile = window.innerWidth <= 768;
       
+      console.log('Fullscreen change detected:', isFullscreen ? 'ENTERED' : 'EXITED');
+      
       if (isFullscreen) {
         // Hide page indicator in fullscreen on all devices
         if (pageIndicator) {
+          console.log('Hiding page indicator in fullscreen');
           pageIndicator.style.display = 'none';
         }
         
@@ -405,8 +408,9 @@ export class ReaderUI {
           }
         }
       } else {
-        // Exited fullscreen - restore page indicator
+        // Exited fullscreen - restore page indicator ONLY if we're actually out of fullscreen
         if (pageIndicator) {
+          console.log('Restoring page indicator after exiting fullscreen');
           pageIndicator.style.display = '';
         }
         
@@ -1369,6 +1373,17 @@ export class ReaderUI {
       indicator = document.createElement('div');
       indicator.className = 'page-indicator';
       pageContainer.appendChild(indicator);
+    }
+    
+    // Check if we're in fullscreen - if so, keep indicator hidden
+    const isFullscreen = document.fullscreenElement || 
+                        document.webkitFullscreenElement || 
+                        document.mozFullScreenElement || 
+                        document.msFullscreenElement;
+    
+    if (isFullscreen && indicator.style.display !== 'none') {
+      console.log('updatePageIndicator: Keeping page indicator hidden in fullscreen');
+      indicator.style.display = 'none';
     }
     
     // Check settings for page number display preference
