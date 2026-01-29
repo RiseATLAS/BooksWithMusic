@@ -1791,6 +1791,20 @@ html:-ms-fullscreen .page-indicator,
   }
 }
 
+/* Maximize screen usage in fullscreen mode */
+:fullscreen .page-viewport,
+:-webkit-full-screen .page-viewport {
+  max-width: calc(100% - 80px) !important; /* Reduce side margins - only 40px each side for nav */
+  padding: 60px 0 !important; /* Reduce top/bottom padding */
+}
+
+:fullscreen .chapter-text,
+:-webkit-full-screen .chapter-text {
+  padding: 32px 32px 64px !important; /* Reduce internal padding */
+  top: 60px !important; /* Match reduced viewport padding */
+  bottom: 60px !important;
+}
+
 /* Mobile fullscreen - controls hidden by default, tap center to toggle */
 @media (max-width: 768px) {
   :fullscreen .reader-header,
