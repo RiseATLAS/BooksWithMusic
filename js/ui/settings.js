@@ -502,9 +502,17 @@ export class SettingsUI {
     // The page-container is the viewport, chapter-text is where content actually renders
     let textHeight;
     if (chapterText) {
-      // Use the actual chapter-text client height (already accounts for its padding)
-      textHeight = chapterText.clientHeight;
-      console.log('Using chapterText.clientHeight:', textHeight);
+      // In fullscreen, calculate the maximum available height from viewport
+      if (isFullscreen) {
+        // Fullscreen: 100vh - viewport padding (20+20) - chapter-text padding (16+32) = 100vh - 88
+        const viewportHeight = window.innerHeight;
+        textHeight = viewportHeight - 88; // 88 = 20+20 (viewport) + 16+32 (chapter-text)
+        console.log('Using fullscreen calculated height:', textHeight, 'from viewport:', viewportHeight);
+      } else {
+        // Normal mode: use actual client height
+        textHeight = chapterText.clientHeight;
+        console.log('Using chapterText.clientHeight:', textHeight);
+      }
     } else {
       // Fallback: Use page-container with conservative padding estimate
       textHeight = containerHeight - 144;
