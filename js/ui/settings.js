@@ -722,11 +722,19 @@ export class SettingsUI {
     this.saveSettings();
     this.applyPageDensity();
     
-    // VERIFICATION: After applying, check if content now fits properly
+    this._emitLayoutChanged('calibration');
+    
+    // VERIFICATION: After applying and re-pagination, check results
     setTimeout(() => {
-      const verifyScrollHeight = chapterText ? chapterText.scrollHeight : 0;
-      const verifyClientHeight = chapterText ? chapterText.clientHeight : 0;
-      const verifyCharCount = chapterText ? (chapterText.textContent || '').length : 0;
+      const verifyChapterText = document.querySelector('.chapter-text');
+      if (!verifyChapterText) {
+        console.log('🔍 POST-CALIBRATION: Page reloaded, verification skipped');
+        return;
+      }
+      
+      const verifyScrollHeight = verifyChapterText.scrollHeight;
+      const verifyClientHeight = verifyChapterText.clientHeight;
+      const verifyCharCount = (verifyChapterText.textContent || '').length;
       const stillOverflowing = verifyScrollHeight > verifyClientHeight;
       
       console.log('🔍 POST-CALIBRATION VERIFICATION:', {
@@ -735,12 +743,12 @@ export class SettingsUI {
         charCount: verifyCharCount,
         isOverflowing: stillOverflowing,
         overflowAmount: stillOverflowing ? verifyScrollHeight - verifyClientHeight : 0,
-        status: stillOverflowing ? '⚠️ Still overflowing (normal - will paginate)' : '✅ Fits perfectly',
-        note: 'This shows current page after calibration settings applied'
+        status: stillOverflowing ? '⚠️ Still overflowing (will be paginated)' : '✅ Fits perfectly',
+        expectedCharsPerPage: calibratedDensity,
+        actualVsExpected: verifyCharCount <= calibratedDensity ? '✅ Within limit' : '⚠️ Over limit',
+        note: 'Shows current page after re-pagination with new density'
       });
-    }, 100);
-    
-    this._emitLayoutChanged('calibration');
+    }, 500);
   }
 
   checkAndAdjustForOverflow() {
