@@ -559,15 +559,8 @@ export class ReaderUI {
 
     // Listen for page density changes from settings
     window.addEventListener('pageDensityChanged', async (e) => {
-      const linesPerPage = e.detail.linesPerPage;
-      
-      // Convert lines to chars using current settings
-      const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
-      const fontSize = settings.fontSize || 18;
-      const pageWidth = settings.pageWidth || 650;
-      const charWidthFactor = settings.fontFamily === 'monospace' ? 0.65 : 0.6;
-      const avgCharsPerLine = Math.floor((pageWidth - 96) / (fontSize * charWidthFactor));
-      const newDensity = linesPerPage * avgCharsPerLine;
+      // Page density is now stored directly as chars per page
+      const newDensity = e.detail.charsPerPage || e.detail.linesPerPage; // Support both for backward compatibility
       
       // Skip if density hasn't actually changed (e.g., during initial settings load)
       if (newDensity === this.charsPerPage) {
