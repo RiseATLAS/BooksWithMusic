@@ -669,6 +669,13 @@ export class ReaderUI {
         console.log(`📐 Layout changed (${reason}) - recalculating shift points...`);
         console.log(`📍 Before re-pagination: chapter ${this.currentChapterIndex}, page ${this.currentPageInChapter}`);
         
+        // If pageDensity changed, update our internal charsPerPage from settings
+        if (reason === 'pageDensity' && window.settingsManager) {
+          const newDensity = window.settingsManager.settings.pageDensity;
+          console.log(`📍 Updating charsPerPage: ${this.charsPerPage} → ${newDensity}`);
+          this.charsPerPage = newDensity;
+        }
+        
         // Calculate current character offset BEFORE clearing cached pages
         const currentOffset = this.calculateCharOffset();
         const oldTotalPages = this.chapterPages[this.currentChapterIndex]?.length || 0;
