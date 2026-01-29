@@ -551,21 +551,76 @@ export class SettingsUI {
         font-family: ${this.settings.fontFamily};
         width: ${textWidth}px;
       `;
-      // Use actual HTML line breaks instead of \n
-      testDiv.innerHTML = 'Test line<br>'.repeat(5); // 5 lines of text
+      
+      // Test with realistic paragraph that includes wrapping
+      // Use a mix of short and long lines to simulate real content
+      const testContent = [
+        'This is a test paragraph with multiple lines of varying lengths.',
+        'Some lines are short.',
+        'Other lines are significantly longer and will wrap to multiple visual lines when the text exceeds the available width of the container, which is important for accurate calibration.',
+        'Another short line.',
+        'And one more line that is moderately long and might wrap depending on the page width.'
+      ].join('<br>');
+      
+      testDiv.innerHTML = testContent;
       chapterText.appendChild(testDiv);
       
       const actualHeight = testDiv.scrollHeight;
-      const actualLineHeight = actualHeight / 5; // Divide by number of lines
+      const logicalLines = 5; // 5 paragraph breaks
+      const actualLineHeight = actualHeight / logicalLines;
+      
+      // Now measure visual lines by dividing actual height by single line height
+      const singleLineDiv = document.createElement('div');
+      singleLineDiv.style.cssText = testDiv.style.cssText;
+      singleLineDiv.innerHTML = 'Single line test';
+      chapterText.appendChild(singleLineDiv);
+      const singleLineHeight = singleLineDiv.scrollHeight;
+      chapterText.removeChild(singleLineDiv);
+      
+      const visualLines = Math.round(actualHeight / singleLineHeight);
+      const wrappingFactor = visualLines / logicalLines;
       
       chapterText.removeChild(testDiv);
       
       console.log('Line height verification:', {
         calculatedLineHeight: lineHeight,
         actualLineHeight: actualLineHeight,
+        singleLineHeight: singleLineHeight,
+        visualLines: visualLines,
+        logicalLines: logicalLines,
+        wrappingFactor: wrappingFactor.toFixed(2),
         difference: Math.abs(lineHeight - actualLineHeight),
         percentDiff: Math.round(Math.abs(lineHeight - actualLineHeight) / lineHeight * 100) + '%'
       });
+      
+      // Adjust lines per page calculation to account for wrapping
+      // Use the actual single line height for more accurate calculation
+      const adjustedRawLines = availableHeight / singleLineHeight;
+      const adjustedLinesPerPage = Math.floor(adjustedRawLines * 0.9);
+      
+      console.log('Wrapping-adjusted calculation:', {
+        originalLinesPerPage: linesPerPage,
+        adjustedLinesPerPage: adjustedLinesPerPage,
+        difference: adjustedLinesPerPage - linesPerPage
+      });
+      
+      // Use the adjusted value
+      var calibratedLines = adjustedLinesPerPage;
+      
+      // Calculate maximum capacity (1.5x the optimal for those who want denser pages)
+      var maxLines = Math.floor(calibratedLines * 1.5);
+      var clampedMax = Math.max(10, Math.min(100, maxLines));
+      
+      console.log('Max calculation:', { maxLines, clampedMax });
+      
+      // Clamp to reasonable range (10-100 lines)
+      var calibratedDensity = Math.max(10, Math.min(clampedMax, calibratedLines));
+    } else {
+      // Fallback if no chapterText available
+      var calibratedLines = linesPerPage;
+      var maxLines = Math.floor(linesPerPage * 1.5);
+      var clampedMax = Math.max(10, Math.min(100, maxLines));
+      var calibratedDensity = Math.max(10, Math.min(clampedMax, calibratedLines));
     }
     
     // Calculate average characters per line
@@ -580,23 +635,11 @@ export class SettingsUI {
     });
     
     // Validate calculations
-    if (isNaN(linesPerPage) || linesPerPage <= 0 || isNaN(avgCharsPerLine) || avgCharsPerLine <= 0) {
-      console.error('Invalid calculations:', { linesPerPage, avgCharsPerLine });
+    if (isNaN(calibratedDensity) || calibratedDensity <= 0 || isNaN(avgCharsPerLine) || avgCharsPerLine <= 0) {
+      console.error('Invalid calculations:', { calibratedDensity, avgCharsPerLine });
       this.showToast('Unable to calibrate - calculation error', 'error');
       return;
     }
-    
-    // Calculate lines per page as the density metric
-    const calibratedLines = linesPerPage;
-    
-    // Calculate maximum capacity (1.5x the optimal for those who want denser pages)
-    const maxLines = Math.floor(linesPerPage * 1.5);
-    const clampedMax = Math.max(10, Math.min(100, maxLines));
-    
-    console.log('Max calculation:', { maxLines, clampedMax });
-    
-    // Clamp to reasonable range (10-100 lines)
-    let calibratedDensity = Math.max(10, Math.min(clampedMax, calibratedLines));
     
     console.log('Final calibrated density:', calibratedDensity);
     
