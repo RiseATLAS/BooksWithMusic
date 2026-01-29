@@ -1035,6 +1035,13 @@ export class ReaderUI {
 
       // Update progress indicator
       this.updatePageIndicator();
+      
+      // Check for overflow after rendering
+      if (window.settingsManager && typeof window.settingsManager.checkAndAdjustForOverflow === 'function') {
+        setTimeout(() => {
+          window.settingsManager.checkAndAdjustForOverflow();
+        }, 150);
+      }
     } catch (error) {
       console.error(' Error rendering page:', error);
       console.error('Context:', {
@@ -1569,6 +1576,8 @@ export class ReaderUI {
     // Wait for animation to complete (700ms)
     await new Promise(resolve => setTimeout(resolve, 700));
     
+    console.log('🎬 Animation complete, cleaning up old page...');
+    
     // Remove old page and animation class
     if (chapterText && chapterText.parentElement) {
       chapterText.remove();
@@ -1604,6 +1613,8 @@ export class ReaderUI {
     } else {
       console.error('❌ settingsManager or checkAndAdjustForOverflow not available!');
     }
+    
+    console.log('✅ _flipToPage completed');
   }
 
   async goToNextPage() {
