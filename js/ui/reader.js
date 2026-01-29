@@ -5,15 +5,10 @@ import { saveBookProgress } from '../storage/firestore-storage.js';
 import { auth } from '../config/firebase-config.js';
 
 /**
- * ReaderUI - EPUB Reader with Character Offset-Based Page Restoration
+ * ReaderUI - EPUB Reader with Layout Engine-Based Pagination
  * 
- * KEY FEATURE: Robust page position tracking that survives pagination changes.
- * 
- * When users change reading settings (font size, line height, page density), 
- * the pagination changes but their reading position is preserved by tracking
- * character offset, not page numbers.
- * 
- * See: calculateCharOffset(), findPageByCharOffset(), saveProgress()
+ * Uses TextLayoutEngine for deterministic, overflow-proof pagination with
+ * block/line-based position tracking for robust restoration across settings changes.
  */
 export class ReaderUI {
   constructor(db) {
@@ -31,11 +26,10 @@ export class ReaderUI {
     
     // New page-based system
     this.chapterPages = {}; // { chapterIndex: [page1HTML, page2HTML, ...] }
+    this.chapterPageData = {}; // { chapterIndex: [pageData objects for position tracking] }
+    this.layoutEngine = null; // Will be initialized when needed
     this.charsPerPage = this.getPageDensityFromSettings(); // Get from settings or default
     this._isFlipping = false; // Prevent multiple simultaneous flips
-    
-    // Character offset tracking for robust page restoration
-    this.currentCharOffset = 0; // Character offset within current chapter (for robust page restoration)
     
     this._isTurningPage = false;
     this._pageGapPx = 48;
@@ -68,67 +62,42 @@ export class ReaderUI {
   }
 
   /**
-   * Calculate character offset within current chapter based on current page
-   * This allows robust page restoration when pagination changes (e.g., due to font size changes)
-   * Returns the offset at the START of the current page being read
+   * Get current block position (for position restoration after re-pagination)
    */
-  calculateCharOffset() {
-    const pages = this.chapterPages[this.currentChapterIndex];
-    if (!pages) return 0;
-    
-    // Sum up characters from all previous pages (up to but not including current page)
-    let offset = 0;
-    for (let i = 0; i < this.currentPageInChapter - 1; i++) {
-      if (pages[i]) {
-        // Strip HTML and count characters
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = pages[i];
-        offset += (tempDiv.textContent || '').length;
-      }
+  getBlockPosition() {
+    if (!this.layoutEngine || !this.chapterPageData) {
+      return { blockIndex: 0, lineInBlock: 0 };
     }
     
-    // Add half of the current page's characters to restore to middle of page
-    // This ensures we restore to the correct page even with slight pagination differences
-    if (pages[this.currentPageInChapter - 1]) {
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = pages[this.currentPageInChapter - 1];
-      const currentPageChars = (tempDiv.textContent || '').length;
-      offset += Math.floor(currentPageChars / 2);
+    const pageData = this.chapterPageData[this.currentChapterIndex];
+    if (!pageData || pageData.length === 0) {
+      return { blockIndex: 0, lineInBlock: 0 };
     }
     
-    return offset;
+    const pageIndex = this.currentPageInChapter - 1;
+    return this.layoutEngine.getBlockPositionForPage(pageData, pageIndex);
   }
 
   /**
-   * Find which page contains the given character offset after re-pagination
+   * Find page that contains the given block position after re-pagination
    */
-  findPageByCharOffset(chapterIndex, targetOffset) {
-    const pages = this.chapterPages[chapterIndex];
-    if (!pages || pages.length === 0) {
-      console.warn('findPageByCharOffset: No pages found for chapter', chapterIndex);
+  findPageByBlockPosition(chapterIndex, blockPosition) {
+    if (!this.layoutEngine || !this.chapterPageData) {
       return 1;
     }
     
-    console.log(`🔍 Finding page for offset ${targetOffset} in chapter ${chapterIndex} (${pages.length} total pages)`);
-    
-    let currentOffset = 0;
-    for (let pageIndex = 0; pageIndex < pages.length; pageIndex++) {
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = pages[pageIndex];
-      const pageChars = (tempDiv.textContent || '').length;
-      
-      if (currentOffset + pageChars >= targetOffset) {
-        // This page contains the target offset
-        console.log(`🔍 Found: page ${pageIndex + 1}, offset range: ${currentOffset}-${currentOffset + pageChars}`);
-        return pageIndex + 1; // Pages are 1-indexed
-      }
-      
-      currentOffset += pageChars;
+    const pageData = this.chapterPageData[chapterIndex];
+    if (!pageData || pageData.length === 0) {
+      return 1;
     }
     
-    // If offset is beyond last page, return last page
-    console.log(`🔍 Offset ${targetOffset} beyond last page (total chars: ${currentOffset}), returning page ${pages.length}`);
-    return pages.length;
+    const pageIndex = this.layoutEngine.findPageForBlockPosition(
+      pageData,
+      blockPosition.blockIndex || 0,
+      blockPosition.lineInBlock || 0
+    );
+    
+    return pageIndex + 1; // Convert to 1-indexed
   }
 
   async openBook(bookId) {
@@ -213,10 +182,7 @@ export class ReaderUI {
       this.currentChapterIndex =
         persistedProgress?.currentChapter ?? book.currentChapter ?? 0;
       
-      // Store the character offset for later restoration (after pagination)
-      const savedCharOffset = persistedProgress?.currentCharOffset ?? book.currentCharOffset ?? 0;
-      
-      // Temporarily use saved page number (will be corrected after pagination if offset exists)
+      // Use saved page number (will be corrected after pagination if block position exists)
       this.currentPageInChapter =
         persistedProgress?.currentPageInChapter ?? book.currentPageInChapter ?? 1;
 
@@ -232,22 +198,8 @@ export class ReaderUI {
       
       this.renderChapterList();
       
-      // Load the chapter (this will paginate it)
+      // Load the chapter (this will paginate it and restore position)
       await this.loadChapter(this.currentChapterIndex, { pageInChapter: this.currentPageInChapter, preservePage: true });
-      
-      // If we have a saved character offset, use it to find the correct page after re-pagination
-      // This ensures reading position is preserved even if pagination changes (e.g., font size change)
-      if (savedCharOffset > 0) {
-        const correctPage = this.findPageByCharOffset(this.currentChapterIndex, savedCharOffset);
-        if (correctPage !== this.currentPageInChapter) {
-          console.log(`� Restoring reading position: page ${this.currentPageInChapter} → ${correctPage} (based on character offset ${savedCharOffset})`);
-          this.currentPageInChapter = correctPage;
-          this.renderCurrentPage();
-          this.currentPage = this.calculateCurrentPageNumber();
-          this.totalPages = this.calculateTotalPages();
-          this.updatePageIndicator();
-        }
-      }
 
       // Setup event listeners
       this.setupEventListeners();
@@ -585,14 +537,15 @@ export class ReaderUI {
         return;
       }
       
-      // Calculate current character offset BEFORE re-pagination
-      const currentOffset = this.calculateCharOffset();
+      // Get current block position BEFORE re-pagination
+      const blockPosition = this.getBlockPosition();
       
       // Update internal setting
       this.charsPerPage = newDensity;
       
       // Clear cached pages for all chapters (force re-split)
       this.chapterPages = {};
+      this.chapterPageData = {};
       
       // Re-split and reload current chapter
       if (this.currentChapterIndex >= 0 && this.chapters.length > 0) {
@@ -601,8 +554,8 @@ export class ReaderUI {
           preservePage: true 
         });
         
-        // Restore position using character offset
-        const newPage = this.findPageByCharOffset(this.currentChapterIndex, currentOffset);
+        // Restore position using block position
+        const newPage = this.findPageByBlockPosition(this.currentChapterIndex, blockPosition);
         if (newPage !== this.currentPageInChapter) {
           this.currentPageInChapter = newPage;
           this.renderCurrentPage();
@@ -666,23 +619,28 @@ export class ReaderUI {
       const paginationAffectingChanges = ['fontSize', 'lineHeight', 'fontFamily', 'textAlign', 'pageWidth', 'pageDensity', 'calibration'];
       
       if (paginationAffectingChanges.includes(reason)) {
-        console.log(`📐 Layout changed (${reason}) - recalculating shift points...`);
+        console.log(`📐 Layout changed (${reason}) - recalculating with layout engine...`);
         console.log(`📍 Before re-pagination: chapter ${this.currentChapterIndex}, page ${this.currentPageInChapter}`);
         
-        // If pageDensity changed, update our internal charsPerPage from settings
-        if (reason === 'pageDensity' && window.settingsManager) {
-          const newDensity = window.settingsManager.settings.pageDensity;
-          console.log(`📍 Updating charsPerPage: ${this.charsPerPage} → ${newDensity}`);
-          this.charsPerPage = newDensity;
+        // Clear layout engine cache when font settings change
+        if (this.layoutEngine && ['fontSize', 'fontFamily'].includes(reason)) {
+          console.log('🧹 Clearing layout engine measurement cache');
+          this.layoutEngine.clearCache();
         }
         
-        // Calculate current character offset BEFORE clearing cached pages
-        const currentOffset = this.calculateCharOffset();
+        // Get current position using block-based tracking (more reliable!)
+        const currentPosition = this.getBlockPosition();
         const oldTotalPages = this.chapterPages[this.currentChapterIndex]?.length || 0;
-        console.log(`📍 Character offset calculated: ${currentOffset}, old total pages: ${oldTotalPages}`);
+        
+        if (currentPosition.isCharOffset) {
+          console.log(`📍 Current position: character offset ${currentPosition.charOffset}, old total pages: ${oldTotalPages}`);
+        } else {
+          console.log(`📍 Current position: block ${currentPosition.blockIndex}, line ${currentPosition.lineInBlock}, old total pages: ${oldTotalPages}`);
+        }
         
         // Now clear cached pages to force re-pagination
         this.chapterPages = {};
+        this.chapterPageData = {}; // Also clear page data
         
         // Re-load current chapter with new pagination
         if (this.currentChapterIndex >= 0 && this.chapters.length > 0) {
@@ -694,9 +652,9 @@ export class ReaderUI {
           const newTotalPages = this.chapterPages[this.currentChapterIndex]?.length || 0;
           console.log(`📍 After loadChapter: new total pages: ${newTotalPages}`);
           
-          // Restore position using character offset
-          const newPage = this.findPageByCharOffset(this.currentChapterIndex, currentOffset);
-          console.log(`📍 Page from character offset: ${newPage}, current page: ${this.currentPageInChapter}`);
+          // Restore position using block position (works with both old and new systems)
+          const newPage = this.findPageByBlockPosition(this.currentChapterIndex, currentPosition);
+          console.log(`📍 Restored to page ${newPage} from position`, currentPosition);
           
           if (newPage !== this.currentPageInChapter) {
             this.currentPageInChapter = newPage;
@@ -714,156 +672,232 @@ export class ReaderUI {
   }
 
   /**
-   * Split chapter content into pages based on character count
-   * Preserves HTML structure and breaks at natural boundaries
+   * Split chapter content into pages using deterministic line-based layout
+   * GUARANTEED NO OVERFLOW - lines are pre-measured to fit exactly
    */
   splitChapterIntoPages(chapterContent, chapterTitle) {
     try {
-      const pages = [];
-      const charsPerPage = this.charsPerPage;
+      console.log('📄 Splitting chapter with layout engine...');
       
-      // Parse HTML to extract elements
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = chapterContent;
+      // Initialize layout engine if not already done
+      if (!this.layoutEngine) {
+        // Import layout engine dynamically
+        if (typeof TextLayoutEngine === 'undefined') {
+          console.error('TextLayoutEngine not loaded!');
+          return this._fallbackSplitPages(chapterContent, chapterTitle);
+        }
+        this.layoutEngine = new TextLayoutEngine();
+      }
       
-      // Get all actual content elements, not containers
-      // First, get paragraphs and headings (most common content)
-      let elements = Array.from(tempDiv.querySelectorAll('p, h1, h2, h3, h4, h5, h6'));
-    
-      // If no paragraphs/headings, look for any divs with direct text content
-      if (elements.length === 0) {
-        const allDivs = Array.from(tempDiv.querySelectorAll('div'));
-        elements = allDivs.filter(div => {
-          // Keep divs that have direct text content (not just nested elements)
-          const hasDirectText = Array.from(div.childNodes).some(node => 
-            node.nodeType === Node.TEXT_NODE && node.textContent.trim().length > 0
-          );
-          return hasDirectText;
-        });
+      // Get current settings from settingsManager
+      const settings = window.settingsManager ? window.settingsManager.settings : this._getDefaultSettings();
+      const fontSize = settings.fontSize || 18;
+      const fontFamily = settings.fontFamily || 'Georgia, "Times New Roman", serif';
+      const lineHeightMultiplier = settings.lineHeight || 1.6;
+      const lineHeight = fontSize * lineHeightMultiplier;
+      
+      // Get page dimensions
+      const pageWidth = settings.pageWidth || 800;
+      const textWidth = pageWidth - (48 * 2); // Subtract horizontal padding
+      
+      // Calculate available height and max lines per page
+      const pageHeight = this._calculatePageHeight();
+      const textHeight = pageHeight - (48 + 96); // Subtract vertical padding (top + bottom)
+      const maxLinesPerPage = Math.floor(textHeight / lineHeight);
+      
+      // Validate
+      if (maxLinesPerPage < 5) {
+        console.error('❌ Not enough space for content - falling back');
+        return this._fallbackSplitPages(chapterContent, chapterTitle);
       }
-    
-      // If still nothing, try top-level children (but filter out large containers)
-      if (elements.length === 0) {
-        elements = Array.from(tempDiv.children).filter(el => {
-          const textLength = (el.textContent || '').trim().length;
-          const childCount = el.children.length;
-          // Skip if it's a huge container with lots of children (wrapper div)
-          return !(textLength > 10000 && childCount > 20);
-        });
-      }
-    
-      // Filter out empty elements
-      elements = elements.filter(el => {
-        const text = el.textContent?.trim() || '';
-        return text.length > 0;
+      
+      console.log('📐 Page layout parameters:', {
+        pageWidth,
+        textWidth,
+        pageHeight,
+        textHeight,
+        fontSize,
+        lineHeight,
+        maxLinesPerPage
       });
-    
-      // Fallback: if no elements found, treat entire content as plain text
-      if (elements.length === 0) {
-        const textContent = tempDiv.textContent.trim();
-        if (textContent) {
-          // Create a paragraph with the plain text content
-          const p = document.createElement('p');
-          p.textContent = textContent; // This safely handles all text
-          tempDiv.innerHTML = '';
-          tempDiv.appendChild(p);
-          elements = Array.from(tempDiv.children);
-        } else {
-          elements = [];
-        }
-      }
       
-      let currentPage = {
-        html: '',
-        charCount: 0
-      };
+      // Parse HTML content into structured blocks
+      const contentBlocks = this._parseContentToBlocks(chapterContent, chapterTitle);
+      console.log(`📚 Parsed ${contentBlocks.length} content blocks`);
       
-      // Add chapter title to first page
-      const titleHTML = `<h2 class="chapter-heading">${this.escapeHtml(chapterTitle)}</h2>`;
-      currentPage.html += titleHTML;
-      currentPage.charCount += chapterTitle.length;
+      // Layout blocks into pages using the engine
+      const pageData = this.layoutEngine.layoutIntoPages(
+        contentBlocks,
+        textWidth,
+        maxLinesPerPage,
+        fontSize,
+        fontFamily,
+        lineHeight
+      );
       
-      for (const element of elements) {
-        const elementHTML = element.outerHTML;
-        const elementText = element.textContent || '';
-        const elementChars = elementText.length;
-        
-        // Check if adding this element would overflow the page
-        if (currentPage.charCount + elementChars > charsPerPage && currentPage.charCount > 0) {
-          // Current page is full, save it and start a new page
-          pages.push(currentPage.html);
-          currentPage = { html: '', charCount: 0 };
-          
-          // Now check if this element itself is too large for one page
-          if (elementChars > charsPerPage) {
-            // Split large paragraphs by sentences
-            if (element.tagName === 'P') {
-              const sentences = this._splitIntoSentences(elementText);
-              let paragraphBuffer = '';
-              
-              for (const sentence of sentences) {
-                if (currentPage.charCount + paragraphBuffer.length + sentence.length > charsPerPage && currentPage.charCount > 0) {
-                  // Save current page with accumulated paragraph
-                  if (paragraphBuffer) {
-                    currentPage.html += `<p>${paragraphBuffer}</p>`;
-                    currentPage.charCount += paragraphBuffer.length;
-                  }
-                  pages.push(currentPage.html);
-                  currentPage = { html: '', charCount: 0 };
-                  paragraphBuffer = sentence;
-                } else {
-                  paragraphBuffer += (paragraphBuffer ? ' ' : '') + sentence;
-                }
-              }
-              
-              // Add remaining paragraph content to current page
-              if (paragraphBuffer) {
-                currentPage.html += `<p>${paragraphBuffer}</p>`;
-                currentPage.charCount += paragraphBuffer.length;
-              }
-            } else {
-              // Non-paragraph large element - add as is on its own page
-              pages.push(elementHTML);
-              currentPage = { html: '', charCount: 0 };
-            }
-          } else {
-            // Element fits on a page, add to the new page
-            currentPage.html += elementHTML;
-            currentPage.charCount += elementChars;
-          }
-        } else {
-          // Element fits on current page, add it
-          currentPage.html += elementHTML;
-          currentPage.charCount += elementChars;
-        }
-      }
+      console.log(`📄 Created ${pageData.length} pages with ${maxLinesPerPage} lines each`);
       
-      // Add remaining content as final page
-      if (currentPage.html.trim()) {
-        pages.push(currentPage.html);
-      }
+      // Convert page data to HTML
+      const pages = pageData.map((page, index) => {
+        const html = this.layoutEngine.pageToHTML(page);
+        return html;
+      });
       
-      // Ensure at least one page
-      const finalPages = pages.length > 0 ? pages : ['<p>Empty chapter</p>'];
+      // Store page data for position tracking
+      this.chapterPageData = this.chapterPageData || {};
+      this.chapterPageData[this.currentChapterIndex] = pageData;
       
-      return finalPages;
+      console.log(`✅ Chapter split into ${pages.length} pages`);
+      
+      return pages.length > 0 ? pages : ['<div class="page-lines"><p>Empty chapter</p></div>'];
+      
     } catch (error) {
-      console.error(` Error splitting chapter "${chapterTitle}":`, error);
-      console.error('Stack trace:', error.stack);
-      // Return a fallback page with error message
-      return [`<div class="error-page">
-        <h2>Error Loading Chapter</h2>
-        <p>Failed to split chapter "${this.escapeHtml(chapterTitle)}" into pages.</p>
-        <p>${this.escapeHtml(error.message)}</p>
-      </div>`];
+      console.error('❌ Error in splitChapterIntoPages:', error);
+      console.error('Stack:', error.stack);
+      return this._fallbackSplitPages(chapterContent, chapterTitle);
     }
+  }
+
+  /**
+   * Parse HTML content into structured content blocks
+   */
+  _parseContentToBlocks(chapterContent, chapterTitle) {
+    const blocks = [];
+    
+    // Add chapter title as first block
+    if (chapterTitle && chapterTitle.trim()) {
+      blocks.push({
+        type: 'h2',
+        text: chapterTitle,
+        htmlTag: 'h2'
+      });
+    }
+    
+    // Parse HTML to extract elements
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = chapterContent;
+    
+    // Get all content elements
+    const elements = Array.from(tempDiv.querySelectorAll('p, h1, h2, h3, h4, h5, h6, div'));
+    
+    for (const element of elements) {
+      const text = (element.textContent || '').trim();
+      
+      // Skip empty elements
+      if (!text) continue;
+      
+      // Determine block type
+      const tagName = element.tagName.toLowerCase();
+      const type = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(tagName) ? tagName : 'p';
+      
+      blocks.push({
+        type: type,
+        text: text,
+        htmlTag: tagName === 'div' ? 'p' : tagName
+      });
+    }
+    
+    // Fallback: if no elements found, treat entire content as plain text
+    if (blocks.length === 1) { // Only has title
+      const textContent = tempDiv.textContent.trim();
+      if (textContent && textContent !== chapterTitle) {
+        blocks.push({
+          type: 'p',
+          text: textContent,
+          htmlTag: 'p'
+        });
+      }
+    }
+    
+    return blocks;
+  }
+
+  /**
+   * Calculate available page height based on current viewport
+   */
+  _calculatePageHeight() {
+    const isFullscreen = document.fullscreenElement || 
+                        document.webkitFullscreenElement || 
+                        document.mozFullScreenElement || 
+                        document.msFullscreenElement;
+    
+    if (isFullscreen) {
+      // Fullscreen: 100vh - viewport padding
+      return window.innerHeight - 88; // 88 = 20+20 (viewport) + 16+32 (chapter-text)
+    } else {
+      // Normal mode: use page container height
+      const pageContainer = document.querySelector('.page-container');
+      return pageContainer ? pageContainer.clientHeight : 765;
+    }
+  }
+
+  /**
+   * Get default settings when settingsManager is not available
+   */
+  _getDefaultSettings() {
+    return {
+      fontSize: 18,
+      fontFamily: 'Georgia, "Times New Roman", serif',
+      lineHeight: 1.6,
+      pageWidth: 800
+    };
+  }
+
+  /**
+   * Fallback pagination using old character-counting method
+   */
+  _fallbackSplitPages(chapterContent, chapterTitle) {
+    console.warn('⚠️ Using fallback pagination method');
+    const pages = [];
+    const charsPerPage = this.charsPerPage || 2000;
+    
+    // Parse HTML to extract elements
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = chapterContent;
+    
+    let elements = Array.from(tempDiv.querySelectorAll('p, h1, h2, h3, h4, h5, h6'));
+    
+    if (elements.length === 0) {
+      const textContent = tempDiv.textContent.trim();
+      if (textContent) {
+        const p = document.createElement('p');
+        p.textContent = textContent;
+        elements = [p];
+      }
+    }
+    
+    let currentPage = { html: '', charCount: 0 };
+    
+    // Add chapter title
+    const titleHTML = `<h2 class="chapter-heading">${this.escapeHtml(chapterTitle)}</h2>`;
+    currentPage.html += titleHTML;
+    currentPage.charCount += chapterTitle.length;
+    
+    for (const element of elements) {
+      const elementHTML = element.outerHTML;
+      const elementText = element.textContent || '';
+      const elementChars = elementText.length;
+      
+      if (currentPage.charCount + elementChars > charsPerPage && currentPage.charCount > 0) {
+        pages.push(currentPage.html);
+        currentPage = { html: elementHTML, charCount: elementChars };
+      } else {
+        currentPage.html += elementHTML;
+        currentPage.charCount += elementChars;
+      }
+    }
+    
+    if (currentPage.html.trim()) {
+      pages.push(currentPage.html);
+    }
+    
+    return pages.length > 0 ? pages : ['<p>Empty chapter</p>'];
   }
 
   /**
    * Split text into sentences for better page breaks
    */
   _splitIntoSentences(text) {
-    // Split on sentence boundaries (.!?) followed by space
     const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
     return sentences.map(s => s.trim()).filter(s => s.length > 0);
   }
@@ -1035,13 +1069,6 @@ export class ReaderUI {
 
       // Update progress indicator
       this.updatePageIndicator();
-      
-      // Check for overflow after rendering
-      if (window.settingsManager && typeof window.settingsManager.checkAndAdjustForOverflow === 'function') {
-        setTimeout(() => {
-          window.settingsManager.checkAndAdjustForOverflow();
-        }, 150);
-      }
     } catch (error) {
       console.error(' Error rendering page:', error);
       console.error('Context:', {
@@ -1473,13 +1500,9 @@ export class ReaderUI {
 
       const progress = this.totalPages > 0 ? (this.currentPage / this.totalPages) * 100 : 0;
       
-      // Calculate character offset for robust page restoration
-      this.currentCharOffset = this.calculateCharOffset();
-      
       const progressData = {
         currentChapter: this.currentChapterIndex,
         currentPageInChapter: this.currentPageInChapter,
-        currentCharOffset: this.currentCharOffset, // Save character offset
         progress: progress
       };
       
@@ -1576,8 +1599,6 @@ export class ReaderUI {
     // Wait for animation to complete (700ms)
     await new Promise(resolve => setTimeout(resolve, 700));
     
-    console.log('🎬 Animation complete, cleaning up old page...');
-    
     // Remove old page and animation class
     if (chapterText && chapterText.parentElement) {
       chapterText.remove();
@@ -1586,35 +1607,15 @@ export class ReaderUI {
     
     // Restore scrollbar
     pageViewport.classList.remove('flipping');
-    
-    // Clean up any duplicate chapter-text elements that might have accumulated
+     // Clean up any duplicate chapter-text elements
     const allChapterTexts = pageViewport.querySelectorAll('.chapter-text');
     if (allChapterTexts.length > 1) {
-      console.warn(`⚠️ Found ${allChapterTexts.length} chapter-text elements, cleaning up...`);
       allChapterTexts.forEach((element, index) => {
         if (index < allChapterTexts.length - 1) {
           element.remove();
-          console.log(`  Removed duplicate chapter-text element ${index + 1}`);
         }
       });
     }
-    
-    // Check for overflow AFTER animation completes and old page is removed
-    console.log('🔍 Attempting to run overflow check...', { 
-      hasSettingsManager: !!window.settingsManager,
-      hasCheckFunction: !!(window.settingsManager?.checkAndAdjustForOverflow)
-    });
-    
-    if (window.settingsManager && typeof window.settingsManager.checkAndAdjustForOverflow === 'function') {
-      setTimeout(() => {
-        console.log('🔍 Running overflow check now...');
-        window.settingsManager.checkAndAdjustForOverflow();
-      }, 100);
-    } else {
-      console.error('❌ settingsManager or checkAndAdjustForOverflow not available!');
-    }
-    
-    console.log('✅ _flipToPage completed');
   }
 
   async goToNextPage() {

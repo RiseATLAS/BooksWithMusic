@@ -524,6 +524,10 @@
     <!-- Toast Notifications -->
     <div id="toast-container" class="toast-container"></div>
 
+    <!-- Load TextLayoutEngine first (non-module script) -->
+    <script src="js/core/text-layout-engine.js"></script>
+    
+    <!-- Then load app modules -->
     <script type="module" src="js/main.js"></script>
 </body>
 </html>

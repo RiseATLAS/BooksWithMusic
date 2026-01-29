@@ -1063,7 +1063,7 @@ body.reader-page::-webkit-scrollbar {
   backdrop-filter: blur(20px);
   padding: 0.5rem 1.5rem;
   border-radius: 20px;
-  border: 1px solid rgba(var(--border-rgb, 0, 0, 0), 0.1);
+  border: 1px solid rgba(var(--border, 0, 0, 0), 0.1);
   pointer-events: all;
   opacity: 0.7;
   transition: opacity 0.3s ease;
@@ -2464,7 +2464,7 @@ html:-ms-fullscreen .page-indicator,
 .ios-fullscreen-tip {
   margin-top: 1.5rem;
   padding: 1rem;
-  background: rgba(99, 102, 241, 0.1);
+   background: rgba(99, 102, 241, 0.1);
   border-radius: 8px;
   border-left: 3px solid var(--accent);
 }
@@ -2508,4 +2508,49 @@ html:-ms-fullscreen .page-indicator,
 
 .setting-note {
   opacity: 0.8;
+}
+
+/* Layout Engine Page Styles */
+.page-lines {
+  /* Container for deterministically laid-out lines */
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.page-lines p,
+.page-lines h1,
+.page-lines h2,
+.page-lines h3,
+.page-lines h4,
+.page-lines h5,
+.page-lines h6 {
+  margin: 0;
+  padding: 0;
+}
+
+.page-lines .h1 {
+  font-size: 2em;
+  font-weight: bold;
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+.page-lines .h2 {
+  font-size: 1.5em;
+  font-weight: bold;
+  margin-top: 0.4em;
+  margin-bottom: 0.4em;
+}
+
+.page-lines .h3 {
+  font-size: 1.17em;
+  font-weight: bold;
+  margin-top: 0.3em;
+  margin-bottom: 0.3em;
+}
+
+.page-lines .line-spacing {
+  height: 1em;
+  /* Empty div for spacing between blocks */
 }
