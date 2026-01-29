@@ -1770,6 +1770,21 @@ body.reader-page::-webkit-scrollbar {
   left: 0;
 }
 
+/* Hide page indicator (display options) in fullscreen mode - all devices */
+:fullscreen .page-indicator,
+:-webkit-full-screen .page-indicator,
+:-moz-full-screen .page-indicator,
+:-ms-fullscreen .page-indicator {
+  display: none !important;
+}
+
+/* Also hide on iOS fullscreen (standalone mode - added to home screen) */
+@media all and (display-mode: standalone) {
+  .page-indicator {
+    display: none !important;
+  }
+}
+
 /* Mobile fullscreen - controls hidden by default, tap center to toggle */
 @media (max-width: 768px) {
   :fullscreen .reader-header,
