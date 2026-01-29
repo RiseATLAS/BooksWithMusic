@@ -568,6 +568,18 @@ export class SettingsUI {
       const computedLineHeight = parseFloat(computedStyle.lineHeight);
       const computedPaddingTop = parseFloat(computedStyle.paddingTop);
       const computedPaddingBottom = parseFloat(computedStyle.paddingBottom);
+      const computedMarginTop = parseFloat(computedStyle.marginTop);
+      const computedMarginBottom = parseFloat(computedStyle.marginBottom);
+      
+      // Get paragraph spacing (check first <p> element)
+      const firstParagraph = chapterText.querySelector('p');
+      let paragraphMargin = 0;
+      let paragraphCount = 0;
+      if (firstParagraph) {
+        const pStyle = window.getComputedStyle(firstParagraph);
+        paragraphMargin = parseFloat(pStyle.marginBottom) || 0;
+        paragraphCount = chapterText.querySelectorAll('p').length;
+      }
       
       console.log('📊 REAL PAGE MEASUREMENTS:', {
         scrollHeight: actualScrollHeight,
@@ -577,7 +589,12 @@ export class SettingsUI {
         computedLineHeight,
         paddingTop: computedPaddingTop,
         paddingBottom: computedPaddingBottom,
+        marginTop: computedMarginTop,
+        marginBottom: computedMarginBottom,
         totalPadding: computedPaddingTop + computedPaddingBottom,
+        paragraphMargin,
+        paragraphCount,
+        estimatedParagraphSpacing: paragraphMargin * paragraphCount,
         contentArea: actualClientHeight - computedPaddingTop - computedPaddingBottom,
         isOverflowing: actualScrollHeight > actualClientHeight,
         overflowAmount: actualScrollHeight - actualClientHeight
@@ -593,6 +610,29 @@ export class SettingsUI {
         rawLineCount: (effectiveHeight / computedLineHeight).toFixed(2),
         flooredLines: linesThatFit,
         note: 'This is how many lines actually fit in the visible area'
+      });
+      
+      // MANUAL COUNT VERIFICATION: Try to count actual rendered lines
+      // Create a test span to measure single line height
+      const testSpan = document.createElement('span');
+      testSpan.style.cssText = window.getComputedStyle(chapterText).cssText;
+      testSpan.style.position = 'absolute';
+      testSpan.style.visibility = 'hidden';
+      testSpan.style.whiteSpace = 'nowrap';
+      testSpan.textContent = 'M'; // Use 'M' as it's typically the tallest character
+      chapterText.appendChild(testSpan);
+      const singleCharHeight = testSpan.offsetHeight;
+      chapterText.removeChild(testSpan);
+      
+      // Now count how many of those fit
+      const manualLineCount = Math.floor(effectiveHeight / singleCharHeight);
+      
+      console.log('🧪 MANUAL VERIFICATION:', {
+        singleCharHeight,
+        effectiveHeight,
+        manualLineCount,
+        difference: manualLineCount - linesThatFit,
+        note: 'Measuring actual rendered character height'
       });
       
       // Also calculate how many lines are in the current content (including overflow)
