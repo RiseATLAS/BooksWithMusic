@@ -770,69 +770,97 @@ export class SettingsUI {
       return;
     }
 
-    const chapterStyles = window.getComputedStyle(chapterText);
+    // Get actual dimensions
     const containerHeight = pageContainer.clientHeight;
-    const paddingTop = parseFloat(chapterStyles.paddingTop) || 0;
-    const paddingBottom = parseFloat(chapterStyles.paddingBottom) || 0;
-    const availableHeight = containerHeight - paddingTop - paddingBottom;
-    let contentHeight = chapterText.scrollHeight;
-    const tolerance = 10;
+    const scrollHeight = chapterText.scrollHeight;
+    const clientHeight = chapterText.clientHeight;
     
-    console.log('🔍 OVERFLOW CHECK: Initial measurement', {
+    // More accurate overflow detection: compare scrollHeight to clientHeight
+    // scrollHeight includes all content, even if it overflows
+    // clientHeight is the visible area
+    const overflow = scrollHeight - clientHeight;
+    const tolerance = 5; // Reduce tolerance for more sensitive detection
+    const isOverflowing = overflow > tolerance;
+    
+    console.log('🔍 OVERFLOW CHECK: Measurements', {
       containerHeight,
-      paddingTop,
-      paddingBottom,
-      availableHeight,
-      contentHeight,
-      overflow: contentHeight - availableHeight,
-      isOverflowing: contentHeight > availableHeight + tolerance
+      scrollHeight,
+      clientHeight,
+      overflow,
+      tolerance,
+      isOverflowing
     });
     
+    if (!isOverflowing) {
+      console.log('✅ OVERFLOW CHECK: No overflow detected, page fits correctly');
+      return;
+    }
+    
     let adjusted = false;
-    let safetyMargin = 0.85; // 15% margin for first try
+    let safetyMargin = 0.88; // 12% margin for first try
     let tries = 0;
     let maxTries = 5;
+    let currentScrollHeight = scrollHeight;
+    let currentClientHeight = clientHeight;
     
-    while (contentHeight > availableHeight + tolerance && tries < maxTries) {
-      const overflow = contentHeight - availableHeight;
-      console.log(`⚠️ OVERFLOW DETECTED (try ${tries + 1}/${maxTries}): ${overflow}px beyond available space (Content:${contentHeight}px vs Available:${availableHeight}px)`);
-      const overflowRatio = availableHeight / contentHeight;
+    while (currentScrollHeight > currentClientHeight + tolerance && tries < maxTries) {
+      const currentOverflow = currentScrollHeight - currentClientHeight;
+      console.log(`⚠️ OVERFLOW DETECTED (try ${tries + 1}/${maxTries}): ${currentOverflow}px overflow (scrollHeight:${currentScrollHeight}px vs clientHeight:${currentClientHeight}px)`);
+      
+      const overflowRatio = currentClientHeight / currentScrollHeight;
       const currentDensity = this.settings.pageDensity;
       const adjustedDensity = Math.floor(currentDensity * overflowRatio * safetyMargin);
-      const newDensity = Math.max(10, adjustedDensity);
+      const newDensity = Math.max(100, adjustedDensity); // Minimum 100 chars
+      
       if (newDensity < currentDensity) {
         console.log(`📉 Auto-adjusting density: ${currentDensity} → ${newDensity} chars/page (reduction: ${Math.round((1 - newDensity/currentDensity) * 100)}%)`);
         this.settings.pageDensity = newDensity;
+        
         // Update UI
         const pageDensityInput = document.getElementById('page-density');
         const pageDensityValue = document.getElementById('page-density-value');
         if (pageDensityInput) pageDensityInput.value = newDensity;
         if (pageDensityValue) pageDensityValue.textContent = `${newDensity} chars`;
+        
         this.saveSettings();
         this.applyPageDensity();
         this._emitLayoutChanged('pageDensity');
         adjusted = true;
-        // Wait for DOM/layout update before re-checking
-        await new Promise(r => setTimeout(r, 100));
-        contentHeight = chapterText.scrollHeight;
-        console.log(`🔄 Re-measured after adjustment: contentHeight=${contentHeight}px`);
+        
+        // Wait longer for DOM/layout update before re-checking
+        await new Promise(r => setTimeout(r, 200));
+        
+        // Re-measure
+        const updatedChapterText = document.querySelector('.chapter-text');
+        if (updatedChapterText) {
+          currentScrollHeight = updatedChapterText.scrollHeight;
+          currentClientHeight = updatedChapterText.clientHeight;
+          console.log(`🔄 Re-measured after adjustment: scrollHeight=${currentScrollHeight}px, clientHeight=${currentClientHeight}px, overflow=${currentScrollHeight - currentClientHeight}px`);
+        }
+        
         tries++;
         // After first try, use a more aggressive margin
-        safetyMargin = 0.80;
+        safetyMargin = 0.85;
       } else {
         console.log('⚠️ Cannot reduce density further (would be same or less than minimum)');
         break;
       }
     }
     
-    if (adjusted && contentHeight > availableHeight + tolerance) {
-      console.log('❌ OVERFLOW CHECK: Failed to fit content after max tries');
-      this.showToast('Could not fit page content after multiple adjustments. Please reduce page density.', 'error');
-    } else if (adjusted) {
-      console.log(`✅ OVERFLOW CHECK: Successfully adjusted to ${this.settings.pageDensity} chars/page`);
-      this.showToast(`Auto-adjusted page density to fit viewport (${this.settings.pageDensity} chars)`, 'info');
-    } else {
-      console.log('✅ OVERFLOW CHECK: No overflow detected, page fits correctly');
+    // Final check
+    const finalChapterText = document.querySelector('.chapter-text');
+    if (finalChapterText) {
+      const finalScrollHeight = finalChapterText.scrollHeight;
+      const finalClientHeight = finalChapterText.clientHeight;
+      const finalOverflow = finalScrollHeight - finalClientHeight;
+      
+      if (adjusted && finalOverflow > tolerance) {
+        console.log(`❌ OVERFLOW CHECK: Failed to fit content after max tries. Final overflow: ${finalOverflow}px`);
+        this.showToast('Could not fit page content after multiple adjustments. Please reduce page density.', 'error');
+      } else if (adjusted) {
+        console.log(`✅ OVERFLOW CHECK: Successfully adjusted to ${this.settings.pageDensity} chars/page`);
+        this.showToast(`Auto-adjusted page density to fit viewport (${this.settings.pageDensity} chars)`, 'info');
+      }
     }
   }
 
