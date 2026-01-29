@@ -1814,7 +1814,8 @@ html:-ms-fullscreen .page-indicator,
   padding: 16px 24px 32px !important; /* Minimal internal padding */
   top: 20px !important; /* Match reduced viewport padding */
   bottom: 20px !important;
-  min-height: calc(100vh - 100px) !important; /* Maximize vertical space */
+  height: calc(100vh - 40px - 16px - 32px) !important; /* Full height minus viewport padding and internal padding */
+  min-height: calc(100vh - 40px - 16px - 32px) !important; /* Force full height usage */
 }
 
 /* Mobile fullscreen - controls hidden by default, tap center to toggle */
