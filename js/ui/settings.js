@@ -479,13 +479,6 @@ export class SettingsUI {
     
     console.log('Container dimensions:', { containerWidth, containerHeight });
     
-    // Cap page width to current container width (don't exceed available space)
-    // Use 95% of container width to leave some breathing room
-    const maxPageWidth = Math.floor(containerWidth * 0.95);
-    const calibratedPageWidth = Math.max(400, Math.min(maxPageWidth, 2000));
-    
-    console.log('Page width calculation:', { maxPageWidth, calibratedPageWidth });
-    
     if (containerHeight <= 100) {
       console.error('Container too small:', containerHeight);
       this.showToast('Page container is too small to calibrate', 'error');
@@ -689,7 +682,6 @@ export class SettingsUI {
     console.log('Final calibrated density:', calibratedDensity);
     
     console.log('📋 CALIBRATION SUMMARY:', {
-      pageWidth: calibratedPageWidth,
       charsPerPage: calibratedDensity,
       viewport: `${containerWidth}×${containerHeight}px`,
       fontSize: fontSize,
@@ -697,18 +689,10 @@ export class SettingsUI {
       method: calibrationMethod || 'unknown'
     });
     
-    // Update page width first
-    this.settings.pageWidth = calibratedPageWidth;
-    const pageWidthInput = document.getElementById('page-width');
-    const pageWidthValue = document.getElementById('page-width-value');
-    if (pageWidthInput) pageWidthInput.value = calibratedPageWidth;
-    if (pageWidthValue) pageWidthValue.textContent = `${calibratedPageWidth}px`;
-    this.applyPageWidth();
-    
-    // Apply the calculated density
+    // Apply the calculated density (vertical text only - no page width changes)
     this.settings.pageDensity = calibratedDensity;
     
-    // Update page density UI (no need to set max - already set in HTML to 10000)
+    // Update page density UI
     const pageDensityInput = document.getElementById('page-density');
     const pageDensityValue = document.getElementById('page-density-value');
     if (pageDensityInput) {
@@ -785,7 +769,7 @@ export class SettingsUI {
       const newDensity = Math.max(10, adjustedDensity);
       
       if (newDensity < currentDensity) {
-        console.log(`📉 Auto-adjusting density: ${currentDensity} → ${newDensity} lines/page (reduction: ${Math.round((1 - newDensity/currentDensity) * 100)}%)`);
+        console.log(`📉 Auto-adjusting density: ${currentDensity} → ${newDensity} chars/page (reduction: ${Math.round((1 - newDensity/currentDensity) * 100)}%)`);
         
         this.settings.pageDensity = newDensity;
         
