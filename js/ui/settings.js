@@ -839,10 +839,6 @@ export class SettingsUI {
         containerHeight: Math.round(containerRect.height) + 'px'
       });
       
-      // Track this check
-      this._lastCheckedPage = currentPageKey;
-      this._lastCheckWasOverflow = isOverflowing;
-      
       if (!isOverflowing) {
         console.log('✅ OVERFLOW CHECK: No overflow detected, all content visible');
         return;
