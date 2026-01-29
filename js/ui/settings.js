@@ -892,9 +892,10 @@ export class SettingsUI {
       console.log(`✅ OVERFLOW CHECK: Triggering re-pagination with new density`);
       this.showToast(`Auto-adjusting page density to ${newDensity} chars`, 'info');
       
-      // Trigger re-pagination by emitting layout change event
+      // Trigger re-pagination by emitting layout change event with 'pageDensity' reason
+      // This ensures the reader's layout change listener will reload the chapter
       setTimeout(() => {
-        this._emitLayoutChanged('overflow-adjustment');
+        this._emitLayoutChanged('pageDensity');
       }, 100);
       
     } finally {
