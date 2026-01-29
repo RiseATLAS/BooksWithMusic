@@ -540,7 +540,7 @@ export class SettingsUI {
       note: isOverflowing ? 'Current page is overflowing - calculating based on available space' : 'Based on container height'
     });
     
-    // Measure actual rendered line height with wrapping
+    // Measure actual rendered content
     if (chapterText && chapterText.textContent.trim()) {
       // Get actual content from the page
       const actualContent = chapterText.textContent.trim();
@@ -557,50 +557,68 @@ export class SettingsUI {
         return;
       }
       
-      // Use actual page content for measurement
-      const originalScrollHeight = chapterText.scrollHeight;
+      // Get all computed styles and measurements
+      const computedStyle = window.getComputedStyle(chapterText);
+      const actualScrollHeight = chapterText.scrollHeight;
+      const actualClientHeight = chapterText.clientHeight;
+      const actualOffsetHeight = chapterText.offsetHeight;
       
-      // Calculate single line height from the actual content
-      // We know the total height and can estimate lines based on font metrics
-      const theoreticalLineHeight = fontSize * lineHeightMultiplier;
+      // Get computed font metrics
+      const computedFontSize = parseFloat(computedStyle.fontSize);
+      const computedLineHeight = parseFloat(computedStyle.lineHeight);
+      const computedPaddingTop = parseFloat(computedStyle.paddingTop);
+      const computedPaddingBottom = parseFloat(computedStyle.paddingBottom);
       
-      // Use the theoretical line height for calculation
-      const singleLineHeight = theoreticalLineHeight;
-      
-      // Calculate visual lines in actual content
-      const visualLinesInContent = Math.round(originalScrollHeight / singleLineHeight);
-      
-      console.log('Actual content analysis:', {
-        contentLength: actualContent.length,
-        originalScrollHeight,
-        fontSize,
-        lineHeightMultiplier,
-        theoreticalLineHeight: theoreticalLineHeight.toFixed(2),
-        visualLinesInContent,
-        note: 'Measuring real page content with wrapping'
+      console.log('📊 REAL PAGE MEASUREMENTS:', {
+        scrollHeight: actualScrollHeight,
+        clientHeight: actualClientHeight,
+        offsetHeight: actualOffsetHeight,
+        computedFontSize,
+        computedLineHeight,
+        paddingTop: computedPaddingTop,
+        paddingBottom: computedPaddingBottom,
+        totalPadding: computedPaddingTop + computedPaddingBottom,
+        contentArea: actualClientHeight - computedPaddingTop - computedPaddingBottom,
+        isOverflowing: actualScrollHeight > actualClientHeight,
+        overflowAmount: actualScrollHeight - actualClientHeight
       });
       
-      // Adjust lines per page calculation using theoretical line height
-      const adjustedRawLines = availableHeight / singleLineHeight;
-      const adjustedLinesPerPage = Math.floor(adjustedRawLines * 0.85); // 15% margin for spacing and safety
+      // Calculate how many lines actually fit in the visible area
+      const effectiveHeight = actualClientHeight - computedPaddingTop - computedPaddingBottom;
+      const linesThatFit = Math.floor(effectiveHeight / computedLineHeight);
       
-      console.log('Calibration calculation:', {
-        availableHeight,
-        theoreticalLineHeight: singleLineHeight.toFixed(2),
-        rawLines: adjustedRawLines.toFixed(2),
-        safetyMargin: '15%',
-        calculation: `floor(${adjustedRawLines.toFixed(2)} × 0.85) = floor(${(adjustedRawLines * 0.85).toFixed(2)})`,
-        adjustedLinesPerPage,
-        note: 'Conservative estimate to prevent overflow'
+      console.log('📏 VISUAL LINE COUNT:', {
+        effectiveHeight,
+        computedLineHeight,
+        rawLineCount: (effectiveHeight / computedLineHeight).toFixed(2),
+        flooredLines: linesThatFit,
+        note: 'This is how many lines actually fit in the visible area'
       });
       
-      var calibratedLines = adjustedLinesPerPage;
+      // Also calculate how many lines are in the current content (including overflow)
+      const totalLinesInContent = Math.round(actualScrollHeight / computedLineHeight);
+      
+      console.log('📄 CONTENT LINE COUNT:', {
+        scrollHeight: actualScrollHeight,
+        linesInContent: totalLinesInContent,
+        visibleLines: linesThatFit,
+        hiddenLines: Math.max(0, totalLinesInContent - linesThatFit),
+        note: totalLinesInContent > linesThatFit ? '⚠️ Content overflows!' : '✓ Content fits'
+      });
+      
+      // Use the actual visible line count as our calibration
+      var calibratedLines = linesThatFit;
+      
+      console.log('✅ CALIBRATED RESULT:', {
+        measuredVisibleLines: linesThatFit,
+        calibratedDensity: calibratedLines,
+        method: 'Direct measurement from visible area',
+        note: 'Using exact line count that fits in viewport'
+      });
       
       // Calculate maximum capacity (1.5x the optimal for those who want denser pages)
       var maxLines = Math.floor(calibratedLines * 1.5);
       var clampedMax = Math.max(10, Math.min(100, maxLines));
-      
-      console.log('Max calculation:', { maxLines, clampedMax });
       
       // Clamp to reasonable range (10-100 lines)
       var calibratedDensity = Math.max(10, Math.min(clampedMax, calibratedLines));
