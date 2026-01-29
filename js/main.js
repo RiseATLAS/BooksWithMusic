@@ -21,6 +21,8 @@ class BooksWithMusicApp {
     this.library = new BookLibrary(this.db);
     this.reader = new ReaderUI(this.db);
     this.settings = new SettingsUI();
+    // Expose settingsManager globally for overflow detection in reader
+    window.settingsManager = this.settings;
     // Note: MusicPanelUI needs reader's musicManager, initialized after reader
     this.musicPanel = null;
     this.currentUser = null;
