@@ -389,6 +389,11 @@ export class ReaderUI {
       const isMobile = window.innerWidth <= 768;
       
       if (isFullscreen) {
+        // Hide page indicator in fullscreen on all devices
+        if (pageIndicator) {
+          pageIndicator.style.display = 'none';
+        }
+        
         if (isMobile) {
           // On mobile, leave the toggle class alone
           return;
@@ -398,11 +403,13 @@ export class ReaderUI {
             controls.classList.remove('mobile-controls-hidden');
             controls.classList.add('desktop-fullscreen-mode');
           }
-          if (pageIndicator) {
-            pageIndicator.classList.remove('mobile-controls-hidden');
-          }
         }
       } else {
+        // Exited fullscreen - restore page indicator
+        if (pageIndicator) {
+          pageIndicator.style.display = '';
+        }
+        
         // Exited fullscreen - remove desktop fullscreen class
         if (controls) {
           controls.classList.remove('desktop-fullscreen-mode');
