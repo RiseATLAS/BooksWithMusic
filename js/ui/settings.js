@@ -782,31 +782,51 @@ export class SettingsUI {
       // Get the bounding rectangles
       const containerRect = chapterText.getBoundingClientRect();
       const containerBottom = containerRect.bottom;
+      const containerTop = containerRect.top;
+      
+      console.log('📦 Container bounds:', {
+        top: Math.round(containerTop),
+        bottom: Math.round(containerBottom),
+        height: Math.round(containerRect.height)
+      });
       
       // Get all text content elements (paragraphs, divs, etc.)
-      const contentElements = chapterText.querySelectorAll('p, div, h1, h2, h3, h4, h5, h6, span, li');
+      const contentElements = chapterText.querySelectorAll('p, div:not(.chapter-text), h1, h2, h3, h4, h5, h6, span, li');
       
       if (contentElements.length === 0) {
         console.log('⚠️ OVERFLOW CHECK: No content elements found');
         return;
       }
       
+      console.log(`📄 Found ${contentElements.length} content elements`);
+      
       // Check the last few elements to see if they're cut off
-      const lastElements = Array.from(contentElements).slice(-3);
+      const lastElements = Array.from(contentElements).slice(-5); // Check last 5 elements
       let isOverflowing = false;
       let overflowAmount = 0;
       
-      for (const element of lastElements) {
+      console.log('🔍 Checking last elements:');
+      lastElements.forEach((element, index) => {
         const elementRect = element.getBoundingClientRect();
-        if (elementRect.bottom > containerBottom) {
+        const overflow = elementRect.bottom - containerBottom;
+        const isVisible = elementRect.bottom <= containerBottom + 5; // 5px tolerance
+        
+        console.log(`  Element ${index + 1}/${lastElements.length}:`, {
+          tagName: element.tagName,
+          text: element.textContent.substring(0, 50) + '...',
+          bottom: Math.round(elementRect.bottom),
+          containerBottom: Math.round(containerBottom),
+          overflow: Math.round(overflow),
+          isVisible
+        });
+        
+        if (elementRect.bottom > containerBottom + 5) { // 5px tolerance
           isOverflowing = true;
-          overflowAmount = Math.max(overflowAmount, elementRect.bottom - containerBottom);
+          overflowAmount = Math.max(overflowAmount, overflow);
         }
-      }
+      });
       
-      console.log('🔍 OVERFLOW CHECK: Visibility check', {
-        containerBottom,
-        lastElementsCount: lastElements.length,
+      console.log('🔍 OVERFLOW CHECK: Final result', {
         isOverflowing,
         overflowAmount: Math.round(overflowAmount) + 'px',
         containerHeight: Math.round(containerRect.height) + 'px'
