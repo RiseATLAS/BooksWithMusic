@@ -347,12 +347,9 @@ export class ReaderUI {
       
       const isMobile = window.innerWidth <= 768;
       
-      console.log('Fullscreen change detected:', isFullscreen ? 'ENTERED' : 'EXITED');
-      
       if (isFullscreen) {
         // Hide page indicator in fullscreen on all devices
         if (pageIndicator) {
-          console.log('Hiding page indicator in fullscreen');
           pageIndicator.style.display = 'none';
         }
         
@@ -368,7 +365,6 @@ export class ReaderUI {
       } else {
         // Exited fullscreen - restore page indicator ONLY if we're actually out of fullscreen
         if (pageIndicator) {
-          console.log('Restoring page indicator after exiting fullscreen');
           pageIndicator.style.display = '';
         }
         
@@ -380,8 +376,6 @@ export class ReaderUI {
       
       // Re-paginate when fullscreen changes (available height changes)
       if (this.currentChapterIndex >= 0 && this.chapters.length > 0) {
-        console.log('📐 Fullscreen changed - re-paginating with new dimensions...');
-        
         // Get current position before re-pagination
         const currentPosition = this.getBlockPosition();
         
@@ -646,24 +640,13 @@ export class ReaderUI {
       const paginationAffectingChanges = ['fontSize', 'lineHeight', 'fontFamily', 'textAlign', 'pageWidth', 'pageDensity', 'calibration'];
       
       if (paginationAffectingChanges.includes(reason)) {
-        console.log(`📐 Layout changed (${reason}) - recalculating with layout engine...`);
-        console.log(`📍 Before re-pagination: chapter ${this.currentChapterIndex}, page ${this.currentPageInChapter}`);
-        
         // Clear layout engine cache when font settings change
         if (this.layoutEngine && ['fontSize', 'fontFamily'].includes(reason)) {
-          console.log('🧹 Clearing layout engine measurement cache');
           this.layoutEngine.clearCache();
         }
         
-        // Get current position using block-based tracking (more reliable!)
+        // Get current position using block-based tracking
         const currentPosition = this.getBlockPosition();
-        const oldTotalPages = this.chapterPages[this.currentChapterIndex]?.length || 0;
-        
-        if (currentPosition.isCharOffset) {
-          console.log(`📍 Current position: character offset ${currentPosition.charOffset}, old total pages: ${oldTotalPages}`);
-        } else {
-          console.log(`📍 Current position: block ${currentPosition.blockIndex}, line ${currentPosition.lineInBlock}, old total pages: ${oldTotalPages}`);
-        }
         
         // Now clear cached pages to force re-pagination
         this.chapterPages = {};
@@ -676,12 +659,8 @@ export class ReaderUI {
             preservePage: true 
           });
           
-          const newTotalPages = this.chapterPages[this.currentChapterIndex]?.length || 0;
-          console.log(`📍 After loadChapter: new total pages: ${newTotalPages}`);
-          
-          // Restore position using block position (works with both old and new systems)
+          // Restore position using block position
           const newPage = this.findPageByBlockPosition(this.currentChapterIndex, currentPosition);
-          console.log(`📍 Restored to page ${newPage} from position`, currentPosition);
           
           if (newPage !== this.currentPageInChapter) {
             this.currentPageInChapter = newPage;
@@ -689,7 +668,6 @@ export class ReaderUI {
             this.currentPage = this.calculateCurrentPageNumber();
             this.totalPages = this.calculateTotalPages();
             this.updatePageIndicator();
-            console.log(`📍 After re-pagination: chapter ${this.currentChapterIndex}, page ${this.currentPageInChapter}`);
           }
           
           // Shift points are automatically recalculated in loadChapter via _analyzeChapterSections
@@ -704,8 +682,6 @@ export class ReaderUI {
    */
   splitChapterIntoPages(chapterContent, chapterTitle) {
     try {
-      console.log('📄 Splitting chapter with layout engine...');
-      
       // Initialize layout engine if not already done
       if (!this.layoutEngine) {
         // Import layout engine dynamically
@@ -738,19 +714,8 @@ export class ReaderUI {
         return this._fallbackSplitPages(chapterContent, chapterTitle);
       }
       
-      console.log('📐 Page layout parameters:', {
-        pageWidth,
-        textWidth,
-        pageHeight,
-        textHeight,
-        fontSize,
-        lineHeight,
-        maxLinesPerPage
-      });
-      
       // Parse HTML content into structured blocks
       const contentBlocks = this._parseContentToBlocks(chapterContent, chapterTitle);
-      console.log(`📚 Parsed ${contentBlocks.length} content blocks`);
       
       // Layout blocks into pages using the engine
       const pageData = this.layoutEngine.layoutIntoPages(
@@ -762,8 +727,6 @@ export class ReaderUI {
         lineHeight
       );
       
-      console.log(`📄 Created ${pageData.length} pages with ${maxLinesPerPage} lines each`);
-      
       // Convert page data to HTML
       const pages = pageData.map((page, index) => {
         const html = this.layoutEngine.pageToHTML(page);
@@ -773,8 +736,6 @@ export class ReaderUI {
       // Store page data for position tracking
       this.chapterPageData = this.chapterPageData || {};
       this.chapterPageData[this.currentChapterIndex] = pageData;
-      
-      console.log(`✅ Chapter split into ${pages.length} pages`);
       
       return pages.length > 0 ? pages : ['<div class="page-lines"><p>Empty chapter</p></div>'];
       
@@ -936,7 +897,6 @@ export class ReaderUI {
         return;
       }
 
-      console.log(`Loading chapter ${index + 1}/${this.chapters.length}`);
       this.currentChapterIndex = index;
       const chapter = this.chapters[index];
       
@@ -1065,6 +1025,9 @@ export class ReaderUI {
         </div>
       `;
       
+      // Debug: Log page content sample to verify line breaks
+      this._logPageContentSample(pageContent);
+      
       // Handle internal EPUB links
       contentEl.querySelectorAll('a').forEach(link => {
         link.addEventListener('click', (e) => {
@@ -1123,6 +1086,31 @@ export class ReaderUI {
     }
   }
   
+  /**
+   * Debug: Log sample of page content to verify line breaks
+   */
+  _logPageContentSample(pageContent) {
+    // Only log in development (check if running on localhost)
+    if (!window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')) {
+      return;
+    }
+    
+    // Extract first 500 characters
+    const sample = pageContent.substring(0, 500);
+    
+    // Show line breaks visually
+    const visualized = sample
+      .replace(/<br>/gi, '↵<br>')  // Show <br> tags
+      .replace(/\n/g, '⏎')          // Show newlines
+      .replace(/\r/g, '⌐');         // Show carriage returns
+    
+    console.log('📖 Page Content Sample (first 500 chars):');
+    console.log('━'.repeat(60));
+    console.log(visualized);
+    console.log('━'.repeat(60));
+    console.log('Line break legend: ↵=<br tag> ⏎=newline ⌐=carriage return');
+  }
+
   async _analyzeChapterSections(chapterIndex) {
     const chapter = this.chapters[chapterIndex];
     if (!chapter) return;
@@ -1260,7 +1248,6 @@ export class ReaderUI {
     const pageBasedMusicSwitch = settings.pageBasedMusicSwitch !== false; // Default true
     
     if (!pageBasedMusicSwitch) {
-      console.log(`Page ${oldPage} → ${newPage} (music switching disabled)`);
       return; // User disabled this feature
     }
     
@@ -1429,7 +1416,6 @@ export class ReaderUI {
                         document.msFullscreenElement;
     
     if (isFullscreen && indicator.style.display !== 'none') {
-      console.log('updatePageIndicator: Keeping page indicator hidden in fullscreen');
       indicator.style.display = 'none';
     }
     
