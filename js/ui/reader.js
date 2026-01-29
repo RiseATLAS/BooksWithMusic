@@ -1568,11 +1568,18 @@ export class ReaderUI {
     }
     
     // Check for overflow AFTER animation completes and old page is removed
-    // This ensures we're measuring the final, stable layout
-    if (window.settingsManager) {
+    console.log('🔍 Attempting to run overflow check...', { 
+      hasSettingsManager: !!window.settingsManager,
+      hasCheckFunction: !!(window.settingsManager?.checkAndAdjustForOverflow)
+    });
+    
+    if (window.settingsManager && typeof window.settingsManager.checkAndAdjustForOverflow === 'function') {
       setTimeout(() => {
+        console.log('🔍 Running overflow check now...');
         window.settingsManager.checkAndAdjustForOverflow();
       }, 100);
+    } else {
+      console.error('❌ settingsManager or checkAndAdjustForOverflow not available!');
     }
   }
 
