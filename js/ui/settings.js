@@ -758,17 +758,24 @@ export class SettingsUI {
 
   _getCurrentPageKey() {
     // Get a unique key for the current page to track overflow checks
-    const pageIndicator = document.querySelector('.page-indicator');
-    if (!pageIndicator) return 'unknown';
+    // Use DOM content hash instead of page indicator (which is hidden in fullscreen)
+    const chapterText = document.querySelector('.chapter-text');
+    if (!chapterText) return 'unknown';
     
-    const text = pageIndicator.textContent.trim();
-    return text; // e.g., "Page 7 of 12"
+    // Use first 200 chars of content as a unique identifier
+    const contentSnippet = chapterText.textContent.substring(0, 200).trim();
+    return contentSnippet;
   }
 
   resetOverflowCheck() {
     // Call this when user navigates to allow checking the new page
-    this._lastCheckedPage = null;
-    this._lastCheckWasOverflow = false;
+    // Only reset if we're moving to different content
+    const currentKey = this._getCurrentPageKey();
+    if (currentKey !== this._lastCheckedPage) {
+      this._lastCheckedPage = null;
+      this._lastCheckWasOverflow = false;
+      this._adjustmentCount = 0; // Reset counter for new content
+    }
   }
 
   async checkAndAdjustForOverflow() {
@@ -782,6 +789,13 @@ export class SettingsUI {
     const currentPageKey = this._getCurrentPageKey();
     if (this._lastCheckedPage === currentPageKey && this._lastCheckWasOverflow) {
       console.log('🔍 OVERFLOW CHECK: Skipping - this page was just adjusted');
+      return;
+    }
+    
+    // Limit adjustments per session to prevent infinite loops
+    if (!this._adjustmentCount) this._adjustmentCount = 0;
+    if (this._adjustmentCount >= 5) {
+      console.log('⚠️ OVERFLOW CHECK: Maximum adjustments reached (5), stopping');
       return;
     }
     
@@ -880,6 +894,7 @@ export class SettingsUI {
       console.log(`📉 Auto-adjusting density: ${currentDensity} → ${newDensity} chars/page (reduction: ${Math.round((1 - newDensity/currentDensity) * 100)}%)`);
       
       this.settings.pageDensity = newDensity;
+      this._adjustmentCount++; // Increment adjustment counter
       
       // Update UI
       const pageDensityInput = document.getElementById('page-density');
@@ -889,7 +904,7 @@ export class SettingsUI {
       
       this.saveSettings();
       
-      console.log(`✅ OVERFLOW CHECK: Triggering re-pagination with new density`);
+      console.log(`✅ OVERFLOW CHECK: Triggering re-pagination with new density (adjustment ${this._adjustmentCount}/5)`);
       this.showToast(`Auto-adjusting page density to ${newDensity} chars`, 'info');
       
       // Trigger re-pagination by emitting layout change event with 'pageDensity' reason
