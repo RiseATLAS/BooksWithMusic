@@ -658,14 +658,14 @@ export class SettingsUI {
         });
       }
       
-      // Apply 15% safety margin for paragraph breaks, spacing, and edge cases
-      const calibratedChars = Math.floor(charsPerVisiblePage * 0.85);
+      // Use measured chars directly without safety margin
+      const calibratedChars = charsPerVisiblePage;
       
       console.log('✅ FINAL CALIBRATION:', {
         measuredChars: charsPerVisiblePage,
-        safetyMargin: '15%',
+        safetyMargin: 'none',
         calibratedChars,
-        note: 'Character-based pagination with safety margin for line breaks'
+        note: 'Character-based pagination - full capacity'
       });
       
       var calibratedDensity = Math.max(1000, Math.min(10000, calibratedChars));
