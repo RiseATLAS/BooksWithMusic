@@ -920,7 +920,7 @@ export class ReaderUI {
     if (!pageViewport) {
       console.error('❌ .page-viewport not found in DOM');
       return {
-        textWidth: 752,  // Fallback: 800px - 48px offset
+        textWidth: 800,  // Fallback
         pageHeight: 765,
         maxLinesPerPage: 24
       };
@@ -933,36 +933,24 @@ export class ReaderUI {
     const lineHeight = fontSize * lineHeightMultiplier;
     const textWidthPercent = (settings.textWidth || 100) / 100;
     
-    // Calculate text width from viewport (the actual parent of chapter-text)
+    // Get full viewport width
     const viewportWidth = pageViewport.clientWidth;
     
-    // Set left offset (margin) for comfortable reading
-    const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
-    const leftOffset = isFullscreen ? 32 : 48;
-    
-    // Calculate available width for text (after left margin)
-    const availableWidth = viewportWidth - leftOffset;
-    
-    // Apply text width percentage to available width
-    const targetWidth = availableWidth * textWidthPercent;
-    
-    // Ensure text width stays within reasonable bounds
-    const textWidth = Math.max(200, Math.min(targetWidth, availableWidth));
-    
-    // Set CSS variables for positioning and width
-    document.documentElement.style.setProperty('--text-offset', `${leftOffset}px`);
-    document.documentElement.style.setProperty('--text-width-px', `${textWidth}px`);
+    // Apply text width percentage directly to viewport width
+    const textWidth = Math.max(200, viewportWidth * textWidthPercent);
     
     // Calculate page height
     let pageHeight;
     let textHeight;
+    
+    const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
     
     if (isFullscreen) {
       // Fullscreen: use full window height minus minimal padding
       pageHeight = window.innerHeight;
       textHeight = pageHeight - 60; // Minimal top + bottom padding
     } else {
-      // Normal mode: use viewport height (not container)
+      // Normal mode: use viewport height
       pageHeight = pageViewport.clientHeight;
       textHeight = pageHeight - 144; // Subtract vertical padding
     }
