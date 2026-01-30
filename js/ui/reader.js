@@ -815,23 +815,40 @@ export class ReaderUI {
     const elements = Array.from(tempDiv.querySelectorAll('p, h1, h2, h3, h4, h5, h6, div'));
     
     for (const element of elements) {
-      // Get text and normalize whitespace (remove newlines, collapse multiple spaces)
-      const text = (element.textContent || '')
-        .replace(/\s+/g, ' ')  // Replace all whitespace (including newlines) with single space
-        .trim();
-      
-      // Skip empty elements
-      if (!text) continue;
-      
       // Determine block type
       const tagName = element.tagName.toLowerCase();
       const type = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(tagName) ? tagName : 'p';
       
-      blocks.push({
-        type: type,
-        text: text,
-        htmlTag: tagName === 'div' ? 'p' : tagName
-      });
+      // Handle <br> tags by splitting into multiple blocks
+      // First, replace <br> tags with a unique separator
+      const BREAK_MARKER = '<<<BR_BREAK>>>';
+      const htmlWithMarkers = element.innerHTML
+        .replace(/<br\s*\/?>/gi, BREAK_MARKER);
+      
+      // Create temporary element to extract text with markers
+      const temp = document.createElement('div');
+      temp.innerHTML = htmlWithMarkers;
+      
+      // Get text and split on break markers
+      const textWithMarkers = temp.textContent || '';
+      const segments = textWithMarkers.split(BREAK_MARKER);
+      
+      // Add each segment as a separate block
+      for (const segment of segments) {
+        // Normalize whitespace but preserve line breaks
+        const text = segment
+          .replace(/\s+/g, ' ')  // Collapse multiple spaces
+          .trim();
+        
+        // Skip empty segments
+        if (!text) continue;
+        
+        blocks.push({
+          type: type,
+          text: text,
+          htmlTag: tagName === 'div' ? 'p' : tagName
+        });
+      }
     }
     
     // Fallback: if no elements found, treat entire content as plain text
