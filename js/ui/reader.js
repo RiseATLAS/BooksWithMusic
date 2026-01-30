@@ -384,6 +384,9 @@ export class ReaderUI {
       // Re-paginate when fullscreen changes
       setTimeout(async () => {
         if (this.currentChapterIndex >= 0 && this.chapters.length > 0 && !this._isInitializing) {
+          // Save current page number as fallback
+          const savedPage = this.currentPageInChapter;
+          
           // Get the first word position on current page BEFORE re-pagination
           const currentPosition = this.getBlockPosition();
           
@@ -406,8 +409,16 @@ export class ReaderUI {
           const totalPagesInChapter = this.chapterPages[this.currentChapterIndex].length;
           this.pagesPerChapter[this.currentChapterIndex] = totalPagesInChapter;
           
-          // Find which new page contains the same first word position
-          const restoredPage = this.findPageByBlockPosition(this.currentChapterIndex, currentPosition);
+          // Try to restore exact position, fall back to page number
+          let restoredPage;
+          if (currentPosition.blockIndex > 0 || currentPosition.lineInBlock > 0) {
+            // We have valid position data, use it
+            restoredPage = this.findPageByBlockPosition(this.currentChapterIndex, currentPosition);
+          } else {
+            // No valid position data, use page number
+            restoredPage = Math.min(savedPage, totalPagesInChapter);
+          }
+          
           this.currentPageInChapter = restoredPage;
           
           this.renderCurrentPage();
