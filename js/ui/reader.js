@@ -819,6 +819,10 @@ export class ReaderUI {
     console.log('📄 Parsing chapter content, length:', chapterContent.length);
     console.log('📄 Found elements:', tempDiv.querySelectorAll('p, h1, h2, h3, h4, h5, h6, div').length);
     
+    // Debug: Check if there are <br> tags in the content
+    const brCount = (chapterContent.match(/<br\s*\/?>/gi) || []).length;
+    console.log('📄 Found <br> tags:', brCount);
+    
     // Get all content elements
     const elements = Array.from(tempDiv.querySelectorAll('p, h1, h2, h3, h4, h5, h6, div'));
     
