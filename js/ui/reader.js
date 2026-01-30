@@ -643,11 +643,8 @@ export class ReaderUI {
     window.addEventListener('reader:layoutChanged', async (e) => {
       const { reason, settings } = e.detail;
       
-      console.log('📐 Layout change event received:', { reason, isInitializing: this._isInitializing });
-      
       // Skip during initial reader setup to avoid double pagination
       if (this._isInitializing) {
-        console.log('⏭️ Skipping layout change during initialization');
         return;
       }
       
@@ -729,7 +726,13 @@ export class ReaderUI {
         const styles = window.getComputedStyle(chapterText);
         const paddingLeft = parseFloat(styles.paddingLeft) || 48;
         const paddingRight = parseFloat(styles.paddingRight) || 48;
-        textWidth = rect.width - paddingLeft - paddingRight;
+        const availableWidth = rect.width - paddingLeft - paddingRight;
+        
+        // CRITICAL: Add safety margin to prevent browser wrapping
+        // Browser rendering can be slightly different from Canvas measurements
+        // Subtract a small buffer to ensure lines never exceed actual width
+        const safetyMargin = 10; // pixels
+        textWidth = Math.max(200, availableWidth - safetyMargin);
       } else {
         // Fallback: use settings
         const pageWidth = settings.pageWidth || 800;
@@ -959,12 +962,6 @@ export class ReaderUI {
    * Render only the current page (not the whole chapter)
    */
   renderCurrentPage() {
-    console.log('🎨 renderCurrentPage called:', { 
-      chapter: this.currentChapterIndex, 
-      page: this.currentPageInChapter,
-      stack: new Error().stack.split('\n')[2].trim()
-    });
-    
     try {
       const contentEl = document.getElementById('reader-content');
       if (!contentEl) {
