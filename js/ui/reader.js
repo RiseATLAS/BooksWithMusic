@@ -927,14 +927,25 @@ export class ReaderUI {
                         document.mozFullScreenElement || 
                         document.msFullscreenElement;
     
+    const pageContainer = document.querySelector('.page-container');
+    let height;
+    
     if (isFullscreen) {
       // Fullscreen: 100vh - viewport padding
-      return window.innerHeight - 88; // 88 = 20+20 (viewport) + 16+32 (chapter-text)
+      height = window.innerHeight - 88; // 88 = 20+20 (viewport) + 16+32 (chapter-text)
     } else {
       // Normal mode: use page container height
-      const pageContainer = document.querySelector('.page-container');
-      return pageContainer ? pageContainer.clientHeight : 765;
+      height = pageContainer ? pageContainer.clientHeight : 765;
     }
+    
+    console.log('📏 Page height calculation:', {
+      isFullscreen,
+      pageContainerHeight: pageContainer?.clientHeight,
+      calculatedHeight: height,
+      windowInnerHeight: window.innerHeight
+    });
+    
+    return height;
   }
 
   async loadChapter(index, { pageInChapter = 1, preservePage = false } = {}) {
