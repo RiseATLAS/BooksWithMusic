@@ -649,7 +649,7 @@ export class ReaderUI {
       }
       
       // Settings that affect pagination and require shift point recalculation
-      const paginationAffectingChanges = ['fontSize', 'lineHeight', 'fontFamily', 'textAlign', 'pageWidth', 'pageDensity', 'calibration'];
+      const paginationAffectingChanges = ['fontSize', 'lineHeight', 'fontFamily', 'textAlign', 'pageWidth', 'textWidth', 'pageDensity', 'calibration'];
       
       if (paginationAffectingChanges.includes(reason)) {
         // Clear layout engine cache when font settings change
