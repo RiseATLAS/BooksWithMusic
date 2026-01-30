@@ -2567,6 +2567,6 @@ html:-ms-fullscreen .page-indicator,
 }
 
 .page-lines .line-spacing {
-  height: 1em;
-  /* Empty div for spacing between blocks */
+  height: 1.5em;
+  /* Empty div for spacing between blocks - increased for better paragraph separation */
 }

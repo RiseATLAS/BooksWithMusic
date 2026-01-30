@@ -728,6 +728,14 @@ export class ReaderUI {
         const paddingRight = parseFloat(styles.paddingRight) || 24;
         const availableWidth = rect.width - paddingLeft - paddingRight;
         
+        console.log('📏 Width calculation:', {
+          rectWidth: rect.width,
+          paddingLeft,
+          paddingRight,
+          availableWidth,
+          textWidthSetting: settings.textWidth
+        });
+        
         // Apply text width percentage setting to control line length
         const textWidthPercent = (settings.textWidth || 100) / 100;
         const targetWidth = availableWidth * textWidthPercent;
