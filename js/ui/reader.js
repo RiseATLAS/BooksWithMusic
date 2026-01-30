@@ -384,12 +384,12 @@ export class ReaderUI {
       // Re-paginate when fullscreen changes (available height changes)
       // Use a small delay to ensure layout has settled
       setTimeout(async () => {
-        if (this.currentChapterIndex >= 0 && this.chapters.length > 0) {
+        if (this.currentChapterIndex >= 0 && this.chapters.length > 0 && !this._isInitializing) {
           console.log('🖥️ Fullscreen changed, re-paginating...');
           
           // Get current position before re-pagination
           const currentPosition = this.getBlockPosition();
-          console.log('🖥️ Current position:', currentPosition);
+          console.log('🖥️ Current position:', currentPosition, 'Page:', this.currentPageInChapter);
           
           // Clear layout engine cache for fresh measurements
           if (this.layoutEngine) {
@@ -400,23 +400,30 @@ export class ReaderUI {
           delete this.chapterPages[this.currentChapterIndex];
           delete this.chapterPageData[this.currentChapterIndex];
           
-          // Re-load chapter with new dimensions - this will re-paginate
-          await this.loadChapter(this.currentChapterIndex, {
-            pageInChapter: 1,
-            preservePage: false
-          });
+          // Re-render empty structure to update DOM dimensions
+          this._renderEmptyPageStructure();
+          
+          // Re-paginate the chapter
+          this.chapterPages[this.currentChapterIndex] = this.splitChapterIntoPages(
+            this.chapters[this.currentChapterIndex].content,
+            this.chapters[this.currentChapterIndex].title
+          );
+          
+          // Update pages count
+          const totalPagesInChapter = this.chapterPages[this.currentChapterIndex].length;
+          this.pagesPerChapter[this.currentChapterIndex] = totalPagesInChapter;
           
           // Restore position to the block we were reading
           const newPage = this.findPageByBlockPosition(this.currentChapterIndex, currentPosition);
-          console.log('🖥️ Restoring to page:', newPage);
+          console.log('🖥️ Restoring to page:', newPage, 'of', totalPagesInChapter);
           
-          this.currentPageInChapter = newPage;
+          this.currentPageInChapter = Math.max(1, Math.min(newPage, totalPagesInChapter));
           this.renderCurrentPage();
           this.currentPage = this.calculateCurrentPageNumber();
           this.totalPages = this.calculateTotalPages();
           this.updatePageIndicator();
         }
-      }, 100); // Small delay for layout to settle
+      }, 150); // Slightly longer delay for fullscreen transition
     };
     
     document.addEventListener('fullscreenchange', handleFullscreenChange);
@@ -853,6 +860,11 @@ export class ReaderUI {
         // Skip empty segments
         if (!text) continue;
         
+        // Skip if this is a duplicate of the chapter title (case insensitive)
+        if (chapterTitle && text.toLowerCase() === chapterTitle.toLowerCase()) {
+          continue; // Skip duplicate chapter title
+        }
+        
         // Remove chapter title prefix from first paragraph if it matches
         if (type === 'p' && chapterTitle && text.toLowerCase().startsWith(chapterTitle.toLowerCase())) {
           text = text.substring(chapterTitle.length).trim();
@@ -952,12 +964,20 @@ export class ReaderUI {
     
     // Calculate page height
     const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
-    const pageHeight = isFullscreen 
-      ? window.innerHeight - 88 
-      : pageContainer.clientHeight;
+    let pageHeight;
+    let textHeight;
+    
+    if (isFullscreen) {
+      // Fullscreen: use full window height minus minimal padding
+      pageHeight = window.innerHeight;
+      textHeight = pageHeight - 80; // Top + bottom padding (40 + 40)
+    } else {
+      // Normal mode: use container height
+      pageHeight = pageContainer.clientHeight;
+      textHeight = pageHeight - 144; // Subtract vertical padding
+    }
     
     // Calculate max lines per page
-    const textHeight = pageHeight - 144; // Subtract vertical padding
     const maxLinesPerPage = Math.floor(textHeight / lineHeight);
     
     console.log('� Layout Dimensions:', {
