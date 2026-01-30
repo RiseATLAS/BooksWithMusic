@@ -89,6 +89,7 @@ export class ReaderUI {
       }
     }
     
+    console.log(`[CharPos] Page ${this.currentPageInChapter}: character position ${charPosition}`);
     return charPosition;
   }
 
@@ -118,11 +119,13 @@ export class ReaderUI {
       
       // Check if target position falls within this page
       if (targetPosition >= pageStartPosition && targetPosition < currentPosition) {
+        console.log(`[FindPage] Character ${targetPosition} found on page ${pageIndex + 1} (range ${pageStartPosition}-${currentPosition})`);
         return pageIndex + 1;
       }
     }
     
     // If position is beyond all pages, return last page
+    console.log(`[FindPage] Character ${targetPosition} beyond all pages, returning last page ${pageData.length}`);
     return pageData.length;
   }
 
@@ -497,8 +500,12 @@ export class ReaderUI {
       // Re-paginate when fullscreen changes
       setTimeout(async () => {
         if (this.currentChapterIndex >= 0 && this.chapters.length > 0 && !this._isInitializing) {
+          console.log('=== FULLSCREEN RE-PAGINATION (Character-Based) ===');
+          
           // Save character position in chapter (absolute position, not page-relative)
           const charPosition = this.getCharacterPositionInChapter();
+          const oldPage = this.currentPageInChapter;
+          const oldTotalPages = this.pagesPerChapter[this.currentChapterIndex];
           
           // Clear caches
           if (this.layoutEngine) {
@@ -518,15 +525,19 @@ export class ReaderUI {
           
           const totalPagesInChapter = this.chapterPages[this.currentChapterIndex].length;
           this.pagesPerChapter[this.currentChapterIndex] = totalPagesInChapter;
+          console.log(`[Pagination] Old: page ${oldPage}/${oldTotalPages} → New: ${totalPagesInChapter} pages total`);
           
           // Find which page contains our saved character position
           const restoredPage = this.findPageByCharacterPosition(this.currentChapterIndex, charPosition);
           this.currentPageInChapter = restoredPage;
+          console.log(`[Result] Restored to page ${restoredPage}`);
           
           this.renderCurrentPage();
           this.currentPage = this.calculateCurrentPageNumber();
           this.totalPages = this.calculateTotalPages();
           this.updatePageIndicator();
+          
+          console.log('=== RE-PAGINATION COMPLETE ===');
         }
       }, 200); // Longer delay for fullscreen transition to complete
     };
