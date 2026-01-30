@@ -881,10 +881,11 @@ body.reader-page::-webkit-scrollbar {
   color: inherit;
   opacity: 1 !important;
   visibility: visible !important;
-  /* Ensure consistent text alignment */
+  /* JS controls all text layout - remove CSS text properties */
   text-align: left;
-  /* Prevent sub-pixel shifts */
-  transform: translateZ(0);
+  word-spacing: normal;
+  letter-spacing: normal;
+  text-indent: 0;
 }
 
 /* Hide scrollbar during flip animations */
@@ -2512,10 +2513,14 @@ html:-ms-fullscreen .page-indicator,
 
 /* Layout Engine Page Styles */
 .page-lines {
-  /* Container for deterministically laid-out lines */
+  /* Container for JS-controlled text layout */
   position: relative;
   width: 100%;
   height: 100%;
+  /* Remove all CSS that could affect text measurement */
+  box-sizing: border-box;
+  word-spacing: normal;
+  letter-spacing: normal;
 }
 
 .page-lines p,
@@ -2533,6 +2538,11 @@ html:-ms-fullscreen .page-indicator,
   word-wrap: normal;
   overflow-wrap: normal;
   hyphens: none;
+  /* Ensure no CSS text properties interfere with JS measurements */
+  word-spacing: normal;
+  letter-spacing: normal;
+  text-indent: 0;
+  text-transform: none;
 }
 
 .page-lines .h1 {
