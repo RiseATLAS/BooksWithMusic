@@ -404,15 +404,12 @@ export class SettingsUI {
     });
   }
 
-
-
   /**
    * Auto-calibrate page density based on current viewport and font settings
    * Calculates how many characters fit comfortably on one page
    * Also calibrates optimal page width based on viewport
    */
-  
-    
+  autoCalibratePage() {
     // Get the actual page container (where pages are rendered)
     const pageContainer = document.querySelector('.page-container');
     const chapterText = document.querySelector('.chapter-text');
