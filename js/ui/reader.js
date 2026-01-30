@@ -387,27 +387,30 @@ export class ReaderUI {
         if (this.currentChapterIndex >= 0 && this.chapters.length > 0) {
           console.log('🖥️ Fullscreen changed, re-paginating...');
           
-          // Get current position before re-pagination
+          // Get current position BEFORE clearing cached data
           const currentPosition = this.getBlockPosition();
+          console.log('🖥️ Saving position:', currentPosition);
           
           // Clear layout engine cache for fresh measurements
           if (this.layoutEngine) {
             this.layoutEngine.clearCache();
           }
           
-          // Clear cached pages
+          // Clear cached pages (do this AFTER getting position)
           this.chapterPages = {};
           this.chapterPageData = {};
           
           // Re-load chapter with new dimensions
           await this.loadChapter(this.currentChapterIndex, {
-            pageInChapter: this.currentPageInChapter,
-            preservePage: true
+            pageInChapter: 1, // Start at page 1, we'll restore position after
+            preservePage: false
           });
           
-          // Restore position
+          // Restore position to the block we were reading
           const newPage = this.findPageByBlockPosition(this.currentChapterIndex, currentPosition);
-          if (newPage !== this.currentPageInChapter) {
+          console.log('🖥️ Restoring to page:', newPage);
+          
+          if (newPage && newPage !== this.currentPageInChapter) {
             this.currentPageInChapter = newPage;
             this.renderCurrentPage();
             this.currentPage = this.calculateCurrentPageNumber();
