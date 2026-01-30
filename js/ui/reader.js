@@ -792,7 +792,10 @@ export class ReaderUI {
     const elements = Array.from(tempDiv.querySelectorAll('p, h1, h2, h3, h4, h5, h6, div'));
     
     for (const element of elements) {
-      const text = (element.textContent || '').trim();
+      // Get text and normalize whitespace (remove newlines, collapse multiple spaces)
+      const text = (element.textContent || '')
+        .replace(/\s+/g, ' ')  // Replace all whitespace (including newlines) with single space
+        .trim();
       
       // Skip empty elements
       if (!text) continue;
@@ -810,7 +813,9 @@ export class ReaderUI {
     
     // Fallback: if no elements found, treat entire content as plain text
     if (blocks.length === 1) { // Only has title
-      const textContent = tempDiv.textContent.trim();
+      const textContent = tempDiv.textContent
+        .replace(/\s+/g, ' ')  // Normalize whitespace
+        .trim();
       if (textContent && textContent !== chapterTitle) {
         blocks.push({
           type: 'p',
