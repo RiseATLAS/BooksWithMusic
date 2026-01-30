@@ -724,17 +724,23 @@ export class ReaderUI {
         // Get the actual content width (clientWidth excludes padding)
         const rect = chapterText.getBoundingClientRect();
         const styles = window.getComputedStyle(chapterText);
-        const paddingLeft = parseFloat(styles.paddingLeft) || 48;
-        const paddingRight = parseFloat(styles.paddingRight) || 48;
+        const paddingLeft = parseFloat(styles.paddingLeft) || 24;
+        const paddingRight = parseFloat(styles.paddingRight) || 24;
         const availableWidth = rect.width - paddingLeft - paddingRight;
         
-        // JS controls all text layout - use full available width
-        // No safety margin needed since white-space: nowrap prevents browser wrapping
-        textWidth = Math.max(200, availableWidth);
+        // Apply text width percentage setting to control line length
+        const textWidthPercent = (settings.textWidth || 100) / 100;
+        const targetWidth = availableWidth * textWidthPercent;
+        
+        // Small margin prevents accumulated sub-pixel rounding errors
+        const safetyMargin = 5;
+        textWidth = Math.max(200, targetWidth - safetyMargin);
       } else {
         // Fallback: use settings
         const pageWidth = settings.pageWidth || 800;
-        textWidth = pageWidth - (48 * 2); // Subtract horizontal padding
+        const availableWidth = pageWidth - (24 * 2); // Subtract horizontal padding
+        const textWidthPercent = (settings.textWidth || 100) / 100;
+        textWidth = availableWidth * textWidthPercent;
       }
       
       // Calculate available height and max lines per page

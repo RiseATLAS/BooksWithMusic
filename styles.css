@@ -845,7 +845,7 @@ body.reader-page::-webkit-scrollbar {
   bottom: var(--page-gap, 120px); /* Account for viewport's bottom padding */
   width: 100%;
   margin: 0 auto; /* Center horizontally only */
-  padding: 48px 48px 96px; /* Internal padding for content */
+  padding: 48px 24px 96px; /* Reduced horizontal padding for more text width */
   font-size: var(--reader-font-size, 18px);
   line-height: var(--reader-line-height, 1.8);
   font-family: var(--reader-font-family, Georgia, "Times New Roman", serif);

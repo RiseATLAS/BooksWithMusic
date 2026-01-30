@@ -13,6 +13,7 @@ export class SettingsUI {
       fontFamily: 'serif',
       textAlign: 'left',
       pageWidth: 650,
+      textWidth: 100, // Percentage of available width to use for text (100 = full width)
       brightness: 100,
       pageColor: 'cream',
       pageWarmth: 10,
@@ -110,6 +111,18 @@ export class SettingsUI {
       this.applyLineHeight();
       this.saveSettings();
       this._emitLayoutChanged('lineHeight');
+    });
+
+    // Text width
+    const textWidthInput = document.getElementById('text-width');
+    const textWidthValue = document.getElementById('text-width-value');
+    textWidthInput?.addEventListener('input', (e) => {
+      this.settings.textWidth = parseInt(e.target.value);
+      if (textWidthValue) {
+        textWidthValue.textContent = `${this.settings.textWidth}%`;
+      }
+      this.saveSettings();
+      this._emitLayoutChanged('textWidth');
     });
 
     // Font family
@@ -548,6 +561,11 @@ export class SettingsUI {
     const lineHeightValue = document.getElementById('line-height-value');
     if (lineHeightInput) lineHeightInput.value = this.settings.lineHeight;
     if (lineHeightValue) lineHeightValue.textContent = this.settings.lineHeight.toFixed(1);
+
+    const textWidthInput = document.getElementById('text-width');
+    const textWidthValue = document.getElementById('text-width-value');
+    if (textWidthInput) textWidthInput.value = this.settings.textWidth;
+    if (textWidthValue) textWidthValue.textContent = `${this.settings.textWidth}%`;
 
     const fontFamilySelect = document.getElementById('font-family');
     if (fontFamilySelect) fontFamilySelect.value = this.settings.fontFamily;

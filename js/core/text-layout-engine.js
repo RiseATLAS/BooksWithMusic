@@ -49,7 +49,8 @@ class TextLayoutEngine {
     // Get actual rendered width with sub-pixel precision
     const rect = this.measurementElement.getBoundingClientRect();
     // Always round UP to account for sub-pixel rendering
-    const width = Math.ceil(rect.width);
+    // Add small buffer (0.5px) to prevent accumulated rounding errors
+    const width = Math.ceil(rect.width) + 0.5;
     
     // Cache the measurement
     this.measurementCache.set(cacheKey, width);
