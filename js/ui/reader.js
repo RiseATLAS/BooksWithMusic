@@ -706,7 +706,6 @@ export class ReaderUI {
     try {
       // Initialize layout engine if not already done
       if (!this.layoutEngine) {
-        // Import layout engine dynamically
         if (typeof TextLayoutEngine === 'undefined') {
           console.error('TextLayoutEngine not loaded!');
           return ['<div class="page-lines"><p>Error: Text layout engine not available</p></div>'];
@@ -714,75 +713,19 @@ export class ReaderUI {
         this.layoutEngine = new TextLayoutEngine();
       }
       
-      // Get current settings from settingsManager with fallback defaults
-      const settings = window.settingsManager?.settings || {
-        fontSize: 18,
-        fontFamily: 'Georgia, "Times New Roman", serif',
-        lineHeight: 1.6,
-        pageWidth: 800
-      };
-      const fontSize = settings.fontSize || 18;
+      // Get layout dimensions from DOM (page structure must exist)
+      const dimensions = this._getLayoutDimensions();
+      const { textWidth, maxLinesPerPage, fontSize, lineHeight } = dimensions;
+      
+      // Get font family from settings
+      const settings = window.settingsManager?.settings || {};
       const fontFamily = settings.fontFamily || 'Georgia, "Times New Roman", serif';
-      const lineHeightMultiplier = settings.lineHeight || 1.6;
-      const lineHeight = fontSize * lineHeightMultiplier;
-      
-      // Calculate text width from page container dimensions
-      const pageContainer = document.querySelector('.page-container');
-      let textWidth;
-      
-      if (pageContainer) {
-        // Use page container width (consistent whether chapter-text exists or not)
-        const containerWidth = pageContainer.clientWidth;
-        const chapterTextPadding = 24 * 2; // Left + right padding on .chapter-text
-        const availableWidth = containerWidth - chapterTextPadding;
-        
-        // Apply text width percentage setting to control line length
-        const textWidthPercent = (settings.textWidth || 100) / 100;
-        const targetWidth = availableWidth * textWidthPercent;
-        
-        // Small margin prevents accumulated sub-pixel rounding errors
-        const safetyMargin = 5;
-        textWidth = Math.max(200, targetWidth - safetyMargin);
-        
-        console.log('📏 Width calculation:', {
-          containerWidth,
-          chapterTextPadding,
-          availableWidth,
-          textWidthSetting: settings.textWidth,
-          textWidth: Math.round(textWidth)
-        });
-      } else {
-        // Fallback: use settings
-        console.warn('📏 No .page-container found, using settings fallback');
-        const pageWidth = settings.pageWidth || 800;
-        const availableWidth = pageWidth - (24 * 2); // Subtract horizontal padding
-        const textWidthPercent = (settings.textWidth || 100) / 100;
-        textWidth = availableWidth * textWidthPercent;
-      }
-      
-      // Calculate available height and max lines per page
-      const pageHeight = this._calculatePageHeight();
-      const textHeight = pageHeight - (48 + 96); // Subtract vertical padding (top + bottom)
-      const maxLinesPerPage = Math.floor(textHeight / lineHeight);
       
       // Validate
       if (maxLinesPerPage < 5) {
-        console.error('❌ Not enough space for content - using minimal layout');
+        console.error('❌ Not enough space for content');
         return ['<div class="page-lines"><p>Error: Screen too small for proper text layout</p></div>'];
       }
-      
-      // Debug: Log actual dimensions being used
-      console.log('📐 Layout Engine Dimensions:', {
-        textWidth: Math.round(textWidth),
-        pageHeight,
-        textHeight,
-        fontSize,
-        lineHeight,
-        maxLinesPerPage,
-        isFullscreen: !!(document.fullscreenElement || document.webkitFullscreenElement),
-        windowHeight: window.innerHeight,
-        textWidthPercent: settings.textWidth
-      });
       
       // Parse HTML content into structured blocks
       const contentBlocks = this._parseContentToBlocks(chapterContent, chapterTitle);
@@ -919,7 +862,7 @@ export class ReaderUI {
   }
 
   /**
-   * Render empty page structure to ensure DOM elements exist for measurement
+   * Render empty page structure to ensure DOM exists before pagination
    */
   _renderEmptyPageStructure() {
     const contentEl = document.getElementById('reader-content');
@@ -935,39 +878,61 @@ export class ReaderUI {
       </div>
     `;
     
-    // Force layout reflow
+    // Force layout reflow so dimensions are available
     void contentEl.offsetHeight;
   }
 
   /**
-   * Calculate available page height based on current viewport
-   * Now reads from actual DOM after page structure is rendered
+   * Get text layout dimensions from the page structure
+   * Must be called after page structure exists in DOM
    */
-  _calculatePageHeight() {
-    const isFullscreen = document.fullscreenElement || 
-                        document.webkitFullscreenElement || 
-                        document.mozFullScreenElement || 
-                        document.msFullscreenElement;
-    
+  _getLayoutDimensions() {
     const pageContainer = document.querySelector('.page-container');
-    let height;
     
-    if (isFullscreen) {
-      // Fullscreen: 100vh - viewport padding
-      height = window.innerHeight - 88; // 88 = 20+20 (viewport) + 16+32 (chapter-text)
-    } else {
-      // Normal mode: read actual container height from DOM (now guaranteed to exist)
-      height = pageContainer ? pageContainer.clientHeight : 765;
+    if (!pageContainer) {
+      console.error('❌ .page-container not found in DOM');
+      return {
+        textWidth: 752,  // Fallback: 800px - 48px padding
+        pageHeight: 765,
+        maxLinesPerPage: 24
+      };
     }
     
-    console.log('📏 Page height calculation:', {
-      isFullscreen: !!isFullscreen,
-      pageContainerExists: !!pageContainer,
-      calculatedHeight: height,
-      windowInnerHeight: window.innerHeight
+    // Get settings
+    const settings = window.settingsManager?.settings || {};
+    const fontSize = settings.fontSize || 18;
+    const lineHeightMultiplier = settings.lineHeight || 1.6;
+    const lineHeight = fontSize * lineHeightMultiplier;
+    const textWidthPercent = (settings.textWidth || 100) / 100;
+    
+    // Calculate text width from container
+    const containerWidth = pageContainer.clientWidth;
+    const chapterTextPadding = 48; // 24px left + 24px right
+    const availableWidth = containerWidth - chapterTextPadding;
+    const targetWidth = availableWidth * textWidthPercent;
+    const safetyMargin = 5;
+    const textWidth = Math.max(200, targetWidth - safetyMargin);
+    
+    // Calculate page height
+    const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
+    const pageHeight = isFullscreen 
+      ? window.innerHeight - 88 
+      : pageContainer.clientHeight;
+    
+    // Calculate max lines per page
+    const textHeight = pageHeight - 144; // Subtract vertical padding
+    const maxLinesPerPage = Math.floor(textHeight / lineHeight);
+    
+    console.log('� Layout Dimensions:', {
+      containerWidth,
+      textWidth: Math.round(textWidth),
+      pageHeight,
+      maxLinesPerPage,
+      isFullscreen,
+      textWidthPercent: settings.textWidth
     });
     
-    return height;
+    return { textWidth, pageHeight, maxLinesPerPage, fontSize, lineHeight };
   }
 
   async loadChapter(index, { pageInChapter = 1, preservePage = false } = {}) {
