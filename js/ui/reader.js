@@ -382,38 +382,34 @@ export class ReaderUI {
       }
       
       // Re-paginate when fullscreen changes (available height changes)
-      // Use a longer delay to ensure fullscreen transition completes
       setTimeout(async () => {
         if (this.currentChapterIndex >= 0 && this.chapters.length > 0 && !this._isInitializing) {
-          // Get current position before re-pagination
-          const currentPosition = this.getBlockPosition();
+          // Simply preserve the current page number
+          const savedPage = this.currentPageInChapter;
           
-          // Clear layout engine cache for fresh measurements
+          // Clear caches
           if (this.layoutEngine) {
             this.layoutEngine.clearCache();
           }
           
-          // Force re-pagination by removing cached pages for this chapter
           delete this.chapterPages[this.currentChapterIndex];
           delete this.chapterPageData[this.currentChapterIndex];
           
-          // Re-render empty structure to update DOM dimensions
+          // Re-render and re-paginate
           this._renderEmptyPageStructure();
           
-          // Re-paginate the chapter
           this.chapterPages[this.currentChapterIndex] = this.splitChapterIntoPages(
             this.chapters[this.currentChapterIndex].content,
             this.chapters[this.currentChapterIndex].title
           );
           
-          // Update pages count
+          // Update counts and restore page
           const totalPagesInChapter = this.chapterPages[this.currentChapterIndex].length;
           this.pagesPerChapter[this.currentChapterIndex] = totalPagesInChapter;
           
-          // Restore position to the block we were reading
-          const newPage = this.findPageByBlockPosition(this.currentChapterIndex, currentPosition);
+          // Restore to same page number (or closest valid page)
+          this.currentPageInChapter = Math.max(1, Math.min(savedPage, totalPagesInChapter));
           
-          this.currentPageInChapter = Math.max(1, Math.min(newPage, totalPagesInChapter));
           this.renderCurrentPage();
           this.currentPage = this.calculateCurrentPageNumber();
           this.totalPages = this.calculateTotalPages();
@@ -768,58 +764,13 @@ export class ReaderUI {
    */
   _parseContentToBlocks(chapterContent, chapterTitle) {
     const blocks = [];
+    const seenTexts = new Set(); // Track text we've already added to avoid duplicates
     
-    // Parse HTML to extract elements first (don't add chapter title yet)
+    // Parse HTML to extract elements
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = chapterContent;
     
-    // Check if the first element is a heading that matches the chapter title
-    const firstElement = tempDiv.querySelector('h1, h2, h3, h4, h5, h6, p, div');
-    let firstElementIsTitle = false;
-    
-    if (firstElement && chapterTitle) {
-      const elementText = firstElement.textContent.trim().toLowerCase();
-      const titleText = chapterTitle.trim().toLowerCase();
-      
-      // Check if it's a heading and matches the title (exact or contains)
-      if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(firstElement.tagName.toLowerCase())) {
-        firstElementIsTitle = elementText === titleText || 
-                             elementText.includes(titleText) ||
-                             titleText.includes(elementText);
-      }
-    }
-    
-    // Only add chapter title if it's not already present as the first heading
-    if (chapterTitle && chapterTitle.trim() && !firstElementIsTitle) {
-      blocks.push({
-        type: 'h2',
-        text: chapterTitle,
-        htmlTag: 'h2'
-      });
-    }
-    
-    // Count all element types in the EPUB
-    const elementTypeCounts = {};
-    tempDiv.querySelectorAll('*').forEach(el => {
-      const tag = el.tagName.toLowerCase();
-      elementTypeCounts[tag] = (elementTypeCounts[tag] || 0) + 1;
-    });
-    
-    // Get all potential text containers
-    const allElements = Array.from(tempDiv.querySelectorAll('*'));
-    const textElements = allElements.filter(el => {
-      const text = el.textContent?.trim();
-      return text && text.length > 0;
-    });
-    
-    // Log unique element types that contain text
-    const textElementTypes = new Set();
-    textElements.forEach(el => textElementTypes.add(el.tagName.toLowerCase()));
-    
-    // Debug: Check if there are <br> tags in the content
-    const brCount = (chapterContent.match(/<br\s*\/?>/gi) || []).length;
-    
-    // Get all content elements (extend selector based on what we find)
+    // Get all content elements
     const elements = Array.from(tempDiv.querySelectorAll('p, h1, h2, h3, h4, h5, h6, div, section, article, blockquote, pre'));
     
     for (const element of elements) {
@@ -840,47 +791,31 @@ export class ReaderUI {
       }
       
       // Handle <br> tags by splitting into multiple blocks
-      // First, replace <br> tags with a unique separator
       const BREAK_MARKER = '<<<BR_BREAK>>>';
       const htmlWithMarkers = element.innerHTML
         .replace(/<br\s*\/?>/gi, BREAK_MARKER);
       
-      // Create temporary element to extract text with markers
       const temp = document.createElement('div');
       temp.innerHTML = htmlWithMarkers;
       
-      // Get text and split on break markers
       const textWithMarkers = temp.textContent || '';
       const segments = textWithMarkers.split(BREAK_MARKER);
       
       // Add each segment as a separate block
       for (const segment of segments) {
-        // Normalize whitespace but preserve line breaks
         let text = segment
-          .replace(/\s+/g, ' ')  // Collapse multiple spaces
+          .replace(/\s+/g, ' ')
           .trim();
         
-        // Skip empty segments
         if (!text) continue;
         
-        // Skip if this is a duplicate of the chapter title (more lenient matching)
-        if (chapterTitle && type !== 'p') {
-          const elementTextLower = text.toLowerCase();
-          const titleTextLower = chapterTitle.toLowerCase();
-          
-          // Skip if heading matches title (exact, contains, or is contained)
-          if (elementTextLower === titleTextLower || 
-              elementTextLower.includes(titleTextLower) ||
-              titleTextLower.includes(elementTextLower)) {
-            continue; // Skip duplicate chapter title
+        // Skip duplicate headings (case-insensitive)
+        if (type !== 'p') {
+          const textKey = `${type}:${text.toLowerCase()}`;
+          if (seenTexts.has(textKey)) {
+            continue; // Skip duplicate heading
           }
-        }
-        
-        // Remove chapter title prefix from first paragraph if it matches
-        if (type === 'p' && chapterTitle && text.toLowerCase().startsWith(chapterTitle.toLowerCase())) {
-          text = text.substring(chapterTitle.length).trim();
-          // Skip if paragraph becomes empty after removing title
-          if (!text) continue;
+          seenTexts.add(textKey);
         }
         
         blocks.push({
@@ -890,18 +825,6 @@ export class ReaderUI {
         });
       }
     }
-    
-    // Count block types
-    const blockTypeCounts = {};
-    blocks.forEach(block => {
-      blockTypeCounts[block.htmlTag] = (blockTypeCounts[block.htmlTag] || 0) + 1;
-    });
-    
-    // Show length distribution of blocks
-    const blockLengths = blocks.map(b => b.text.length);
-    const avgLength = blockLengths.reduce((a, b) => a + b, 0) / blockLengths.length;
-    const maxLength = Math.max(...blockLengths);
-    const minLength = Math.min(...blockLengths);
     
     return blocks;
   }
