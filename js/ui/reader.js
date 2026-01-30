@@ -937,10 +937,7 @@ export class ReaderUI {
     // Ensure text width stays within reasonable bounds
     const textWidth = Math.max(200, Math.min(targetWidth, availableWidth));
     
-    // Set CSS variable for centering offset
-    // When text width is less than 100%, we center it with transform
-    const offsetPercent = ((1 - textWidthPercent) / 2) * 100;
-    document.documentElement.style.setProperty('--text-offset', `${offsetPercent}%`);
+    // Set CSS variable for text width (left-aligned, no centering)
     document.documentElement.style.setProperty('--text-width-percent', `${textWidthPercent * 100}%`);
     
     // Calculate page height

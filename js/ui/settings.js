@@ -12,7 +12,6 @@ export class SettingsUI {
       lineHeight: 1.6,
       fontFamily: 'serif',
       textAlign: 'left',
-      pageWidth: 650,
       textWidth: 100, // Percentage of available width to use for text (100 = full width)
       brightness: 100,
       pageColor: 'cream',
@@ -139,19 +138,6 @@ export class SettingsUI {
       this.applyTextAlign();
       this.saveSettings();
       this._emitLayoutChanged('textAlign');
-    });
-
-    // Page width
-    const pageWidthInput = document.getElementById('page-width');
-    const pageWidthValue = document.getElementById('page-width-value');
-    pageWidthInput?.addEventListener('input', (e) => {
-      this.settings.pageWidth = parseInt(e.target.value);
-      if (pageWidthValue) {
-        pageWidthValue.textContent = `${this.settings.pageWidth}px`;
-      }
-      this.applyPageWidth();
-      this.saveSettings();
-      this._emitLayoutChanged('pageWidth');
     });
 
     // Brightness
@@ -342,7 +328,6 @@ export class SettingsUI {
     this.applyLineHeight();
     this.applyFontFamily();
     this.applyTextAlign();
-    this.applyPageWidth();
     this.applyBrightness();
     this.applyPageColor();
     this.applyPageWarmth();
@@ -408,13 +393,6 @@ export class SettingsUI {
     const align = this.settings.textAlign || 'justify';
     document.documentElement.style.setProperty('--reader-text-align', align);
     document.querySelectorAll('.chapter-text').forEach((el) => el.style.setProperty('--reader-text-align', align));
-  }
-
-  applyPageWidth() {
-    document.documentElement.style.setProperty('--page-width', `${this.settings.pageWidth}px`);
-    document.querySelectorAll('.page-viewport').forEach((el) => {
-      el.style.setProperty('--page-width', `${this.settings.pageWidth}px`);
-    });
   }
 
   applyBrightness() {
@@ -572,11 +550,6 @@ export class SettingsUI {
 
     const textAlignSelect = document.getElementById('text-align');
     if (textAlignSelect) textAlignSelect.value = this.settings.textAlign;
-
-    const pageWidthInput = document.getElementById('page-width');
-    const pageWidthValue = document.getElementById('page-width-value');
-    if (pageWidthInput) pageWidthInput.value = this.settings.pageWidth;
-    if (pageWidthValue) pageWidthValue.textContent = `${this.settings.pageWidth}px`;
 
     const brightnessInput = document.getElementById('brightness');
     const brightnessValue = document.getElementById('brightness-value');
