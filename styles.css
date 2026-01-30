@@ -2550,6 +2550,8 @@ html:-ms-fullscreen .page-indicator,
   letter-spacing: normal;
   text-indent: 0;
   text-transform: none;
+  /* Use text-align setting */
+  text-align: var(--reader-text-align, left) !important;
 }
 
 .page-lines .h1 {
