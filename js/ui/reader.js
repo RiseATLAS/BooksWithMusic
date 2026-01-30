@@ -64,6 +64,8 @@ export class ReaderUI {
 
   /**
    * Get character position in chapter for the start of current page
+   * NOTE: This returns the position at the START of the page, which can cause drift.
+   * Use getExactVisiblePosition() for drift-free position tracking.
    */
   getCharacterPositionInChapter() {
     const pageData = this.chapterPageData?.[this.currentChapterIndex];
@@ -94,15 +96,72 @@ export class ReaderUI {
   }
 
   /**
-   * Find which page contains a specific character position in the chapter
+   * Get the exact visible position (first text on current page) for drift-free restoration
+   * Returns an object with character position and a sample of the text for verification
    */
-  findPageByCharacterPosition(chapterIndex, targetPosition) {
+  getExactVisiblePosition() {
+    const pageData = this.chapterPageData?.[this.currentChapterIndex];
+    if (!pageData || pageData.length === 0) {
+      return { charPosition: 0, textSample: '', lineIndex: 0 };
+    }
+    
+    const pageIndex = this.currentPageInChapter - 1;
+    if (pageIndex < 0 || pageIndex >= pageData.length) {
+      return { charPosition: 0, textSample: '', lineIndex: 0 };
+    }
+    
+    // Calculate character position up to current page start
+    let charPosition = 0;
+    for (let i = 0; i < pageIndex; i++) {
+      const page = pageData[i];
+      if (page && page.lines) {
+        for (const line of page.lines) {
+          if (line && line.type === 'text' && line.text) {
+            charPosition += line.text.length;
+          }
+        }
+      }
+    }
+    
+    // Get the first text line on current page for verification
+    const currentPage = pageData[pageIndex];
+    let textSample = '';
+    let lineIndex = 0;
+    
+    if (currentPage && currentPage.lines) {
+      for (let i = 0; i < currentPage.lines.length; i++) {
+        const line = currentPage.lines[i];
+        if (line && line.type === 'text' && line.text && line.text.trim()) {
+          textSample = line.text.trim().substring(0, 100); // First 100 chars
+          lineIndex = i;
+          break;
+        }
+      }
+    }
+    
+    console.log(`[ExactPos] Page ${this.currentPageInChapter}: char ${charPosition}, text: "${textSample.substring(0, 50)}..."`);
+    
+    return { 
+      charPosition, 
+      textSample,
+      lineIndex,
+      pageIndex: this.currentPageInChapter 
+    };
+  }
+
+  /**
+   * Find which page contains a specific character position in the chapter
+   * Now with text sample verification for accuracy
+   */
+  findPageByCharacterPosition(chapterIndex, targetPosition, textSample = '') {
     const pageData = this.chapterPageData?.[chapterIndex];
     if (!pageData || pageData.length === 0) {
       return 1;
     }
     
     let currentPosition = 0;
+    let bestMatch = 1;
+    let bestMatchConfidence = 0;
     
     for (let pageIndex = 0; pageIndex < pageData.length; pageIndex++) {
       const page = pageData[pageIndex];
@@ -120,13 +179,57 @@ export class ReaderUI {
       // Check if target position falls within this page
       if (targetPosition >= pageStartPosition && targetPosition < currentPosition) {
         console.log(`[FindPage] Character ${targetPosition} found on page ${pageIndex + 1} (range ${pageStartPosition}-${currentPosition})`);
-        return pageIndex + 1;
+        
+        // If we have a text sample, verify it matches
+        if (textSample) {
+          const firstTextOnPage = this.getFirstTextOnPage(page);
+          if (firstTextOnPage && firstTextOnPage.includes(textSample.substring(0, 30))) {
+            console.log(`[FindPage] ✓ Text sample verified on page ${pageIndex + 1}`);
+            return pageIndex + 1;
+          } else {
+            console.log(`[FindPage] ⚠ Position match but text differs, continuing search...`);
+            bestMatch = pageIndex + 1;
+            bestMatchConfidence = 1;
+          }
+        } else {
+          return pageIndex + 1;
+        }
       }
+      
+      // Also check if text sample appears on this page (fuzzy match)
+      if (textSample && bestMatchConfidence < 2) {
+        const pageText = this.getFirstTextOnPage(page);
+        if (pageText && pageText.includes(textSample.substring(0, 30))) {
+          console.log(`[FindPage] ✓✓ Text sample found on page ${pageIndex + 1} (high confidence)`);
+          bestMatch = pageIndex + 1;
+          bestMatchConfidence = 2;
+        }
+      }
+    }
+    
+    // If we found a text match, use it
+    if (bestMatchConfidence > 0) {
+      console.log(`[FindPage] Using best match: page ${bestMatch} (confidence: ${bestMatchConfidence})`);
+      return bestMatch;
     }
     
     // If position is beyond all pages, return last page
     console.log(`[FindPage] Character ${targetPosition} beyond all pages, returning last page ${pageData.length}`);
     return pageData.length;
+  }
+  
+  /**
+   * Get the first text content from a page for verification
+   */
+  getFirstTextOnPage(page) {
+    if (!page || !page.lines) return '';
+    
+    for (const line of page.lines) {
+      if (line && line.type === 'text' && line.text && line.text.trim()) {
+        return line.text.trim();
+      }
+    }
+    return '';
   }
 
   /**
@@ -500,12 +603,15 @@ export class ReaderUI {
       // Re-paginate when fullscreen changes
       setTimeout(async () => {
         if (this.currentChapterIndex >= 0 && this.chapters.length > 0 && !this._isInitializing) {
-          console.log('=== FULLSCREEN RE-PAGINATION (Character-Based) ===');
+          console.log('=== FULLSCREEN RE-PAGINATION (Drift-Free) ===');
           
-          // Save character position in chapter (absolute position, not page-relative)
-          const charPosition = this.getCharacterPositionInChapter();
+          // Save exact visible position with text sample for verification
+          const exactPosition = this.getExactVisiblePosition();
           const oldPage = this.currentPageInChapter;
           const oldTotalPages = this.pagesPerChapter[this.currentChapterIndex];
+          
+          console.log(`[Before] Page ${oldPage}/${oldTotalPages}, char position: ${exactPosition.charPosition}`);
+          console.log(`[Before] First visible text: "${exactPosition.textSample.substring(0, 50)}..."`);
           
           // Clear caches
           if (this.layoutEngine) {
@@ -525,12 +631,30 @@ export class ReaderUI {
           
           const totalPagesInChapter = this.chapterPages[this.currentChapterIndex].length;
           this.pagesPerChapter[this.currentChapterIndex] = totalPagesInChapter;
-          console.log(`[Pagination] Old: page ${oldPage}/${oldTotalPages} → New: ${totalPagesInChapter} pages total`);
+          console.log(`[After] Re-paginated into ${totalPagesInChapter} pages`);
           
-          // Find which page contains our saved character position
-          const restoredPage = this.findPageByCharacterPosition(this.currentChapterIndex, charPosition);
+          // Find which page contains our saved character position AND verify text matches
+          const restoredPage = this.findPageByCharacterPosition(
+            this.currentChapterIndex, 
+            exactPosition.charPosition,
+            exactPosition.textSample
+          );
+          
           this.currentPageInChapter = restoredPage;
-          console.log(`[Result] Restored to page ${restoredPage}`);
+          console.log(`[Result] Restored to page ${restoredPage}/${totalPagesInChapter}`);
+          
+          // Verify the restoration worked
+          const newPosition = this.getExactVisiblePosition();
+          console.log(`[Verify] New first visible text: "${newPosition.textSample.substring(0, 50)}..."`);
+          
+          if (newPosition.textSample && exactPosition.textSample && 
+              newPosition.textSample.substring(0, 30) === exactPosition.textSample.substring(0, 30)) {
+            console.log(`[Verify] ✓ Position restored successfully - no drift!`);
+          } else {
+            console.warn(`[Verify] ⚠ Text mismatch - some drift may have occurred`);
+            console.warn(`Expected: "${exactPosition.textSample.substring(0, 30)}"`);
+            console.warn(`Got: "${newPosition.textSample.substring(0, 30)}"`);
+          }
           
           this.renderCurrentPage();
           this.currentPage = this.calculateCurrentPageNumber();
@@ -699,8 +823,11 @@ export class ReaderUI {
         return;
       }
       
-      // Get current block position BEFORE re-pagination
-      const blockPosition = this.getBlockPosition();
+      console.log('=== PAGE DENSITY CHANGED ===');
+      
+      // Get exact visible position BEFORE re-pagination
+      const exactPosition = this.getExactVisiblePosition();
+      console.log(`[Before] Saving position at char ${exactPosition.charPosition}: "${exactPosition.textSample.substring(0, 50)}..."`);
       
       // Update internal setting
       this.charsPerPage = newDensity;
@@ -716,8 +843,13 @@ export class ReaderUI {
           preservePage: true 
         });
         
-        // Restore position using block position
-        const newPage = this.findPageByBlockPosition(this.currentChapterIndex, blockPosition);
+        // Restore position using exact character position and text sample
+        const newPage = this.findPageByCharacterPosition(
+          this.currentChapterIndex, 
+          exactPosition.charPosition,
+          exactPosition.textSample
+        );
+        
         if (newPage !== this.currentPageInChapter) {
           this.currentPageInChapter = newPage;
           this.renderCurrentPage();
@@ -725,6 +857,10 @@ export class ReaderUI {
           this.totalPages = this.calculateTotalPages();
           this.updatePageIndicator();
         }
+        
+        // Verify restoration
+        const newPosition = this.getExactVisiblePosition();
+        console.log(`[After] Restored to page ${newPage}, char ${newPosition.charPosition}: "${newPosition.textSample.substring(0, 50)}..."`);
       }
     });
 
@@ -782,17 +918,20 @@ export class ReaderUI {
         return;
       }
       
-      // Settings that affect pagination and require shift point recalculation
+      // Settings that affect pagination and require position recalculation
       const paginationAffectingChanges = ['fontSize', 'lineHeight', 'fontFamily', 'textAlign', 'pageWidth', 'textWidth', 'pageDensity', 'calibration'];
       
       if (paginationAffectingChanges.includes(reason)) {
+        console.log(`=== LAYOUT CHANGED: ${reason} ===`);
+        
         // Clear layout engine cache when font settings change
         if (this.layoutEngine && ['fontSize', 'fontFamily'].includes(reason)) {
           this.layoutEngine.clearCache();
         }
         
-        // Get current position using block-based tracking
-        const currentPosition = this.getBlockPosition();
+        // Get exact visible position using improved tracking
+        const exactPosition = this.getExactVisiblePosition();
+        console.log(`[Before] Saving position at char ${exactPosition.charPosition}: "${exactPosition.textSample.substring(0, 50)}..."`);
         
         // Now clear cached pages to force re-pagination
         this.chapterPages = {};
@@ -805,8 +944,12 @@ export class ReaderUI {
             preservePage: true 
           });
           
-          // Restore position using block position
-          const newPage = this.findPageByBlockPosition(this.currentChapterIndex, currentPosition);
+          // Restore position using exact character position and text sample
+          const newPage = this.findPageByCharacterPosition(
+            this.currentChapterIndex, 
+            exactPosition.charPosition,
+            exactPosition.textSample
+          );
           
           if (newPage !== this.currentPageInChapter) {
             this.currentPageInChapter = newPage;
@@ -816,7 +959,9 @@ export class ReaderUI {
             this.updatePageIndicator();
           }
           
-          // Shift points are automatically recalculated in loadChapter via _analyzeChapterSections
+          // Verify restoration
+          const newPosition = this.getExactVisiblePosition();
+          console.log(`[After] Restored to page ${newPage}, char ${newPosition.charPosition}: "${newPosition.textSample.substring(0, 50)}..."`);
         }
       }
     });
