@@ -935,19 +935,22 @@ export class ReaderUI {
     // Calculate text width from container
     const containerWidth = pageContainer.clientWidth;
     
-    // Account for left padding (48px in normal mode, less in fullscreen)
+    // Set left offset (margin) for comfortable reading
     const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
-    const leftPadding = isFullscreen ? 32 : 48;
-    const availableWidth = containerWidth - leftPadding;
+    const leftOffset = isFullscreen ? 32 : 48;
     
-    // Apply text width percentage - this will be the actual line width
+    // Calculate available width for text (after left margin)
+    const availableWidth = containerWidth - leftOffset;
+    
+    // Apply text width percentage to available width
     const targetWidth = availableWidth * textWidthPercent;
     
     // Ensure text width stays within reasonable bounds
     const textWidth = Math.max(200, Math.min(targetWidth, availableWidth));
     
-    // Set CSS variable for text width (left-aligned, no centering)
-    document.documentElement.style.setProperty('--text-width-percent', `${textWidthPercent * 100}%`);
+    // Set CSS variables for positioning and width
+    document.documentElement.style.setProperty('--text-offset', `${leftOffset}px`);
+    document.documentElement.style.setProperty('--text-width-px', `${textWidth}px`);
     
     // Calculate page height
     let pageHeight;
