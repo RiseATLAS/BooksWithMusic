@@ -455,10 +455,12 @@ class TextLayoutEngine {
 
   /**
    * Wrap lines in appropriate HTML tag
+   * Each line is its own element for proper rendering with white-space: nowrap
    */
   wrapBlockLines(lines, htmlTag) {
     const className = htmlTag === 'p' ? '' : ' class="' + htmlTag + '"';
-    return `<${htmlTag}${className}>${lines.join('<br>')}</${htmlTag}>`;
+    // Each line gets its own element so white-space: nowrap works correctly
+    return lines.map(line => `<${htmlTag}${className}>${line}</${htmlTag}>`).join('');
   }
 
   /**
