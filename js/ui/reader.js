@@ -1110,34 +1110,34 @@ export class ReaderUI {
 
   /**
    * Calculate and apply text centering offset based on text width percentage
-   * Formula: As text width decreases, increase centering offset proportionally
-   * - 100% width = 0px offset (left-aligned)
-   * - 70% width = 100px offset
-   * - 50% width = 200px offset
-   * - 30% width = 300px offset
+   * Formula: Apply half the percentage reduction as the centering offset
+   * - 100% width = 0% offset (left-aligned)
+   * - 70% width = 15% offset (30% reduction → 15% offset)
+   * - 50% width = 25% offset (50% reduction → 25% offset)
+   * - 30% width = 35% offset (70% reduction → 35% offset)
    */
   _applyTextCenteringOffset() {
     const settings = window.settingsManager?.settings || {};
     const textWidthPercent = settings.textWidth || 100;
     
-    // Calculate offset: 0px at 100%, scaling up as width decreases
-    // Formula: offset = (100 - textWidthPercent) * (300 / 70)
-    // This gives us the desired mapping:
-    // 100% -> 0px, 70% -> ~130px, 50% -> ~214px, 30% -> ~300px
-    let offset;
-    if (textWidthPercent >= 100) {
-      offset = 0;
-    } else {
-      // Linear interpolation from 0px at 100% to 300px at 30%
-      const widthReduction = 100 - textWidthPercent;
-      offset = (widthReduction / 70) * 300;
-      
-      // Cap at 300px maximum
-      offset = Math.min(offset, 300);
-    }
+    // Calculate the percentage reduction
+    const widthReduction = 100 - textWidthPercent;
     
-    // Apply to CSS custom property
-    document.documentElement.style.setProperty('--text-center-offset', `${offset}px`);
+    // Apply half of the reduction as offset percentage
+    const offsetPercent = widthReduction / 2;
+    
+    // Get viewport width to convert percentage to pixels
+    const pageViewport = document.querySelector('.page-viewport');
+    if (pageViewport) {
+      const viewportWidth = pageViewport.clientWidth;
+      const offsetPx = (offsetPercent / 100) * viewportWidth;
+      
+      // Apply to CSS custom property
+      document.documentElement.style.setProperty('--text-center-offset', `${offsetPx}px`);
+    } else {
+      // Fallback: use percentage-based offset
+      document.documentElement.style.setProperty('--text-center-offset', `${offsetPercent}%`);
+    }
   }
 
   /**
