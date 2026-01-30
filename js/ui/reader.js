@@ -914,12 +914,13 @@ export class ReaderUI {
    * Must be called after page structure exists in DOM
    */
   _getLayoutDimensions() {
-    const pageContainer = document.querySelector('.page-container');
+    // Measure the viewport, not the container, since that's where chapter-text lives
+    const pageViewport = document.querySelector('.page-viewport');
     
-    if (!pageContainer) {
-      console.error('❌ .page-container not found in DOM');
+    if (!pageViewport) {
+      console.error('❌ .page-viewport not found in DOM');
       return {
-        textWidth: 752,  // Fallback: 800px - 48px padding
+        textWidth: 752,  // Fallback: 800px - 48px offset
         pageHeight: 765,
         maxLinesPerPage: 24
       };
@@ -932,15 +933,15 @@ export class ReaderUI {
     const lineHeight = fontSize * lineHeightMultiplier;
     const textWidthPercent = (settings.textWidth || 100) / 100;
     
-    // Calculate text width from container
-    const containerWidth = pageContainer.clientWidth;
+    // Calculate text width from viewport (the actual parent of chapter-text)
+    const viewportWidth = pageViewport.clientWidth;
     
     // Set left offset (margin) for comfortable reading
     const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
     const leftOffset = isFullscreen ? 32 : 48;
     
     // Calculate available width for text (after left margin)
-    const availableWidth = containerWidth - leftOffset;
+    const availableWidth = viewportWidth - leftOffset;
     
     // Apply text width percentage to available width
     const targetWidth = availableWidth * textWidthPercent;
@@ -961,8 +962,8 @@ export class ReaderUI {
       pageHeight = window.innerHeight;
       textHeight = pageHeight - 60; // Minimal top + bottom padding
     } else {
-      // Normal mode: use container height
-      pageHeight = pageContainer.clientHeight;
+      // Normal mode: use viewport height (not container)
+      pageHeight = pageViewport.clientHeight;
       textHeight = pageHeight - 144; // Subtract vertical padding
     }
     

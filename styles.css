@@ -1811,9 +1811,9 @@ html:-ms-fullscreen .page-indicator,
 
 :fullscreen .chapter-text,
 :-webkit-full-screen .chapter-text {
-  padding: 16px 0 32px 0 !important; /* Only vertical padding in fullscreen */
-  left: var(--text-offset, 32px) !important; /* Use CSS variable for left margin */
-  width: var(--text-width-px, 100%) !important; /* Use calculated pixel width */
+  padding: 16px 0 32px 0 !important; /* Only vertical padding */
+  left: var(--text-offset, 32px) !important; /* Left margin from CSS variable */
+  width: var(--text-width-px, calc(100% - 32px)) !important; /* Exact pixel width */
   top: 20px !important; /* Match reduced viewport padding */
   bottom: 20px !important;
   height: auto !important; /* Let content determine height */
