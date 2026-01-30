@@ -143,10 +143,11 @@ export class ReaderUI {
   }
 
   /**
-   * Find which page contains the given text - ANYWHERE on the page
-   * The text just needs to be visible on that page, doesn't matter if it's at the start or middle
+   * Find which page contains the given text
+   * @param {boolean} mustBeFirst - If true, text must be the first text on the page (for exiting fullscreen)
+   *                                 If false, text can appear anywhere on page (for entering fullscreen)
    */
-  findPageByTextBlock(chapterIndex, targetText, targetBlockIndex) {
+  findPageByTextBlock(chapterIndex, targetText, targetBlockIndex, mustBeFirst = false) {
     if (!targetText || targetText.trim().length === 0) {
       console.log('[FindPage] No search text provided, returning page 1');
       return 1;
@@ -159,23 +160,45 @@ export class ReaderUI {
     }
     
     const searchLower = targetText.toLowerCase().trim();
-    console.log(`[FindPage] Looking for text: "${searchLower.substring(0, 40)}..."`);
+    const searchPrefix = searchLower.substring(0, Math.min(40, searchLower.length));
+    console.log(`[FindPage] Looking for text${mustBeFirst ? ' (must be first)' : ''}: "${searchPrefix}..."`);
     
-    // Search through all pages and find where this text appears (anywhere on the page is fine)
+    // Search through all pages
     for (let pageIndex = 0; pageIndex < pageData.length; pageIndex++) {
       const page = pageData[pageIndex];
       if (!page || !page.lines) continue;
       
-      // Check all text lines on this page
-      for (const line of page.lines) {
-        if (line && line.type === 'text' && line.text) {
-          const lineText = line.text.trim().toLowerCase();
-          
-          // Match if the line contains our text, or our text contains the line
-          if (lineText.startsWith(searchLower.substring(0, Math.min(40, searchLower.length))) ||
-              searchLower.startsWith(lineText.substring(0, Math.min(40, lineText.length)))) {
-            console.log(`[FindPage] ✓ Found on page ${pageIndex + 1}`);
-            return pageIndex + 1;
+      if (mustBeFirst) {
+        // Must be the FIRST text on the page - only check first text line
+        for (const line of page.lines) {
+          if (line && line.type === 'text' && line.text && line.text.trim()) {
+            const lineText = line.text.trim().toLowerCase();
+            const linePrefix = lineText.substring(0, Math.min(40, lineText.length));
+            
+            // Check if this first text matches our search
+            if (linePrefix === searchPrefix || 
+                lineText.startsWith(searchPrefix) ||
+                searchLower.startsWith(linePrefix)) {
+              console.log(`[FindPage] ✓ Found as FIRST text on page ${pageIndex + 1}`);
+              return pageIndex + 1;
+            }
+            break; // Only check first text line
+          }
+        }
+      } else {
+        // Can appear ANYWHERE on the page - check all lines
+        for (const line of page.lines) {
+          if (line && line.type === 'text' && line.text) {
+            const lineText = line.text.trim().toLowerCase();
+            const linePrefix = lineText.substring(0, Math.min(40, lineText.length));
+            
+            // Match if the line starts with our search text, or vice versa
+            if (linePrefix === searchPrefix || 
+                lineText.startsWith(searchPrefix) ||
+                searchLower.startsWith(linePrefix)) {
+              console.log(`[FindPage] ✓ Found on page ${pageIndex + 1}`);
+              return pageIndex + 1;
+            }
           }
         }
       }
@@ -602,22 +625,26 @@ export class ReaderUI {
           // Determine which position to restore to
           let restoredPage;
           let textBlockToFind;
+          let mustBeFirst = false; // Flag for whether text must be first on page
           
           if (isExitingFullscreen && hasSameChapter && hasSamePage) {
             // Exiting fullscreen and user hasn't navigated - restore to original position
             textBlockToFind = this._positionBeforeFullscreen.textBlock;
-            console.log(`[Restore] Using saved pre-fullscreen position: "${textBlockToFind.text.substring(0, 40)}..."`);
+            mustBeFirst = true; // Going back to normal view - text must be at START of page
+            console.log(`[Restore] Using saved pre-fullscreen position (must be first): "${textBlockToFind.text.substring(0, 40)}..."`);
           } else {
             // Entering fullscreen OR user has navigated - use current position
             textBlockToFind = currentTextBlock;
-            console.log(`[Restore] Using current position: "${textBlockToFind.text.substring(0, 40)}..."`);
+            mustBeFirst = isExitingFullscreen; // If exiting but navigated, still want first; if entering, anywhere is fine
+            console.log(`[Restore] Using current position${mustBeFirst ? ' (must be first)' : ''}: "${textBlockToFind.text.substring(0, 40)}..."`);
           }
           
           // Find which page contains our text block
           restoredPage = this.findPageByTextBlock(
             this.currentChapterIndex, 
             textBlockToFind.text,
-            textBlockToFind.blockIndex
+            textBlockToFind.blockIndex,
+            mustBeFirst
           );
           
           this.currentPageInChapter = restoredPage;
@@ -826,11 +853,12 @@ export class ReaderUI {
           preservePage: true 
         });
         
-        // Restore position by finding the text
+        // Restore position by finding the text (must be first on page)
         const newPage = this.findPageByTextBlock(
           this.currentChapterIndex, 
           textBlock.text,
-          textBlock.blockIndex
+          textBlock.blockIndex,
+          true // Must be first text on page
         );
         
         if (newPage !== this.currentPageInChapter) {
@@ -922,11 +950,12 @@ export class ReaderUI {
             preservePage: true 
           });
           
-          // Restore position by finding the text
+          // Restore position by finding the text (must be first on page)
           const newPage = this.findPageByTextBlock(
             this.currentChapterIndex, 
             textBlock.text,
-            textBlock.blockIndex
+            textBlock.blockIndex,
+            true // Must be first text on page
           );
           
           if (newPage !== this.currentPageInChapter) {
