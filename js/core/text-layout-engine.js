@@ -504,10 +504,10 @@ class TextLayoutEngine {
       return 0;
     }
     
+    // First, try to find the page with the exact line
     for (let pageIndex = 0; pageIndex < pages.length; pageIndex++) {
       const page = pages[pageIndex];
       
-      // Validate page structure
       if (!page || !page.lines || !Array.isArray(page.lines)) {
         continue;
       }
@@ -521,11 +521,19 @@ class TextLayoutEngine {
       }
     }
     
-    // If exact line not found, find page with this block
+    // Exact line not found, find the page where this block STARTS
     for (let pageIndex = 0; pageIndex < pages.length; pageIndex++) {
       const page = pages[pageIndex];
-      if (page && page.blocks && Array.isArray(page.blocks) && page.blocks.includes(targetBlockIndex)) {
-        return pageIndex;
+      
+      if (!page || !page.lines || !Array.isArray(page.lines)) {
+        continue;
+      }
+      
+      for (const line of page.lines) {
+        if (line && line.type === 'text' && line.blockIndex === targetBlockIndex) {
+          // Found the block, return this page
+          return pageIndex;
+        }
       }
     }
     

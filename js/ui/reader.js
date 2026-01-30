@@ -63,42 +63,65 @@ export class ReaderUI {
   }
 
   /**
-   * Get current block position (for position restoration after re-pagination)
+   * Get the first words on current page for position restoration
    */
-  getBlockPosition() {
-    if (!this.layoutEngine || !this.chapterPageData) {
-      return { blockIndex: 0, lineInBlock: 0 };
-    }
-    
-    const pageData = this.chapterPageData[this.currentChapterIndex];
+  getFirstWordsOnPage() {
+    const pageData = this.chapterPageData?.[this.currentChapterIndex];
     if (!pageData || pageData.length === 0) {
-      return { blockIndex: 0, lineInBlock: 0 };
+      return null;
     }
     
     const pageIndex = this.currentPageInChapter - 1;
-    return this.layoutEngine.getBlockPositionForPage(pageData, pageIndex);
+    if (pageIndex < 0 || pageIndex >= pageData.length) {
+      return null;
+    }
+    
+    const page = pageData[pageIndex];
+    if (!page || !page.lines) {
+      return null;
+    }
+    
+    // Find first text line and extract first 10 words
+    for (const line of page.lines) {
+      if (line && line.type === 'text' && line.text) {
+        const words = line.text.trim().split(/\s+/).slice(0, 10).join(' ');
+        return words;
+      }
+    }
+    
+    return null;
   }
 
   /**
-   * Find page that contains the given block position after re-pagination
+   * Find page that starts with the given words
    */
-  findPageByBlockPosition(chapterIndex, blockPosition) {
-    if (!this.layoutEngine || !this.chapterPageData) {
-      return 1;
-    }
+  findPageByFirstWords(chapterIndex, targetWords) {
+    if (!targetWords) return 1;
     
-    const pageData = this.chapterPageData[chapterIndex];
+    const pageData = this.chapterPageData?.[chapterIndex];
     if (!pageData || pageData.length === 0) {
       return 1;
     }
     
-    const pageIndex = this.layoutEngine.findPageForBlockPosition(
-      pageData,
-      blockPosition.blockIndex || 0,
-      blockPosition.lineInBlock || 0
-    );
+    const targetLower = targetWords.toLowerCase();
     
-    return pageIndex + 1; // Convert to 1-indexed
+    for (let pageIndex = 0; pageIndex < pageData.length; pageIndex++) {
+      const page = pageData[pageIndex];
+      if (!page || !page.lines) continue;
+      
+      // Check first text line on this page
+      for (const line of page.lines) {
+        if (line && line.type === 'text' && line.text) {
+          const lineStart = line.text.trim().toLowerCase();
+          if (lineStart.startsWith(targetLower) || targetLower.startsWith(lineStart)) {
+            return pageIndex + 1; // Convert to 1-indexed
+          }
+          break; // Only check first text line
+        }
+      }
+    }
+    
+    return 1; // Fallback
   }
 
   async openBook(bookId) {
@@ -387,8 +410,8 @@ export class ReaderUI {
           // Save current page number as fallback
           const savedPage = this.currentPageInChapter;
           
-          // Get the first word position on current page BEFORE re-pagination
-          const currentPosition = this.getBlockPosition();
+          // Save the first words on the current page
+          const firstWords = this.getFirstWordsOnPage();
           
           // Clear caches
           if (this.layoutEngine) {
@@ -409,13 +432,11 @@ export class ReaderUI {
           const totalPagesInChapter = this.chapterPages[this.currentChapterIndex].length;
           this.pagesPerChapter[this.currentChapterIndex] = totalPagesInChapter;
           
-          // Try to restore exact position, fall back to page number
+          // Find page that starts with the same words, or use page number fallback
           let restoredPage;
-          if (currentPosition.blockIndex > 0 || currentPosition.lineInBlock > 0) {
-            // We have valid position data, use it
-            restoredPage = this.findPageByBlockPosition(this.currentChapterIndex, currentPosition);
+          if (firstWords) {
+            restoredPage = this.findPageByFirstWords(this.currentChapterIndex, firstWords);
           } else {
-            // No valid position data, use page number
             restoredPage = Math.min(savedPage, totalPagesInChapter);
           }
           
