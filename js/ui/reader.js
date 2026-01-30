@@ -825,6 +825,8 @@ export class ReaderUI {
     
     // Debug: Log chapter content
     console.log('📄 Parsing chapter content, length:', chapterContent.length);
+    console.log('📄 Sample of original EPUB HTML (first 1000 chars):');
+    console.log(chapterContent.substring(0, 1000));
     console.log('📄 Found elements:', tempDiv.querySelectorAll('p, h1, h2, h3, h4, h5, h6, div').length);
     
     // Debug: Check if there are <br> tags in the content
@@ -887,6 +889,12 @@ export class ReaderUI {
     }
     
     console.log('📚 Created', blocks.length, 'content blocks');
+    
+    // Debug: Show first few blocks to understand structure
+    console.log('📚 First 5 blocks:');
+    blocks.slice(0, 5).forEach((block, i) => {
+      console.log(`  Block ${i}: [${block.type}] ${block.text.substring(0, 60)}...`);
+    });
     
     return blocks;
   }
