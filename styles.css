@@ -2567,8 +2567,16 @@ html:-ms-fullscreen .page-indicator,
 }
 
 .page-lines .line-spacing {
-  height: 1.5em;
-  /* Empty div for spacing between blocks - increased for better paragraph separation */
+  height: 2.5em;
+  /* Empty div for spacing between paragraphs - provides clear visual separation */
+}
+
+/* Text lines within paragraphs - each line is a span displayed as block */
+.page-lines .text-line {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  /* No margins - spacing is controlled by parent paragraph and line-spacing divs */
 }
 
 /* Update Notification */

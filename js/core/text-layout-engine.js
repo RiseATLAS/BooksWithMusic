@@ -456,12 +456,21 @@ class TextLayoutEngine {
 
   /**
    * Wrap lines in appropriate HTML tag
-   * Each line is its own element for proper rendering with white-space: nowrap
+   * All lines from the same block are wrapped in a single tag, with each line as a span
    */
   wrapBlockLines(lines, htmlTag) {
     const className = htmlTag === 'p' ? '' : ' class="' + htmlTag + '"';
-    // Each line gets its own element so white-space: nowrap works correctly
-    return lines.map(line => `<${htmlTag}${className}>${line}</${htmlTag}>`).join('');
+    // Wrap all lines in a single block element
+    // Each line is a span with display: block for proper line breaks
+    const lineSpans = lines.map(line => `<span class="text-line">${line}</span>`).join('');
+    const result = `<${htmlTag}${className}>${lineSpans}</${htmlTag}>`;
+    
+    // Debug: Log first few blocks
+    if (Math.random() < 0.05) { // Log 5% of blocks
+      console.log(`📦 Block wrapper [${htmlTag}]: ${lines.length} lines, first: ${lines[0]?.substring(0, 50)}...`);
+    }
+    
+    return result;
   }
 
   /**
