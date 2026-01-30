@@ -627,16 +627,16 @@ export class ReaderUI {
           let textBlockToFind;
           let mustBeFirst = false; // Flag for whether text must be first on page
           
-          if (isExitingFullscreen && hasSameChapter && hasSamePage) {
-            // Exiting fullscreen and user hasn't navigated - restore to original position
+          if (isExitingFullscreen && this._positionBeforeFullscreen) {
+            // ALWAYS restore to pre-fullscreen position when exiting, regardless of navigation
             textBlockToFind = this._positionBeforeFullscreen.textBlock;
-            mustBeFirst = true; // Going back to normal view - text must be at START of page
-            console.log(`[Restore] Using saved pre-fullscreen position (must be first): "${textBlockToFind.text.substring(0, 40)}..."`);
+            mustBeFirst = true; // Going back to normal view - restore exact page that starts with this text
+            console.log(`[Restore] Exiting fullscreen - restoring to saved position (must be first): "${textBlockToFind.text.substring(0, 40)}..."`);
           } else {
-            // Entering fullscreen OR user has navigated - use current position
+            // ENTERING fullscreen - find page containing current text
             textBlockToFind = currentTextBlock;
-            mustBeFirst = isExitingFullscreen; // If exiting but navigated, still want first; if entering, anywhere is fine
-            console.log(`[Restore] Using current position${mustBeFirst ? ' (must be first)' : ''}: "${textBlockToFind.text.substring(0, 40)}..."`);
+            mustBeFirst = false; // Text can appear anywhere on the page
+            console.log(`[Restore] Entering fullscreen - text can appear anywhere: "${textBlockToFind.text.substring(0, 40)}..."`);
           }
           
           // Find which page contains our text block
