@@ -110,7 +110,7 @@ export class ReaderUI {
   }
 
   /**
-   * Find page that starts with the given words
+   * Find page that contains the given words (anywhere on the page)
    */
   findPageByFirstWords(chapterIndex, targetWords) {
     console.log('[findPageByFirstWords] Starting...');
@@ -133,21 +133,35 @@ export class ReaderUI {
     
     const targetLower = targetWords.toLowerCase();
     
+    // First pass: try to find page where this text is the FIRST line
     for (let pageIndex = 0; pageIndex < pageData.length; pageIndex++) {
       const page = pageData[pageIndex];
       if (!page || !page.lines) continue;
       
-      // Check first text line on this page
       for (const line of page.lines) {
         if (line && line.type === 'text' && line.text) {
-          const lineStart = line.text.trim().toLowerCase();
-          const matches = lineStart.startsWith(targetLower) || targetLower.startsWith(lineStart);
-          console.log(`[findPageByFirstWords] Page ${pageIndex + 1} first line: "${lineStart.substring(0, 50)}..." - matches: ${matches}`);
-          if (matches) {
-            console.log('[findPageByFirstWords] Found match on page:', pageIndex + 1);
-            return pageIndex + 1; // Convert to 1-indexed
+          const lineText = line.text.trim().toLowerCase();
+          if (lineText.startsWith(targetLower) || targetLower.startsWith(lineText)) {
+            console.log(`[findPageByFirstWords] Found as first line on page ${pageIndex + 1}`);
+            return pageIndex + 1;
           }
           break; // Only check first text line
+        }
+      }
+    }
+    
+    // Second pass: find page that CONTAINS this text anywhere
+    for (let pageIndex = 0; pageIndex < pageData.length; pageIndex++) {
+      const page = pageData[pageIndex];
+      if (!page || !page.lines) continue;
+      
+      for (const line of page.lines) {
+        if (line && line.type === 'text' && line.text) {
+          const lineText = line.text.trim().toLowerCase();
+          if (lineText.includes(targetLower) || targetLower.includes(lineText)) {
+            console.log(`[findPageByFirstWords] Found text on page ${pageIndex + 1}`);
+            return pageIndex + 1;
+          }
         }
       }
     }
