@@ -386,10 +386,76 @@ class BooksWithMusicApp {
         // Use correct path for GitHub Pages (with repo name in URL)
         const swPath = "/BooksWithMusic/service-worker.js";
         const registration = await navigator.serviceWorker.register(swPath);
+        
+        console.log('[App] Service Worker registered');
+        
+        // Listen for updates
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          console.log('[App] Service Worker update found');
+          
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'activated') {
+              console.log('[App] New Service Worker activated');
+            }
+          });
+        });
+        
+        // Listen for messages from the service worker
+        navigator.serviceWorker.addEventListener('message', (event) => {
+          if (event.data && event.data.type === 'SW_UPDATED') {
+            console.log('[App] Service Worker updated to version:', event.data.version);
+            this.showUpdateNotification();
+          }
+        });
+        
+        // Check for updates periodically (every 30 minutes)
+        setInterval(() => {
+          registration.update();
+        }, 30 * 60 * 1000);
+        
       } catch (error) {
         console.warn("Service Worker registration failed:", error);
       }
     }
+  }
+  
+  showUpdateNotification() {
+    // Check if notification is already shown
+    if (document.getElementById('update-notification')) {
+      return;
+    }
+    
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.id = 'update-notification';
+    notification.className = 'update-notification';
+    notification.innerHTML = `
+      <div class="update-notification-content">
+        <span class="update-icon">🎉</span>
+        <span class="update-message">A new version is available!</span>
+        <button class="update-reload-btn">Reload</button>
+        <button class="update-dismiss-btn">×</button>
+      </div>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Add event listeners
+    const reloadBtn = notification.querySelector('.update-reload-btn');
+    const dismissBtn = notification.querySelector('.update-dismiss-btn');
+    
+    reloadBtn.addEventListener('click', () => {
+      window.location.reload();
+    });
+    
+    dismissBtn.addEventListener('click', () => {
+      notification.classList.add('hiding');
+      setTimeout(() => notification.remove(), 300);
+    });
+    
+    // Auto-show with animation
+    setTimeout(() => notification.classList.add('show'), 100);
   }
 }
 

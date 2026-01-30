@@ -2570,3 +2570,84 @@ html:-ms-fullscreen .page-indicator,
   height: 1.5em;
   /* Empty div for spacing between blocks - increased for better paragraph separation */
 }
+
+/* Update Notification */
+.update-notification {
+  position: fixed;
+  top: -100px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10000;
+  transition: top 0.3s ease-out;
+  max-width: 500px;
+  width: 90%;
+}
+
+.update-notification.show {
+  top: 20px;
+}
+
+.update-notification.hiding {
+  opacity: 0;
+  transition: opacity 0.3s ease-out;
+}
+
+.update-notification-content {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
+  color: white;
+  padding: 16px 20px;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), 0 2px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.update-icon {
+  font-size: 24px;
+  animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+.update-message {
+  flex: 1;
+}
+
+.update-reload-btn,
+.update-dismiss-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.update-reload-btn {
+  background: white;
+  color: var(--accent);
+}
+
+.update-reload-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.update-dismiss-btn {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 8px 12px;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.update-dismiss-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
