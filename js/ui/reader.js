@@ -30,6 +30,7 @@ export class ReaderUI {
     this.layoutEngine = null; // Will be initialized when needed
     this.charsPerPage = this.getPageDensityFromSettings(); // Get from settings or default
     this._isFlipping = false; // Prevent multiple simultaneous flips
+    this._isInitializing = false; // Flag to prevent re-pagination during initialization
     
     this._isTurningPage = false;
     this._pageGapPx = 48;
@@ -156,6 +157,9 @@ export class ReaderUI {
     }
 
     try {
+      // Set initialization flag
+      this._isInitializing = true;
+      
       // Load book data from IndexedDB
       const book = await this.db.getBook(bookId);
       
@@ -198,11 +202,14 @@ export class ReaderUI {
       
       this.renderChapterList();
       
+      // Setup event listeners BEFORE loading chapter to catch settings events
+      this.setupEventListeners();
+      
       // Load the chapter (this will paginate it and restore position)
       await this.loadChapter(this.currentChapterIndex, { pageInChapter: this.currentPageInChapter, preservePage: true });
 
-      // Setup event listeners
-      this.setupEventListeners();
+      // Clear initialization flag - now settings changes will trigger re-pagination
+      this._isInitializing = false;
 
       // Initialize music in the background
       this._musicInitPromise = this.musicManager
@@ -634,6 +641,12 @@ export class ReaderUI {
 
     // Listen for layout changes (font size, line height, etc.) that affect pagination
     window.addEventListener('reader:layoutChanged', async (e) => {
+      // Skip during initial reader setup to avoid double pagination
+      if (this._isInitializing) {
+        console.log('⏭️ Skipping layout change during initialization');
+        return;
+      }
+      
       const { reason, settings } = e.detail;
       
       // Settings that affect pagination and require shift point recalculation
