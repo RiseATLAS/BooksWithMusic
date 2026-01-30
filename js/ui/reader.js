@@ -919,7 +919,29 @@ export class ReaderUI {
   }
 
   /**
+   * Render empty page structure to ensure DOM elements exist for measurement
+   */
+  _renderEmptyPageStructure() {
+    const contentEl = document.getElementById('reader-content');
+    if (!contentEl) return;
+    
+    contentEl.innerHTML = `
+      <div class="page-container">
+        <div class="page-viewport">
+          <div class="chapter-text">
+            <p>Loading...</p>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    // Force layout reflow
+    void contentEl.offsetHeight;
+  }
+
+  /**
    * Calculate available page height based on current viewport
+   * Now reads from actual DOM after page structure is rendered
    */
   _calculatePageHeight() {
     const isFullscreen = document.fullscreenElement || 
@@ -934,13 +956,13 @@ export class ReaderUI {
       // Fullscreen: 100vh - viewport padding
       height = window.innerHeight - 88; // 88 = 20+20 (viewport) + 16+32 (chapter-text)
     } else {
-      // Normal mode: use page container height
+      // Normal mode: read actual container height from DOM (now guaranteed to exist)
       height = pageContainer ? pageContainer.clientHeight : 765;
     }
     
     console.log('📏 Page height calculation:', {
-      isFullscreen,
-      pageContainerHeight: pageContainer?.clientHeight,
+      isFullscreen: !!isFullscreen,
+      pageContainerExists: !!pageContainer,
       calculatedHeight: height,
       windowInnerHeight: window.innerHeight
     });
@@ -971,6 +993,11 @@ export class ReaderUI {
       const { pageWidth, pageGap } = this._getPageMetrics();
       document.documentElement.style.setProperty('--page-width', `${pageWidth}px`);
       document.documentElement.style.setProperty('--page-gap', `${pageGap}px`);
+
+      // First, render an empty page structure to ensure DOM elements exist
+      if (!this.chapterPages[index]) {
+        this._renderEmptyPageStructure();
+      }
 
       // Check if we already have pages for this chapter
       if (!this.chapterPages[index]) {
