@@ -769,18 +769,24 @@ export class ReaderUI {
   _parseContentToBlocks(chapterContent, chapterTitle) {
     const blocks = [];
     
-    // Add chapter title as first block
-    if (chapterTitle && chapterTitle.trim()) {
+    // Parse HTML to extract elements first (don't add chapter title yet)
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = chapterContent;
+    
+    // Check if the first element is a heading that matches the chapter title
+    const firstElement = tempDiv.querySelector('h1, h2, h3, h4, h5, h6, p, div');
+    const firstElementIsTitle = firstElement && 
+      ['h1', 'h2', 'h3'].includes(firstElement.tagName.toLowerCase()) &&
+      firstElement.textContent.trim().toLowerCase() === chapterTitle?.toLowerCase();
+    
+    // Only add chapter title if it's not already present as the first heading
+    if (chapterTitle && chapterTitle.trim() && !firstElementIsTitle) {
       blocks.push({
         type: 'h2',
         text: chapterTitle,
         htmlTag: 'h2'
       });
     }
-    
-    // Parse HTML to extract elements
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = chapterContent;
     
     // Count all element types in the EPUB
     const elementTypeCounts = {};
