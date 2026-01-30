@@ -177,8 +177,7 @@ export async function saveBookChunks(userId, bookId, data, chunkSize = 500000) {
       index: i,
       createdAt: serverTimestamp()
     });
-    console.log(`✓ Saved chunk ${i + 1}/${totalChunks}`);
-    
+    console.log(`✓ Saved chunk ${i + 1}/${totalChunks}`);    
     // Small delay between chunks to avoid overwhelming Firestore write stream
     if (i < totalChunks - 1) {
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -208,8 +207,7 @@ export async function getBookChunks(userId, bookId, totalChunks) {
     }
     
     reassembledData += chunkSnap.data().data;
-    console.log(`✓ Retrieved chunk ${i + 1}/${totalChunks}`);
-  }
+    console.log(`✓ Retrieved chunk ${i + 1}/${totalChunks}`);  }
   
   return reassembledData;
 }
@@ -223,8 +221,8 @@ export async function getBookChunks(userId, bookId, totalChunks) {
  */
 export async function deleteBookChunks(userId, bookId, totalChunks) {
   if (!totalChunks) return;
-  
   console.log(`🗑️ Deleting ${totalChunks} chunks...`);
+
   for (let i = 0; i < totalChunks; i++) {
     const chunkRef = doc(db, 'users', userId, 'books', bookId, 'chunks', i.toString());
     try {
@@ -277,8 +275,8 @@ export async function getUserBooks(userId) {
         ...doc.data()
       });
     });
-    
-    console.log(` Loaded ${books.length} books from Firestore`);
+    console.log(`📚 Loaded ${books.length} books from Firestore`);
+
     return books;
   } catch (error) {
     console.error('Error getting user books:', error);
@@ -305,8 +303,8 @@ export async function deleteBookMetadata(userId, bookId) {
     
     // Delete the book metadata
     await deleteDoc(bookRef);
-    
-    console.log(` Metadata deleted for book ${bookId}`);
+    console.log(`🗑️ Metadata deleted for book ${bookId}`);
+
   } catch (error) {
     console.error('Error deleting book metadata:', error);
     throw new Error(`Failed to delete metadata: ${error.message}`);
@@ -335,8 +333,7 @@ export async function updateBook(bookId, updates) {
   if (!userId) throw new Error('User not authenticated');
   const bookRef = doc(db, 'users', userId, 'books', bookId);
   await setDoc(bookRef, updates, { merge: true });
-  console.log(` Book ${bookId} updated`);
-}
+  console.log(`📚 Book ${bookId} updated`);}
 
 /**
  * Log track usage to Firestore for CC0 compliance documentation
@@ -377,8 +374,8 @@ export async function logTrackUsage(userId, trackInfo) {
       duration: trackInfo.duration,
       tags: trackInfo.tags || []
     });
-    
     console.log(`Track usage logged: ${trackInfo.title} (Freesound ID: ${trackInfo.freesoundId})`);
+
   } catch (error) {
     console.error('Failed to log track usage:', error);
     // Don't throw - logging shouldn't break playback

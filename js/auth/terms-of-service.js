@@ -72,7 +72,7 @@ export async function acceptTerms(userId) {
       termsAcceptedAt: serverTimestamp()
     }, { merge: true });
     
-    console.log('✅ Terms accepted by user:', userId);
+
   } catch (error) {
     console.error('Error recording terms acceptance:', error);
     throw error;
@@ -226,13 +226,13 @@ export async function checkAndPromptTerms(userId) {
   try {
     // Check test mode configuration
     if (TEST_CONFIG.ALWAYS_SHOW_TOS) {
-      console.log('🔍 [TEST MODE] Showing Terms of Service to all users for testing');
+
     } else {
       // Normal mode: check if already accepted
       const accepted = await hasAcceptedTerms(userId);
       
       if (accepted) {
-        console.log('✅ User has already accepted current terms');
+
         return true;
       }
     }
@@ -245,7 +245,7 @@ export async function checkAndPromptTerms(userId) {
       return true;
     } else {
       // User declined - don't create account, just log and return false
-      console.log('❌ User declined terms - account will not be created');
+
       return false;
     }
   } catch (error) {

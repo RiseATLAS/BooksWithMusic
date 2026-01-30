@@ -1,4 +1,4 @@
-// Firebase Authentication Module
+// Firebase Authenication Module
 // Handles user authentication with Google Sign-In
 
 import { auth } from '../config/firebase-config.js';
@@ -88,10 +88,10 @@ export async function signInWithGoogle() {
     // Step 3: Register or update user
     if (!registrationCheck.isExisting) {
       await registerUser(user.uid, user.displayName || 'Unknown User', user.email);
-      console.log('✅ New user registered successfully');
+
     } else {
       await updateLastLogin(user.uid);
-      console.log('✅ Existing user logged in:', user.email);
+
     }
     
     return {

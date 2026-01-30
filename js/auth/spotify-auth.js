@@ -126,7 +126,7 @@ export class SpotifyAuth {
 
     // If token is expired or expiring soon (within 5 minutes), refresh it
     if (!token || !expiry || expiry < now + 300000) {
-      console.log('🔄 Spotify token expired or expiring soon, refreshing...');
+
       return await this.refreshAccessToken();
     }
 
@@ -152,7 +152,7 @@ export class SpotifyAuth {
 
     const authUrl = `${this.authEndpoint}?${params.toString()}`;
     
-    console.log('🔐 Redirecting to Spotify authorization...');
+
     window.location.href = authUrl;
   }
 
@@ -169,7 +169,7 @@ export class SpotifyAuth {
       throw new Error('Spotify credentials not configured');
     }
 
-    console.log('🔄 Exchanging authorization code for tokens...');
+
 
     // Prepare token request
     const body = new URLSearchParams({
@@ -199,7 +199,7 @@ export class SpotifyAuth {
       // Store tokens
       await this._storeTokens(data.access_token, data.refresh_token, data.expires_in);
       
-      console.log('✅ Spotify authentication successful!');
+
       return true;
     } catch (error) {
       console.error('❌ Spotify authentication failed:', error);
@@ -221,7 +221,7 @@ export class SpotifyAuth {
       throw new Error('Spotify credentials not configured');
     }
 
-    console.log('🔄 Refreshing Spotify access token...');
+
 
     const body = new URLSearchParams({
       grant_type: 'refresh_token',
@@ -257,7 +257,7 @@ export class SpotifyAuth {
       const newRefreshToken = data.refresh_token || refreshToken;
       await this._storeTokens(data.access_token, newRefreshToken, data.expires_in);
       
-      console.log('✅ Access token refreshed successfully');
+
       return data.access_token;
     } catch (error) {
       console.error('❌ Token refresh failed:', error);

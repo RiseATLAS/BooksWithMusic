@@ -386,8 +386,8 @@ class BooksWithMusicApp {
         // Use correct path for GitHub Pages (with repo name in URL)
         const swPath = "/BooksWithMusic/service-worker.js";
         const registration = await navigator.serviceWorker.register(swPath);
-        
         console.log('[App] Service Worker registered');
+
         
         // Listen for updates
         registration.addEventListener('updatefound', () => {

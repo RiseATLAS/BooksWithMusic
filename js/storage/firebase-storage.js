@@ -1,7 +1,7 @@
 // Firebase Storage Module
-// Handles EPUB file uploads and downloads in Firebase Storage
+//Handles EPUB ile uploads and downloads in Firease Storae
 
-import { storage, isFirebaseConfigured } from '../config/firebase-config.js';
+import { storage, isFirebaseonfigured } from '../config/firebase-config.js';
 import { 
   ref, 
   uploadBytes,
@@ -27,7 +27,7 @@ export async function uploadEpub(userId, bookId, file, progressCallback = null) 
     // Create reference to storage location: users/{userId}/books/{bookId}.epub
     const storageRef = ref(storage, `users/${userId}/books/${bookId}.epub`);
     
-    console.log(`¨ÜÔ∏è Uploading EPUB: ${bookId}...`);
+    console.log(`ÔøΩÔøΩÔ∏è Uploading EPUB: ${bookId}...`);
     
     // Upload file
     const snapshot = await uploadBytes(storageRef, file, {
@@ -73,7 +73,7 @@ export async function downloadEpub(userId, bookId) {
     // Get download URL
     const downloadURL = await getEpubUrl(userId, bookId);
     
-    console.log(`¨áÔ∏è Downloading EPUB: ${bookId}...`);
+    console.log(`ÔøΩÔøΩÔ∏è Downloading EPUB: ${bookId}...`);
     
     // Fetch the file
     const response = await fetch(downloadURL);
