@@ -273,6 +273,9 @@ class TextLayoutEngine {
       return [{ lines: [], blocks: [] }];
     }
     
+    console.log('📐 Layout engine processing', contentBlocks.length, 'blocks');
+    console.log('📐 Max width:', maxWidth, 'Max lines per page:', maxLinesPerPage);
+    
     const pages = [];
     let currentPage = {
       lines: [],
@@ -289,6 +292,11 @@ class TextLayoutEngine {
       
       // Layout this block into lines
       const blockLines = this.layoutParagraph(block.text, maxWidth, fontSize, fontFamily);
+      
+      if (blockIndex < 3) { // Log first 3 blocks
+        console.log(`📝 Block ${blockIndex}:`, block.text.substring(0, 50) + '...');
+        console.log(`   Generated ${blockLines.length} lines`);
+      }
       
       // Add spacing before block (except for first block on page)
       const spacingBefore = this.getSpacingBefore(block.type, currentPage.lines.length === 0);

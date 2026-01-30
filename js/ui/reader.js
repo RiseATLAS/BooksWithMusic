@@ -809,6 +809,10 @@ export class ReaderUI {
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = chapterContent;
     
+    // Debug: Log chapter content
+    console.log('📄 Parsing chapter content, length:', chapterContent.length);
+    console.log('📄 Found elements:', tempDiv.querySelectorAll('p, h1, h2, h3, h4, h5, h6, div').length);
+    
     // Get all content elements
     const elements = Array.from(tempDiv.querySelectorAll('p, h1, h2, h3, h4, h5, h6, div'));
     
@@ -851,6 +855,7 @@ export class ReaderUI {
     
     // Fallback: if no elements found, treat entire content as plain text
     if (blocks.length === 1) { // Only has title
+      console.log('⚠️ Only title block found, using fallback text parsing');
       const textContent = tempDiv.textContent
         .replace(/\s+/g, ' ')  // Normalize whitespace
         .trim();
@@ -862,6 +867,8 @@ export class ReaderUI {
         });
       }
     }
+    
+    console.log('📚 Created', blocks.length, 'content blocks');
     
     return blocks;
   }
