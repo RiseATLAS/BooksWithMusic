@@ -382,7 +382,7 @@ export class ReaderUI {
       }
       
       // Re-paginate when fullscreen changes (available height changes)
-      // Use a small delay to ensure layout has settled
+      // Use a longer delay to ensure fullscreen transition completes
       setTimeout(async () => {
         if (this.currentChapterIndex >= 0 && this.chapters.length > 0 && !this._isInitializing) {
           console.log('🖥️ Fullscreen changed, re-paginating...');
@@ -423,7 +423,7 @@ export class ReaderUI {
           this.totalPages = this.calculateTotalPages();
           this.updatePageIndicator();
         }
-      }, 150); // Slightly longer delay for fullscreen transition
+      }, 200); // Longer delay for fullscreen transition to complete
     };
     
     document.addEventListener('fullscreenchange', handleFullscreenChange);
@@ -970,20 +970,23 @@ export class ReaderUI {
     if (isFullscreen) {
       // Fullscreen: use full window height minus minimal padding
       pageHeight = window.innerHeight;
-      textHeight = pageHeight - 80; // Top + bottom padding (40 + 40)
+      textHeight = pageHeight - 60; // Minimal top + bottom padding
+      console.log('📏 FULLSCREEN mode - using window.innerHeight:', window.innerHeight);
     } else {
       // Normal mode: use container height
       pageHeight = pageContainer.clientHeight;
       textHeight = pageHeight - 144; // Subtract vertical padding
+      console.log('📏 NORMAL mode - using container height:', pageContainer.clientHeight);
     }
     
     // Calculate max lines per page
     const maxLinesPerPage = Math.floor(textHeight / lineHeight);
     
-    console.log('� Layout Dimensions:', {
+    console.log('📐 Layout Dimensions:', {
       containerWidth,
       textWidth: Math.round(textWidth),
       pageHeight,
+      textHeight,
       maxLinesPerPage,
       isFullscreen,
       textWidthPercent: settings.textWidth
