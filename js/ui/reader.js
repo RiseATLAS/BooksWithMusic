@@ -816,6 +816,18 @@ export class ReaderUI {
       const tagName = element.tagName.toLowerCase();
       const type = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(tagName) ? tagName : 'p';
       
+      // Skip container elements that have nested paragraphs or other block elements
+      const hasNestedBlocks = element.querySelector('p, h1, h2, h3, h4, h5, h6, div, section, article');
+      if (hasNestedBlocks) {
+        continue; // This is a container, not actual content
+      }
+      
+      // Skip elements that don't have direct text content
+      const hasDirectText = element.textContent && element.textContent.trim().length > 0;
+      if (!hasDirectText) {
+        continue;
+      }
+      
       // Handle <br> tags by splitting into multiple blocks
       // First, replace <br> tags with a unique separator
       const BREAK_MARKER = '<<<BR_BREAK>>>';
