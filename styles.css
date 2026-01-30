@@ -844,7 +844,7 @@ body.reader-page::-webkit-scrollbar {
   bottom: var(--page-gap, 120px); /* Account for viewport's bottom padding */
   width: var(--text-width-percent, 100%); /* Use text width percentage */
   margin: 0; /* No centering */
-  padding: 48px 0 96px 48px; /* Left padding for comfortable reading, top and bottom padding */
+  padding: 48px 0 96px 0; /* Only top and bottom padding */
   font-size: var(--reader-font-size, 18px);
   line-height: var(--reader-line-height, 1.8);
   font-family: var(--reader-font-family, Georgia, "Times New Roman", serif);
@@ -855,7 +855,8 @@ body.reader-page::-webkit-scrollbar {
   min-height: calc(100% - var(--page-gap, 120px) * 2); /* Subtract top and bottom gaps */
   box-sizing: border-box;
   /* Force BOTH pages onto GPU layer for consistent rendering */
-  transform: translate3d(0, 0, 0);
+  /* Shift text to the right for comfortable reading margin */
+  transform: translate3d(48px, 0, 0);
   backface-visibility: hidden;
   /* Consistent text rendering */
   text-align: left;
@@ -1811,7 +1812,8 @@ html:-ms-fullscreen .page-indicator,
 
 :fullscreen .chapter-text,
 :-webkit-full-screen .chapter-text {
-  padding: 16px 0 32px 32px !important; /* Left padding only, top and bottom */
+  padding: 16px 0 32px 0 !important; /* Only top and bottom padding */
+  transform: translate3d(32px, 0, 0) !important; /* Shift right in fullscreen */
   top: 20px !important; /* Match reduced viewport padding */
   bottom: 20px !important;
   height: auto !important; /* Let content determine height */
@@ -1972,7 +1974,8 @@ html:-ms-fullscreen .page-indicator,
   /* Fullscreen mode - even more space for text */
   :fullscreen .chapter-text,
   :-webkit-full-screen .chapter-text {
-    padding: 3% 0 5% 3%; /* Left padding only on mobile fullscreen */
+    padding: 3% 0 5% 0; /* Only top and bottom padding on mobile */
+    transform: translate3d(3%, 0, 0) !important; /* Shift right on mobile fullscreen */
     top: 3vh;
     bottom: 3vh;
   }
