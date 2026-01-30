@@ -91,7 +91,6 @@ export class ReaderUI {
       if (line && line.type === 'text' && line.text && line.text.trim()) {
         // Return first ~50 chars (enough to uniquely identify position)
         const text = line.text.trim().substring(0, 50);
-        console.log(`[SavePosition] Page ${this.currentPageInChapter}: "${text}..."`);
         return text;
       }
     }
@@ -139,7 +138,6 @@ export class ReaderUI {
       }
     }
     
-    console.log(`[SavePosition] Page ${this.currentPageInChapter}, Block ${blockIndex}: "${firstText.substring(0, 50)}..."`);
     return { text: firstText, blockIndex };
   }
 
@@ -150,19 +148,16 @@ export class ReaderUI {
    */
   findPageByTextBlock(chapterIndex, targetText, targetBlockIndex, mustBeFirst = false) {
     if (!targetText || targetText.trim().length === 0) {
-      console.log('[FindPage] No search text provided, returning page 1');
       return 1;
     }
     
     const pageData = this.chapterPageData?.[chapterIndex];
     if (!pageData || pageData.length === 0) {
-      console.log('[FindPage] No page data, returning page 1');
       return 1;
     }
     
     const searchLower = targetText.toLowerCase().trim();
     const searchPrefix = searchLower.substring(0, Math.min(40, searchLower.length));
-    console.log(`[FindPage] Looking for text${mustBeFirst ? ' (must be first)' : ''}: "${searchPrefix}..."`);
     
     // Search through all pages
     for (let pageIndex = 0; pageIndex < pageData.length; pageIndex++) {
@@ -180,7 +175,6 @@ export class ReaderUI {
             if (linePrefix === searchPrefix || 
                 lineText.startsWith(searchPrefix) ||
                 searchLower.startsWith(linePrefix)) {
-              console.log(`[FindPage] ✓ Found as FIRST text on page ${pageIndex + 1}`);
               return pageIndex + 1;
             }
             break; // Only check first text line
@@ -197,7 +191,6 @@ export class ReaderUI {
             if (linePrefix === searchPrefix || 
                 lineText.startsWith(searchPrefix) ||
                 searchLower.startsWith(linePrefix)) {
-              console.log(`[FindPage] ✓ Found on page ${pageIndex + 1}`);
               return pageIndex + 1;
             }
           }
@@ -206,7 +199,6 @@ export class ReaderUI {
     }
     
     // If not found, return page 1
-    console.log('[FindPage] ⚠ Text not found, returning page 1');
     return 1;
   }
 
@@ -559,7 +551,6 @@ export class ReaderUI {
           textBlock: this.getFirstVisibleTextBlock()
         };
         this._pageInFullscreen = null; // Will be set after re-pagination
-        console.log(`[Fullscreen] Saved position: Chapter ${this.currentChapterIndex}, Page ${this.currentPageInChapter}`);
         
         // Hide page indicator in fullscreen on all devices
         if (pageIndicator) {
@@ -590,8 +581,6 @@ export class ReaderUI {
       // Re-paginate when fullscreen changes
       setTimeout(async () => {
         if (this.currentChapterIndex >= 0 && this.chapters.length > 0 && !this._isInitializing) {
-          console.log('=== FULLSCREEN RE-PAGINATION ===');
-          
           // Check if we're exiting fullscreen
           const isExitingFullscreen = !isFullscreen && this._positionBeforeFullscreen;
           
@@ -605,8 +594,6 @@ export class ReaderUI {
           const currentTextBlock = this.getFirstVisibleTextBlock();
           const oldPage = this.currentPageInChapter;
           const oldTotalPages = this.pagesPerChapter[this.currentChapterIndex];
-          
-          console.log(`[Before] Page ${oldPage}/${oldTotalPages}`);
           
           // Clear caches
           if (this.layoutEngine) {
@@ -626,7 +613,6 @@ export class ReaderUI {
           
           const totalPagesInChapter = this.chapterPages[this.currentChapterIndex].length;
           this.pagesPerChapter[this.currentChapterIndex] = totalPagesInChapter;
-          console.log(`[After] Re-paginated into ${totalPagesInChapter} pages`);
           
           // Determine which position to restore to
           let restoredPage;
@@ -637,17 +623,14 @@ export class ReaderUI {
             // Exiting fullscreen AND user hasn't navigated in fullscreen - restore to original position
             textBlockToFind = this._positionBeforeFullscreen.textBlock;
             mustBeFirst = true; // Going back to normal view - restore exact page that starts with this text
-            console.log(`[Restore] Exiting fullscreen (no navigation) - restoring saved position: "${textBlockToFind.text.substring(0, 40)}..."`);
           } else if (isExitingFullscreen) {
             // Exiting fullscreen BUT user HAS navigated in fullscreen - keep their current position
             textBlockToFind = currentTextBlock;
             mustBeFirst = false; // Text can appear anywhere since they navigated
-            console.log(`[Restore] Exiting fullscreen (after navigation) - keeping current position: "${textBlockToFind.text.substring(0, 40)}..."`);
           } else {
             // ENTERING fullscreen - find page containing current text
             textBlockToFind = currentTextBlock;
             mustBeFirst = false; // Text can appear anywhere on the page
-            console.log(`[Restore] Entering fullscreen: "${textBlockToFind.text.substring(0, 40)}..."`);
           }
           
           // Find which page contains our text block
@@ -659,38 +642,22 @@ export class ReaderUI {
           );
           
           this.currentPageInChapter = restoredPage;
-          console.log(`[Result] Restored to page ${restoredPage}/${totalPagesInChapter}`);
           
           // IMPORTANT: Save the page we landed on when entering fullscreen
           if (!isExitingFullscreen && this._positionBeforeFullscreen) {
             this._pageInFullscreen = restoredPage;
-            console.log(`[Fullscreen] Saved fullscreen page: ${restoredPage}`);
           };
-          
-          // Verify the restoration
-          const newTextBlock = this.getFirstVisibleTextBlock();
-          if (newTextBlock.text && textBlockToFind.text && 
-              newTextBlock.text.substring(0, 40).toLowerCase() === textBlockToFind.text.substring(0, 40).toLowerCase()) {
-            console.log(`[Verify] ✓ Position restored perfectly!`);
-          } else {
-            console.log(`[Verify] Text comparison:`);
-            console.log(`  Target: "${textBlockToFind.text.substring(0, 50)}"`);
-            console.log(`  Got:    "${newTextBlock.text.substring(0, 50)}"`);
-          }
           
           // Clear saved position when exiting fullscreen
           if (isExitingFullscreen) {
             this._positionBeforeFullscreen = null;
             this._pageInFullscreen = null;
-            console.log(`[Fullscreen] Cleared saved position`);
           }
           
           this.renderCurrentPage();
           this.currentPage = this.calculateCurrentPageNumber();
           this.totalPages = this.calculateTotalPages();
           this.updatePageIndicator();
-          
-          console.log('=== RE-PAGINATION COMPLETE ===');
         }
       }, 200); // Longer delay for fullscreen transition to complete
     };
@@ -852,8 +819,6 @@ export class ReaderUI {
         return;
       }
       
-      console.log('=== PAGE DENSITY CHANGED ===');
-      
       // Save the first visible text block
       const textBlock = this.getFirstVisibleTextBlock();
       
@@ -947,8 +912,6 @@ export class ReaderUI {
       const paginationAffectingChanges = ['fontSize', 'lineHeight', 'fontFamily', 'textAlign', 'pageWidth', 'textWidth', 'pageDensity', 'calibration'];
       
       if (paginationAffectingChanges.includes(reason)) {
-        console.log(`=== LAYOUT CHANGED: ${reason} ===`);
-        
         // Clear layout engine cache when font settings change
         if (this.layoutEngine && ['fontSize', 'fontFamily'].includes(reason)) {
           this.layoutEngine.clearCache();
