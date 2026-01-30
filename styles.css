@@ -2527,7 +2527,9 @@ html:-ms-fullscreen .page-indicator,
 .page-lines h6 {
   margin: 0;
   padding: 0;
-  /* Prevent browser from wrapping - we handle line breaks with <br> tags */
+  /* Disable ALL browser text wrapping - JS controls everything */
+  white-space: nowrap;
+  overflow: visible;
   word-wrap: normal;
   overflow-wrap: normal;
   hyphens: none;

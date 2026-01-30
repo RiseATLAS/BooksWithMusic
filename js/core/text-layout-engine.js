@@ -13,10 +13,17 @@ class TextLayoutEngine {
     this.measurementElement.style.visibility = 'hidden';
     this.measurementElement.style.whiteSpace = 'nowrap';
     this.measurementElement.style.left = '-9999px';
+    this.measurementElement.style.top = '-9999px';
     // Apply same text rendering properties as .chapter-text
     this.measurementElement.style.textRendering = 'geometricPrecision';
     this.measurementElement.style.webkitFontSmoothing = 'antialiased';
     this.measurementElement.style.mozOsxFontSmoothing = 'grayscale';
+    // Disable ALL CSS inheritance that could affect width
+    this.measurementElement.style.letterSpacing = 'normal';
+    this.measurementElement.style.wordSpacing = 'normal';
+    this.measurementElement.style.padding = '0';
+    this.measurementElement.style.margin = '0';
+    this.measurementElement.style.border = 'none';
     document.body.appendChild(this.measurementElement);
     
     // Cache for text measurements (performance optimization)

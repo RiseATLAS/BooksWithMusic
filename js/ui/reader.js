@@ -728,11 +728,9 @@ export class ReaderUI {
         const paddingRight = parseFloat(styles.paddingRight) || 48;
         const availableWidth = rect.width - paddingLeft - paddingRight;
         
-        // CRITICAL: Add safety margin to prevent browser wrapping
-        // Account for sub-pixel rendering differences and letter-spacing
-        // Browser may round text width differently than measurement
-        const safetyMargin = 15; // pixels (accounts for sub-pixel rounding + letter-spacing)
-        textWidth = Math.max(200, availableWidth - safetyMargin);
+        // JS controls all text layout - use full available width
+        // No safety margin needed since white-space: nowrap prevents browser wrapping
+        textWidth = Math.max(200, availableWidth);
       } else {
         // Fallback: use settings
         const pageWidth = settings.pageWidth || 800;
