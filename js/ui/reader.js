@@ -863,9 +863,17 @@ export class ReaderUI {
         // Skip empty segments
         if (!text) continue;
         
-        // Skip if this is a duplicate of the chapter title (case insensitive)
-        if (chapterTitle && text.toLowerCase() === chapterTitle.toLowerCase()) {
-          continue; // Skip duplicate chapter title
+        // Skip if this is a duplicate of the chapter title (more lenient matching)
+        if (chapterTitle && type !== 'p') {
+          const elementTextLower = text.toLowerCase();
+          const titleTextLower = chapterTitle.toLowerCase();
+          
+          // Skip if heading matches title (exact, contains, or is contained)
+          if (elementTextLower === titleTextLower || 
+              elementTextLower.includes(titleTextLower) ||
+              titleTextLower.includes(elementTextLower)) {
+            continue; // Skip duplicate chapter title
+          }
         }
         
         // Remove chapter title prefix from first paragraph if it matches
