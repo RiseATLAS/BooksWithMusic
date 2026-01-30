@@ -63,6 +63,70 @@ export class ReaderUI {
   }
 
   /**
+   * Get character position in chapter for the start of current page
+   */
+  getCharacterPositionInChapter() {
+    const pageData = this.chapterPageData?.[this.currentChapterIndex];
+    if (!pageData || pageData.length === 0) {
+      return 0;
+    }
+    
+    const pageIndex = this.currentPageInChapter - 1;
+    if (pageIndex < 0 || pageIndex >= pageData.length) {
+      return 0;
+    }
+    
+    // Sum up all text content from previous pages
+    let charPosition = 0;
+    for (let i = 0; i < pageIndex; i++) {
+      const page = pageData[i];
+      if (page && page.lines) {
+        for (const line of page.lines) {
+          if (line && line.type === 'text' && line.text) {
+            charPosition += line.text.length;
+          }
+        }
+      }
+    }
+    
+    return charPosition;
+  }
+
+  /**
+   * Find which page contains a specific character position in the chapter
+   */
+  findPageByCharacterPosition(chapterIndex, targetPosition) {
+    const pageData = this.chapterPageData?.[chapterIndex];
+    if (!pageData || pageData.length === 0) {
+      return 1;
+    }
+    
+    let currentPosition = 0;
+    
+    for (let pageIndex = 0; pageIndex < pageData.length; pageIndex++) {
+      const page = pageData[pageIndex];
+      if (!page || !page.lines) continue;
+      
+      let pageStartPosition = currentPosition;
+      
+      // Calculate how many characters are on this page
+      for (const line of page.lines) {
+        if (line && line.type === 'text' && line.text) {
+          currentPosition += line.text.length;
+        }
+      }
+      
+      // Check if target position falls within this page
+      if (targetPosition >= pageStartPosition && targetPosition < currentPosition) {
+        return pageIndex + 1;
+      }
+    }
+    
+    // If position is beyond all pages, return last page
+    return pageData.length;
+  }
+
+  /**
    * Get the first words on current page for position restoration
    */
   getFirstWordsOnPage() {
@@ -110,50 +174,24 @@ export class ReaderUI {
     let startPage = expectedPage ? Math.max(0, expectedPage - 1 - searchRadius) : 0;
     let endPage = expectedPage ? Math.min(pageData.length, expectedPage - 1 + searchRadius + 1) : pageData.length;
     
-    // Strategy: Find the page where our target text is the first text line
-    // If text is found mid-page, we want the NEXT page (where it would be pushed to after re-pagination)
-    
-    // Pass 1: Look for text as the first line (exact match)
+    // Search for the page containing our target text
     for (let pageIndex = startPage; pageIndex < endPage; pageIndex++) {
       const page = pageData[pageIndex];
       if (!page || !page.lines) continue;
       
-      // Find first text line
-      for (const line of page.lines) {
-        if (line && line.type === 'text' && line.text) {
-          const lineText = line.text.trim().toLowerCase();
-          // Check if this first line starts with our target or vice versa (flexible matching)
-          if (lineText.startsWith(targetLower) || targetLower.startsWith(lineText.substring(0, 20))) {
-            return pageIndex + 1;
-          }
-          break; // Only check first text line per page
-        }
-      }
-    }
-    
-    // Pass 2: Look for text anywhere on page (not as first line)
-    for (let pageIndex = startPage; pageIndex < endPage; pageIndex++) {
-      const page = pageData[pageIndex];
-      if (!page || !page.lines) continue;
-      
-      let lineIndex = 0;
+      // Check all text lines on this page
       for (const line of page.lines) {
         if (line && line.type === 'text' && line.text) {
           const lineText = line.text.trim().toLowerCase();
           
-          // Check if target text appears on this line
-          if (lineText.includes(targetLower.substring(0, 30)) || targetLower.includes(lineText.substring(0, 30))) {
-            // Found the text, but is it the first text line?
-            if (this.isFirstTextLineOnPage(page, line)) {
-              // It's already the first line on this page
-              return pageIndex + 1;
-            } else {
-              // Text is mid-page, so it should be on the next page after re-pagination
-              const nextPage = Math.min(pageIndex + 2, pageData.length); // +2 because pageIndex is 0-based
-              return nextPage;
-            }
+          // Check if this line contains our target text (flexible matching)
+          if (lineText.includes(targetLower.substring(0, 30)) || 
+              targetLower.includes(lineText.substring(0, 30)) ||
+              lineText.startsWith(targetLower) || 
+              targetLower.startsWith(lineText.substring(0, 20))) {
+            // Found the text on this page
+            return pageIndex + 1;
           }
-          lineIndex++;
         }
       }
     }
@@ -459,12 +497,8 @@ export class ReaderUI {
       // Re-paginate when fullscreen changes
       setTimeout(async () => {
         if (this.currentChapterIndex >= 0 && this.chapters.length > 0 && !this._isInitializing) {
-          // Calculate progress through chapter as percentage
-          const oldTotalPages = this.pagesPerChapter[this.currentChapterIndex] || this.currentPageInChapter;
-          const progressPercent = (this.currentPageInChapter - 1) / oldTotalPages;
-          
-          // Save first words on current page
-          const firstWords = this.getFirstWordsOnPage();
+          // Save character position in chapter (absolute position, not page-relative)
+          const charPosition = this.getCharacterPositionInChapter();
           
           // Clear caches
           if (this.layoutEngine) {
@@ -485,15 +519,8 @@ export class ReaderUI {
           const totalPagesInChapter = this.chapterPages[this.currentChapterIndex].length;
           this.pagesPerChapter[this.currentChapterIndex] = totalPagesInChapter;
           
-          // Calculate expected page from progress percentage
-          const expectedPage = Math.max(1, Math.round(progressPercent * totalPagesInChapter) + 1);
-          
-          // Find exact page using first words, searching near expected page
-          let restoredPage = expectedPage;
-          if (firstWords) {
-            restoredPage = this.findPageByFirstWords(this.currentChapterIndex, firstWords, expectedPage);
-          }
-          
+          // Find which page contains our saved character position
+          const restoredPage = this.findPageByCharacterPosition(this.currentChapterIndex, charPosition);
           this.currentPageInChapter = restoredPage;
           
           this.renderCurrentPage();
