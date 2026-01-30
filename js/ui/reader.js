@@ -928,11 +928,20 @@ export class ReaderUI {
     
     // Calculate text width from container
     const containerWidth = pageContainer.clientWidth;
-    const chapterTextPadding = 48; // 24px left + 24px right
-    const availableWidth = containerWidth - chapterTextPadding;
+    // We removed horizontal padding, so use full container width
+    const availableWidth = containerWidth;
+    
+    // Apply text width percentage - this will be the actual line width
     const targetWidth = availableWidth * textWidthPercent;
-    const safetyMargin = 5;
-    const textWidth = Math.max(200, targetWidth - safetyMargin);
+    
+    // Ensure text width stays within reasonable bounds
+    const textWidth = Math.max(200, Math.min(targetWidth, availableWidth));
+    
+    // Set CSS variable for centering offset
+    // When text width is less than 100%, we center it with transform
+    const offsetPercent = ((1 - textWidthPercent) / 2) * 100;
+    document.documentElement.style.setProperty('--text-offset', `${offsetPercent}%`);
+    document.documentElement.style.setProperty('--text-width-percent', `${textWidthPercent * 100}%`);
     
     // Calculate page height
     const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
@@ -974,9 +983,9 @@ export class ReaderUI {
       // Store chapter shift points for music management
       this.currentChapterShiftPoints = null;
 
-      // Apply page width settings
-      const { pageWidth, pageGap } = this._getPageMetrics();
-      document.documentElement.style.setProperty('--page-width', `${pageWidth}px`);
+      // Apply page width settings - always use 100% of available space
+      const { pageGap } = this._getPageMetrics();
+      document.documentElement.style.setProperty('--page-width', '100%');
       document.documentElement.style.setProperty('--page-gap', `${pageGap}px`);
 
       // First, render an empty page structure to ensure DOM elements exist
