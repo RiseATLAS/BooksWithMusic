@@ -63,173 +63,81 @@ export class ReaderUI {
   }
 
   /**
-   * Get character position in chapter for the start of current page
-   * NOTE: This returns the position at the START of the page, which can cause drift.
-   * Use getExactVisiblePosition() for drift-free position tracking.
+   * Get the first visible text on the current page - our anchor point for position restoration
+   * Returns the first ~50 characters of text that the user sees at the top of the page
    */
-  getCharacterPositionInChapter() {
+  getFirstVisibleText() {
     const pageData = this.chapterPageData?.[this.currentChapterIndex];
     if (!pageData || pageData.length === 0) {
-      return 0;
+      return '';
     }
     
     const pageIndex = this.currentPageInChapter - 1;
     if (pageIndex < 0 || pageIndex >= pageData.length) {
-      return 0;
+      return '';
     }
     
-    // Sum up all text content from previous pages
-    let charPosition = 0;
-    for (let i = 0; i < pageIndex; i++) {
-      const page = pageData[i];
-      if (page && page.lines) {
-        for (const line of page.lines) {
-          if (line && line.type === 'text' && line.text) {
-            charPosition += line.text.length;
-          }
-        }
-      }
-    }
-    
-    console.log(`[CharPos] Page ${this.currentPageInChapter}: character position ${charPosition}`);
-    return charPosition;
-  }
-
-  /**
-   * Get the exact visible position (first text on current page) for drift-free restoration
-   * Returns an object with character position and a sample of the text for verification
-   */
-  getExactVisiblePosition() {
-    const pageData = this.chapterPageData?.[this.currentChapterIndex];
-    if (!pageData || pageData.length === 0) {
-      return { charPosition: 0, textSample: '', lineIndex: 0 };
-    }
-    
-    const pageIndex = this.currentPageInChapter - 1;
-    if (pageIndex < 0 || pageIndex >= pageData.length) {
-      return { charPosition: 0, textSample: '', lineIndex: 0 };
-    }
-    
-    // Calculate character position up to current page start
-    let charPosition = 0;
-    for (let i = 0; i < pageIndex; i++) {
-      const page = pageData[i];
-      if (page && page.lines) {
-        for (const line of page.lines) {
-          if (line && line.type === 'text' && line.text) {
-            charPosition += line.text.length;
-          }
-        }
-      }
-    }
-    
-    // Get the first text line on current page for verification
     const currentPage = pageData[pageIndex];
-    let textSample = '';
-    let lineIndex = 0;
+    if (!currentPage || !currentPage.lines) {
+      return '';
+    }
     
-    if (currentPage && currentPage.lines) {
-      for (let i = 0; i < currentPage.lines.length; i++) {
-        const line = currentPage.lines[i];
-        if (line && line.type === 'text' && line.text && line.text.trim()) {
-          textSample = line.text.trim().substring(0, 100); // First 100 chars
-          lineIndex = i;
-          break;
-        }
+    // Find the first text line on the page
+    for (const line of currentPage.lines) {
+      if (line && line.type === 'text' && line.text && line.text.trim()) {
+        // Return first ~50 chars (enough to uniquely identify position)
+        const text = line.text.trim().substring(0, 50);
+        console.log(`[SavePosition] Page ${this.currentPageInChapter}: "${text}..."`);
+        return text;
       }
     }
     
-    console.log(`[ExactPos] Page ${this.currentPageInChapter}: char ${charPosition}, text: "${textSample.substring(0, 50)}..."`);
-    
-    return { 
-      charPosition, 
-      textSample,
-      lineIndex,
-      pageIndex: this.currentPageInChapter 
-    };
+    return '';
   }
 
   /**
-   * Find which page contains a specific character position in the chapter
-   * Now with text sample verification for accuracy
+   * Find which page contains specific text
+   * Searches ALL pages and returns the page number where this text appears
    */
-  findPageByCharacterPosition(chapterIndex, targetPosition, textSample = '') {
-    const pageData = this.chapterPageData?.[chapterIndex];
-    if (!pageData || pageData.length === 0) {
+  findPageByText(chapterIndex, searchText) {
+    if (!searchText || searchText.trim().length === 0) {
+      console.log('[FindPage] No search text provided, returning page 1');
       return 1;
     }
     
-    let currentPosition = 0;
-    let bestMatch = 1;
-    let bestMatchConfidence = 0;
+    const pageData = this.chapterPageData?.[chapterIndex];
+    if (!pageData || pageData.length === 0) {
+      console.log('[FindPage] No page data, returning page 1');
+      return 1;
+    }
     
+    const searchLower = searchText.toLowerCase().trim();
+    console.log(`[FindPage] Searching for: "${searchLower.substring(0, 40)}..."`);
+    
+    // Search through ALL pages
     for (let pageIndex = 0; pageIndex < pageData.length; pageIndex++) {
       const page = pageData[pageIndex];
       if (!page || !page.lines) continue;
       
-      let pageStartPosition = currentPosition;
-      
-      // Calculate how many characters are on this page
+      // Check each text line on this page
       for (const line of page.lines) {
         if (line && line.type === 'text' && line.text) {
-          currentPosition += line.text.length;
-        }
-      }
-      
-      // Check if target position falls within this page
-      if (targetPosition >= pageStartPosition && targetPosition < currentPosition) {
-        console.log(`[FindPage] Character ${targetPosition} found on page ${pageIndex + 1} (range ${pageStartPosition}-${currentPosition})`);
-        
-        // If we have a text sample, verify it matches
-        if (textSample) {
-          const firstTextOnPage = this.getFirstTextOnPage(page);
-          if (firstTextOnPage && firstTextOnPage.includes(textSample.substring(0, 30))) {
-            console.log(`[FindPage] ✓ Text sample verified on page ${pageIndex + 1}`);
+          const lineText = line.text.trim().toLowerCase();
+          
+          // Check if this line contains our search text
+          // We use substring matching to be flexible with minor differences
+          if (lineText.includes(searchLower) || 
+              searchLower.includes(lineText.substring(0, Math.min(30, lineText.length)))) {
+            console.log(`[FindPage] ✓ Found on page ${pageIndex + 1}: "${line.text.trim().substring(0, 40)}..."`);
             return pageIndex + 1;
-          } else {
-            console.log(`[FindPage] ⚠ Position match but text differs, continuing search...`);
-            bestMatch = pageIndex + 1;
-            bestMatchConfidence = 1;
           }
-        } else {
-          return pageIndex + 1;
-        }
-      }
-      
-      // Also check if text sample appears on this page (fuzzy match)
-      if (textSample && bestMatchConfidence < 2) {
-        const pageText = this.getFirstTextOnPage(page);
-        if (pageText && pageText.includes(textSample.substring(0, 30))) {
-          console.log(`[FindPage] ✓✓ Text sample found on page ${pageIndex + 1} (high confidence)`);
-          bestMatch = pageIndex + 1;
-          bestMatchConfidence = 2;
         }
       }
     }
     
-    // If we found a text match, use it
-    if (bestMatchConfidence > 0) {
-      console.log(`[FindPage] Using best match: page ${bestMatch} (confidence: ${bestMatchConfidence})`);
-      return bestMatch;
-    }
-    
-    // If position is beyond all pages, return last page
-    console.log(`[FindPage] Character ${targetPosition} beyond all pages, returning last page ${pageData.length}`);
-    return pageData.length;
-  }
-  
-  /**
-   * Get the first text content from a page for verification
-   */
-  getFirstTextOnPage(page) {
-    if (!page || !page.lines) return '';
-    
-    for (const line of page.lines) {
-      if (line && line.type === 'text' && line.text && line.text.trim()) {
-        return line.text.trim();
-      }
-    }
-    return '';
+    // If not found, return page 1
+    console.log('[FindPage] ⚠ Text not found, returning page 1');
+    return 1;
   }
 
   /**
@@ -603,15 +511,14 @@ export class ReaderUI {
       // Re-paginate when fullscreen changes
       setTimeout(async () => {
         if (this.currentChapterIndex >= 0 && this.chapters.length > 0 && !this._isInitializing) {
-          console.log('=== FULLSCREEN RE-PAGINATION (Drift-Free) ===');
+          console.log('=== FULLSCREEN RE-PAGINATION ===');
           
-          // Save exact visible position with text sample for verification
-          const exactPosition = this.getExactVisiblePosition();
+          // Save the first visible text on current page
+          const firstVisibleText = this.getFirstVisibleText();
           const oldPage = this.currentPageInChapter;
           const oldTotalPages = this.pagesPerChapter[this.currentChapterIndex];
           
-          console.log(`[Before] Page ${oldPage}/${oldTotalPages}, char position: ${exactPosition.charPosition}`);
-          console.log(`[Before] First visible text: "${exactPosition.textSample.substring(0, 50)}..."`);
+          console.log(`[Before] Page ${oldPage}/${oldTotalPages}`);
           
           // Clear caches
           if (this.layoutEngine) {
@@ -633,27 +540,20 @@ export class ReaderUI {
           this.pagesPerChapter[this.currentChapterIndex] = totalPagesInChapter;
           console.log(`[After] Re-paginated into ${totalPagesInChapter} pages`);
           
-          // Find which page contains our saved character position AND verify text matches
-          const restoredPage = this.findPageByCharacterPosition(
-            this.currentChapterIndex, 
-            exactPosition.charPosition,
-            exactPosition.textSample
-          );
-          
+          // Find which page contains our saved text
+          const restoredPage = this.findPageByText(this.currentChapterIndex, firstVisibleText);
           this.currentPageInChapter = restoredPage;
           console.log(`[Result] Restored to page ${restoredPage}/${totalPagesInChapter}`);
           
-          // Verify the restoration worked
-          const newPosition = this.getExactVisiblePosition();
-          console.log(`[Verify] New first visible text: "${newPosition.textSample.substring(0, 50)}..."`);
-          
-          if (newPosition.textSample && exactPosition.textSample && 
-              newPosition.textSample.substring(0, 30) === exactPosition.textSample.substring(0, 30)) {
-            console.log(`[Verify] ✓ Position restored successfully - no drift!`);
+          // Verify the restoration
+          const newFirstText = this.getFirstVisibleText();
+          if (newFirstText && firstVisibleText && 
+              newFirstText.substring(0, 30) === firstVisibleText.substring(0, 30)) {
+            console.log(`[Verify] ✓ Position restored perfectly!`);
           } else {
-            console.warn(`[Verify] ⚠ Text mismatch - some drift may have occurred`);
-            console.warn(`Expected: "${exactPosition.textSample.substring(0, 30)}"`);
-            console.warn(`Got: "${newPosition.textSample.substring(0, 30)}"`);
+            console.log(`[Verify] Text comparison:`);
+            console.log(`  Before: "${firstVisibleText}"`);
+            console.log(`  After:  "${newFirstText}"`);
           }
           
           this.renderCurrentPage();
@@ -825,9 +725,8 @@ export class ReaderUI {
       
       console.log('=== PAGE DENSITY CHANGED ===');
       
-      // Get exact visible position BEFORE re-pagination
-      const exactPosition = this.getExactVisiblePosition();
-      console.log(`[Before] Saving position at char ${exactPosition.charPosition}: "${exactPosition.textSample.substring(0, 50)}..."`);
+      // Save the first visible text
+      const firstVisibleText = this.getFirstVisibleText();
       
       // Update internal setting
       this.charsPerPage = newDensity;
@@ -843,12 +742,8 @@ export class ReaderUI {
           preservePage: true 
         });
         
-        // Restore position using exact character position and text sample
-        const newPage = this.findPageByCharacterPosition(
-          this.currentChapterIndex, 
-          exactPosition.charPosition,
-          exactPosition.textSample
-        );
+        // Restore position by finding the text
+        const newPage = this.findPageByText(this.currentChapterIndex, firstVisibleText);
         
         if (newPage !== this.currentPageInChapter) {
           this.currentPageInChapter = newPage;
@@ -857,10 +752,6 @@ export class ReaderUI {
           this.totalPages = this.calculateTotalPages();
           this.updatePageIndicator();
         }
-        
-        // Verify restoration
-        const newPosition = this.getExactVisiblePosition();
-        console.log(`[After] Restored to page ${newPage}, char ${newPosition.charPosition}: "${newPosition.textSample.substring(0, 50)}..."`);
       }
     });
 
@@ -918,7 +809,7 @@ export class ReaderUI {
         return;
       }
       
-      // Settings that affect pagination and require position recalculation
+      // Settings that affect pagination
       const paginationAffectingChanges = ['fontSize', 'lineHeight', 'fontFamily', 'textAlign', 'pageWidth', 'textWidth', 'pageDensity', 'calibration'];
       
       if (paginationAffectingChanges.includes(reason)) {
@@ -929,13 +820,12 @@ export class ReaderUI {
           this.layoutEngine.clearCache();
         }
         
-        // Get exact visible position using improved tracking
-        const exactPosition = this.getExactVisiblePosition();
-        console.log(`[Before] Saving position at char ${exactPosition.charPosition}: "${exactPosition.textSample.substring(0, 50)}..."`);
+        // Save the first visible text
+        const firstVisibleText = this.getFirstVisibleText();
         
         // Now clear cached pages to force re-pagination
         this.chapterPages = {};
-        this.chapterPageData = {}; // Also clear page data
+        this.chapterPageData = {};
         
         // Re-load current chapter with new pagination
         if (this.currentChapterIndex >= 0 && this.chapters.length > 0) {
@@ -944,12 +834,8 @@ export class ReaderUI {
             preservePage: true 
           });
           
-          // Restore position using exact character position and text sample
-          const newPage = this.findPageByCharacterPosition(
-            this.currentChapterIndex, 
-            exactPosition.charPosition,
-            exactPosition.textSample
-          );
+          // Restore position by finding the text
+          const newPage = this.findPageByText(this.currentChapterIndex, firstVisibleText);
           
           if (newPage !== this.currentPageInChapter) {
             this.currentPageInChapter = newPage;
@@ -958,10 +844,6 @@ export class ReaderUI {
             this.totalPages = this.calculateTotalPages();
             this.updatePageIndicator();
           }
-          
-          // Verify restoration
-          const newPosition = this.getExactVisiblePosition();
-          console.log(`[After] Restored to page ${newPage}, char ${newPosition.charPosition}: "${newPosition.textSample.substring(0, 50)}..."`);
         }
       }
     });
