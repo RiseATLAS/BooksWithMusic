@@ -840,11 +840,11 @@ body.reader-page::-webkit-scrollbar {
   /* Use absolute positioning for both static and flipping pages to prevent layout shift */
   position: absolute;
   top: var(--page-gap, 120px); /* Account for viewport's top padding */
-  left: 48px; /* Left margin for comfortable reading */
+  left: 0; /* Align to left edge of container */
   bottom: var(--page-gap, 120px); /* Account for viewport's bottom padding */
-  width: calc(var(--text-width-percent, 100%) - 48px); /* Subtract left margin from width */
+  width: var(--text-width-percent, 100%); /* Use text width percentage */
   margin: 0; /* No centering */
-  padding: 48px 0 96px 0; /* Only top and bottom padding */
+  padding: 48px 0 96px 48px; /* Left padding for margin, top and bottom padding */
   font-size: var(--reader-font-size, 18px);
   line-height: var(--reader-line-height, 1.8);
   font-family: var(--reader-font-family, Georgia, "Times New Roman", serif);
@@ -853,7 +853,7 @@ body.reader-page::-webkit-scrollbar {
   overflow: visible;
   height: auto;
   min-height: calc(100% - var(--page-gap, 120px) * 2); /* Subtract top and bottom gaps */
-  box-sizing: border-box;
+  box-sizing: border-box; /* Include padding in width calculation */
   /* Force BOTH pages onto GPU layer for consistent rendering */
   transform: translate3d(0, 0, 0);
   backface-visibility: hidden;
@@ -1811,9 +1811,9 @@ html:-ms-fullscreen .page-indicator,
 
 :fullscreen .chapter-text,
 :-webkit-full-screen .chapter-text {
-  padding: 16px 0 32px 0 !important; /* Only top and bottom padding */
-  left: 32px !important; /* Left margin in fullscreen */
-  width: calc(var(--text-width-percent, 100%) - 32px) !important; /* Subtract left margin */
+  padding: 16px 0 32px 32px !important; /* Left padding for margin */
+  left: 0 !important;
+  width: var(--text-width-percent, 100%) !important;
   top: 20px !important; /* Match reduced viewport padding */
   bottom: 20px !important;
   height: auto !important; /* Let content determine height */
@@ -1974,9 +1974,9 @@ html:-ms-fullscreen .page-indicator,
   /* Fullscreen mode - even more space for text */
   :fullscreen .chapter-text,
   :-webkit-full-screen .chapter-text {
-    padding: 3% 0 5% 0; /* Only top and bottom padding on mobile */
-    left: 3% !important; /* Left margin on mobile */
-    width: calc(var(--text-width-percent, 100%) - 3%) !important; /* Subtract left margin */
+    padding: 3% 0 5% 3% !important; /* Left padding for margin on mobile */
+    left: 0 !important;
+    width: var(--text-width-percent, 100%) !important;
     top: 3vh;
     bottom: 3vh;
   }
