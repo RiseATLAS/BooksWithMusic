@@ -329,7 +329,6 @@ export class SettingsUI {
     this.applyFontFamily();
     this.applyTextAlign();
     this.applyPageWidth();
-    this.applyPageDensity();
     this.applyBrightness();
     this.applyPageColor();
     this.applyPageWarmth();
@@ -402,15 +401,6 @@ export class SettingsUI {
     document.querySelectorAll('.page-viewport').forEach((el) => {
       el.style.setProperty('--page-width', `${this.settings.pageWidth}px`);
     });
-  }
-
-  applyPageDensity() {
-    // Page density is stored in settings and used by reader.js
-    // No CSS changes needed - this is just for storing the value
-    // The reader's getPageDensityFromSettings() method reads this value
-    if (this.settings.pageDensity) {
-      localStorage.setItem('booksWithMusic-pageDensity', this.settings.pageDensity.toString());
-    }
   }
 
   /**
@@ -683,7 +673,6 @@ export class SettingsUI {
     
     // Save final settings
     this.saveSettings();
-    this.applyPageDensity();
     
     this._emitLayoutChanged('calibration');
     

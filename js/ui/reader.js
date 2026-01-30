@@ -687,13 +687,18 @@ export class ReaderUI {
         // Import layout engine dynamically
         if (typeof TextLayoutEngine === 'undefined') {
           console.error('TextLayoutEngine not loaded!');
-          return this._fallbackSplitPages(chapterContent, chapterTitle);
+          return ['<div class="page-lines"><p>Error: Text layout engine not available</p></div>'];
         }
         this.layoutEngine = new TextLayoutEngine();
       }
       
-      // Get current settings from settingsManager
-      const settings = window.settingsManager ? window.settingsManager.settings : this._getDefaultSettings();
+      // Get current settings from settingsManager with fallback defaults
+      const settings = window.settingsManager?.settings || {
+        fontSize: 18,
+        fontFamily: 'Georgia, "Times New Roman", serif',
+        lineHeight: 1.6,
+        pageWidth: 800
+      };
       const fontSize = settings.fontSize || 18;
       const fontFamily = settings.fontFamily || 'Georgia, "Times New Roman", serif';
       const lineHeightMultiplier = settings.lineHeight || 1.6;
@@ -723,8 +728,8 @@ export class ReaderUI {
       
       // Validate
       if (maxLinesPerPage < 5) {
-        console.error('❌ Not enough space for content - falling back');
-        return this._fallbackSplitPages(chapterContent, chapterTitle);
+        console.error('❌ Not enough space for content - using minimal layout');
+        return ['<div class="page-lines"><p>Error: Screen too small for proper text layout</p></div>'];
       }
       
       // Debug: Log actual dimensions being used
@@ -765,7 +770,7 @@ export class ReaderUI {
     } catch (error) {
       console.error('❌ Error in splitChapterIntoPages:', error);
       console.error('Stack:', error.stack);
-      return this._fallbackSplitPages(chapterContent, chapterTitle);
+      return ['<div class="page-lines"><p>Error loading chapter. Please try again.</p></div>'];
     }
   }
 
@@ -845,77 +850,6 @@ export class ReaderUI {
       const pageContainer = document.querySelector('.page-container');
       return pageContainer ? pageContainer.clientHeight : 765;
     }
-  }
-
-  /**
-   * Get default settings when settingsManager is not available
-   */
-  _getDefaultSettings() {
-    return {
-      fontSize: 18,
-      fontFamily: 'Georgia, "Times New Roman", serif',
-      lineHeight: 1.6,
-      pageWidth: 800
-    };
-  }
-
-  /**
-   * Fallback pagination using old character-counting method
-   */
-  _fallbackSplitPages(chapterContent, chapterTitle) {
-    console.warn('⚠️ Using fallback pagination method');
-    const pages = [];
-    const charsPerPage = this.charsPerPage || 2000;
-    
-    // Parse HTML to extract elements
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = chapterContent;
-    
-    let elements = Array.from(tempDiv.querySelectorAll('p, h1, h2, h3, h4, h5, h6'));
-    
-    if (elements.length === 0) {
-      const textContent = tempDiv.textContent.trim();
-      if (textContent) {
-        const p = document.createElement('p');
-        p.textContent = textContent;
-        elements = [p];
-      }
-    }
-    
-    let currentPage = { html: '', charCount: 0 };
-    
-    // Add chapter title
-    const titleHTML = `<h2 class="chapter-heading">${this.escapeHtml(chapterTitle)}</h2>`;
-    currentPage.html += titleHTML;
-    currentPage.charCount += chapterTitle.length;
-    
-    for (const element of elements) {
-      const elementHTML = element.outerHTML;
-      const elementText = element.textContent || '';
-      const elementChars = elementText.length;
-      
-      if (currentPage.charCount + elementChars > charsPerPage && currentPage.charCount > 0) {
-        pages.push(currentPage.html);
-        currentPage = { html: elementHTML, charCount: elementChars };
-      } else {
-        currentPage.html += elementHTML;
-        currentPage.charCount += elementChars;
-      }
-    }
-    
-    if (currentPage.html.trim()) {
-      pages.push(currentPage.html);
-    }
-    
-    return pages.length > 0 ? pages : ['<p>Empty chapter</p>'];
-  }
-
-  /**
-   * Split text into sentences for better page breaks
-   */
-  _splitIntoSentences(text) {
-    const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
-    return sentences.map(s => s.trim()).filter(s => s.length > 0);
   }
 
   async loadChapter(index, { pageInChapter = 1, preservePage = false } = {}) {
