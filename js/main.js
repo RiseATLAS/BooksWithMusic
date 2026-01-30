@@ -53,12 +53,13 @@ class BooksWithMusicApp {
           await this.reader._musicInitPromise;
         }
 
-        // Auto-calibrate page density on first load
-        setTimeout(() => {
-          if (this.settings && typeof this.settings.calibratePageDensity === 'function') {
-            this.settings.calibratePageDensity();
-          }
-        }, 500);
+        // NOTE: Auto-calibration disabled - layout engine handles pagination deterministically
+        // No need for character-based calibration when using TextLayoutEngine
+        // setTimeout(() => {
+        //   if (this.settings && typeof this.settings.calibratePageDensity === 'function') {
+        //     this.settings.calibratePageDensity();
+        //   }
+        // }, 500);
 
         // Setup auth UI for reader page
         this.setupAuthUI(true);
