@@ -720,6 +720,8 @@ export class ReaderUI {
       const chapterText = document.querySelector('.chapter-text');
       let textWidth;
       
+      console.log('📏 chapterText element found:', !!chapterText);
+      
       if (chapterText) {
         // Get the actual content width (clientWidth excludes padding)
         const rect = chapterText.getBoundingClientRect();
@@ -858,12 +860,19 @@ export class ReaderUI {
       // Add each segment as a separate block
       for (const segment of segments) {
         // Normalize whitespace but preserve line breaks
-        const text = segment
+        let text = segment
           .replace(/\s+/g, ' ')  // Collapse multiple spaces
           .trim();
         
         // Skip empty segments
         if (!text) continue;
+        
+        // Remove chapter title prefix from first paragraph if it matches
+        if (type === 'p' && chapterTitle && text.toLowerCase().startsWith(chapterTitle.toLowerCase())) {
+          text = text.substring(chapterTitle.length).trim();
+          // Skip if paragraph becomes empty after removing title
+          if (!text) continue;
+        }
         
         blocks.push({
           type: type,
