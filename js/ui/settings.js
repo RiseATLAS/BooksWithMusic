@@ -404,6 +404,15 @@ export class SettingsUI {
     });
   }
 
+  applyPageDensity() {
+    // Page density is stored in settings and used by reader.js
+    // No CSS changes needed - this is just for storing the value
+    // The reader's getPageDensityFromSettings() method reads this value
+    if (this.settings.pageDensity) {
+      localStorage.setItem('booksWithMusic-pageDensity', this.settings.pageDensity.toString());
+    }
+  }
+
   /**
    * Auto-calibrate page density based on current viewport and font settings
    * Calculates how many characters fit comfortably on one page
