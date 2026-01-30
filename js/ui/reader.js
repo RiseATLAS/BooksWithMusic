@@ -46,6 +46,7 @@ export class ReaderUI {
     
     // Fullscreen position tracking
     this._positionBeforeFullscreen = null; // { chapterIndex, pageInChapter, textBlock }
+    this._pageInFullscreen = null; // Track the page we land on after entering fullscreen
   }
 
   /**
@@ -557,6 +558,7 @@ export class ReaderUI {
           pageInChapter: this.currentPageInChapter,
           textBlock: this.getFirstVisibleTextBlock()
         };
+        this._pageInFullscreen = null; // Will be set after re-pagination
         console.log(`[Fullscreen] Saved position: Chapter ${this.currentChapterIndex}, Page ${this.currentPageInChapter}`);
         
         // Hide page indicator in fullscreen on all devices
@@ -590,10 +592,14 @@ export class ReaderUI {
         if (this.currentChapterIndex >= 0 && this.chapters.length > 0 && !this._isInitializing) {
           console.log('=== FULLSCREEN RE-PAGINATION ===');
           
-          // Check if we're exiting fullscreen and haven't changed position
+          // Check if we're exiting fullscreen
           const isExitingFullscreen = !isFullscreen && this._positionBeforeFullscreen;
+          
+          // Check if user has navigated WITHIN fullscreen (compare against fullscreen page, not pre-fullscreen)
           const hasSameChapter = this._positionBeforeFullscreen?.chapterIndex === this.currentChapterIndex;
-          const hasSamePage = this._positionBeforeFullscreen?.pageInChapter === this.currentPageInChapter;
+          const hasNavigatedInFullscreen = isExitingFullscreen && this._pageInFullscreen !== null && 
+                                           (this.currentChapterIndex !== this._positionBeforeFullscreen.chapterIndex || 
+                                            this.currentPageInChapter !== this._pageInFullscreen);
           
           // Save the current visible text block
           const currentTextBlock = this.getFirstVisibleTextBlock();
@@ -627,13 +633,13 @@ export class ReaderUI {
           let textBlockToFind;
           let mustBeFirst = false; // Flag for whether text must be first on page
           
-          if (isExitingFullscreen && this._positionBeforeFullscreen && hasSameChapter && hasSamePage) {
-            // Exiting fullscreen AND user hasn't navigated - restore to original position
+          if (isExitingFullscreen && !hasNavigatedInFullscreen) {
+            // Exiting fullscreen AND user hasn't navigated in fullscreen - restore to original position
             textBlockToFind = this._positionBeforeFullscreen.textBlock;
             mustBeFirst = true; // Going back to normal view - restore exact page that starts with this text
             console.log(`[Restore] Exiting fullscreen (no navigation) - restoring saved position: "${textBlockToFind.text.substring(0, 40)}..."`);
           } else if (isExitingFullscreen) {
-            // Exiting fullscreen BUT user HAS navigated - keep their current position
+            // Exiting fullscreen BUT user HAS navigated in fullscreen - keep their current position
             textBlockToFind = currentTextBlock;
             mustBeFirst = false; // Text can appear anywhere since they navigated
             console.log(`[Restore] Exiting fullscreen (after navigation) - keeping current position: "${textBlockToFind.text.substring(0, 40)}..."`);
@@ -655,6 +661,12 @@ export class ReaderUI {
           this.currentPageInChapter = restoredPage;
           console.log(`[Result] Restored to page ${restoredPage}/${totalPagesInChapter}`);
           
+          // IMPORTANT: Save the page we landed on when entering fullscreen
+          if (!isExitingFullscreen && this._positionBeforeFullscreen) {
+            this._pageInFullscreen = restoredPage;
+            console.log(`[Fullscreen] Saved fullscreen page: ${restoredPage}`);
+          };
+          
           // Verify the restoration
           const newTextBlock = this.getFirstVisibleTextBlock();
           if (newTextBlock.text && textBlockToFind.text && 
@@ -669,6 +681,7 @@ export class ReaderUI {
           // Clear saved position when exiting fullscreen
           if (isExitingFullscreen) {
             this._positionBeforeFullscreen = null;
+            this._pageInFullscreen = null;
             console.log(`[Fullscreen] Cleared saved position`);
           }
           
