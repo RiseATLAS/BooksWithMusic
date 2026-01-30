@@ -110,8 +110,6 @@ export class ReaderUI {
     let startPage = expectedPage ? Math.max(0, expectedPage - 1 - searchRadius) : 0;
     let endPage = expectedPage ? Math.min(pageData.length, expectedPage - 1 + searchRadius + 1) : pageData.length;
     
-    console.log(`[Search] Looking for "${targetWords.substring(0, 40)}..." in pages ${startPage + 1}-${endPage}`);
-    
     // Strategy: Find the page where our target text is the first text line
     // If text is found mid-page, we want the NEXT page (where it would be pushed to after re-pagination)
     
@@ -126,7 +124,6 @@ export class ReaderUI {
           const lineText = line.text.trim().toLowerCase();
           // Check if this first line starts with our target or vice versa (flexible matching)
           if (lineText.startsWith(targetLower) || targetLower.startsWith(lineText.substring(0, 20))) {
-            console.log(`[Match] Found as first line on page ${pageIndex + 1}`);
             return pageIndex + 1;
           }
           break; // Only check first text line per page
@@ -149,12 +146,10 @@ export class ReaderUI {
             // Found the text, but is it the first text line?
             if (this.isFirstTextLineOnPage(page, line)) {
               // It's already the first line on this page
-              console.log(`[Match] Found as first line on page ${pageIndex + 1}`);
               return pageIndex + 1;
             } else {
               // Text is mid-page, so it should be on the next page after re-pagination
               const nextPage = Math.min(pageIndex + 2, pageData.length); // +2 because pageIndex is 0-based
-              console.log(`[Match] Found mid-page on ${pageIndex + 1}, advancing to next page ${nextPage}`);
               return nextPage;
             }
           }
@@ -163,7 +158,6 @@ export class ReaderUI {
       }
     }
     
-    console.log(`[NoMatch] Text not found, using expected page ${expectedPage}`);
     // Fallback to expected page or page 1
     return expectedPage || 1;
   }
@@ -465,16 +459,12 @@ export class ReaderUI {
       // Re-paginate when fullscreen changes
       setTimeout(async () => {
         if (this.currentChapterIndex >= 0 && this.chapters.length > 0 && !this._isInitializing) {
-          console.log('=== FULLSCREEN RE-PAGINATION ===');
-          
           // Calculate progress through chapter as percentage
           const oldTotalPages = this.pagesPerChapter[this.currentChapterIndex] || this.currentPageInChapter;
           const progressPercent = (this.currentPageInChapter - 1) / oldTotalPages;
-          console.log(`[Progress] Page ${this.currentPageInChapter} of ${oldTotalPages} = ${(progressPercent * 100).toFixed(1)}%`);
           
           // Save first words on current page
           const firstWords = this.getFirstWordsOnPage();
-          console.log(`[FirstWords] "${firstWords}"`);
           
           // Clear caches
           if (this.layoutEngine) {
@@ -494,19 +484,14 @@ export class ReaderUI {
           
           const totalPagesInChapter = this.chapterPages[this.currentChapterIndex].length;
           this.pagesPerChapter[this.currentChapterIndex] = totalPagesInChapter;
-          console.log(`[NewPagination] Total pages: ${totalPagesInChapter}`);
           
           // Calculate expected page from progress percentage
           const expectedPage = Math.max(1, Math.round(progressPercent * totalPagesInChapter) + 1);
-          console.log(`[Expected] Page ${expectedPage} (from ${(progressPercent * 100).toFixed(1)}%)`);
           
           // Find exact page using first words, searching near expected page
           let restoredPage = expectedPage;
           if (firstWords) {
             restoredPage = this.findPageByFirstWords(this.currentChapterIndex, firstWords, expectedPage);
-            console.log(`[Restored] Page ${restoredPage} (searched ±3 pages around ${expectedPage})`);
-          } else {
-            console.log(`[Restored] Page ${restoredPage} (no first words, using expected page)`);
           }
           
           this.currentPageInChapter = restoredPage;
@@ -515,8 +500,6 @@ export class ReaderUI {
           this.currentPage = this.calculateCurrentPageNumber();
           this.totalPages = this.calculateTotalPages();
           this.updatePageIndicator();
-          
-          console.log('=== RE-PAGINATION COMPLETE ===');
         }
       }, 200); // Longer delay for fullscreen transition to complete
     };
