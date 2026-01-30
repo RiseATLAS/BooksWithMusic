@@ -105,42 +105,60 @@ export class ReaderUI {
     
     const targetLower = targetWords.toLowerCase();
     
-    // Define search range around expected page (±3 pages)
-    const searchRadius = 3;
+    // Define search range around expected page (±5 pages for safety)
+    const searchRadius = 5;
     let startPage = expectedPage ? Math.max(0, expectedPage - 1 - searchRadius) : 0;
     let endPage = expectedPage ? Math.min(pageData.length, expectedPage - 1 + searchRadius + 1) : pageData.length;
     
     console.log(`[Search] Looking for "${targetWords.substring(0, 40)}..." in pages ${startPage + 1}-${endPage}`);
     
-    // First pass: search near expected page for exact first-line match
+    // Strategy: Find the page where our target text is the first text line
+    // If text is found mid-page, we want the NEXT page (where it would be pushed to after re-pagination)
+    
+    // Pass 1: Look for text as the first line (exact match)
     for (let pageIndex = startPage; pageIndex < endPage; pageIndex++) {
       const page = pageData[pageIndex];
       if (!page || !page.lines) continue;
       
+      // Find first text line
       for (const line of page.lines) {
         if (line && line.type === 'text' && line.text) {
           const lineText = line.text.trim().toLowerCase();
+          // Check if this first line starts with our target or vice versa (flexible matching)
           if (lineText.startsWith(targetLower) || targetLower.startsWith(lineText.substring(0, 20))) {
             console.log(`[Match] Found as first line on page ${pageIndex + 1}`);
             return pageIndex + 1;
           }
-          break; // Only check first text line
+          break; // Only check first text line per page
         }
       }
     }
     
-    // Second pass: search near expected page for text anywhere on page
+    // Pass 2: Look for text anywhere on page (not as first line)
     for (let pageIndex = startPage; pageIndex < endPage; pageIndex++) {
       const page = pageData[pageIndex];
       if (!page || !page.lines) continue;
       
+      let lineIndex = 0;
       for (const line of page.lines) {
         if (line && line.type === 'text' && line.text) {
           const lineText = line.text.trim().toLowerCase();
-          if (lineText.includes(targetLower.substring(0, 30))) {
-            console.log(`[Match] Found text anywhere on page ${pageIndex + 1}`);
-            return pageIndex + 1;
+          
+          // Check if target text appears on this line
+          if (lineText.includes(targetLower.substring(0, 30)) || targetLower.includes(lineText.substring(0, 30))) {
+            // Found the text, but is it the first text line?
+            if (this.isFirstTextLineOnPage(page, line)) {
+              // It's already the first line on this page
+              console.log(`[Match] Found as first line on page ${pageIndex + 1}`);
+              return pageIndex + 1;
+            } else {
+              // Text is mid-page, so it should be on the next page after re-pagination
+              const nextPage = Math.min(pageIndex + 2, pageData.length); // +2 because pageIndex is 0-based
+              console.log(`[Match] Found mid-page on ${pageIndex + 1}, advancing to next page ${nextPage}`);
+              return nextPage;
+            }
           }
+          lineIndex++;
         }
       }
     }
@@ -148,6 +166,20 @@ export class ReaderUI {
     console.log(`[NoMatch] Text not found, using expected page ${expectedPage}`);
     // Fallback to expected page or page 1
     return expectedPage || 1;
+  }
+  
+  /**
+   * Helper to check if a line is the first text line on a page
+   */
+  isFirstTextLineOnPage(page, targetLine) {
+    if (!page || !page.lines) return false;
+    
+    for (const line of page.lines) {
+      if (line && line.type === 'text' && line.text && line.text.trim()) {
+        return line === targetLine;
+      }
+    }
+    return false;
   }
 
   async openBook(bookId) {
