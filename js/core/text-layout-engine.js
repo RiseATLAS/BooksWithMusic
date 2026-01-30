@@ -7,9 +7,17 @@
  */
 class TextLayoutEngine {
   constructor() {
-    // Create offscreen canvas for text measurement
-    this.canvas = document.createElement('canvas');
-    this.ctx = this.canvas.getContext('2d');
+    // Create offscreen element for text measurement (more accurate than Canvas)
+    this.measurementElement = document.createElement('span');
+    this.measurementElement.style.position = 'absolute';
+    this.measurementElement.style.visibility = 'hidden';
+    this.measurementElement.style.whiteSpace = 'nowrap';
+    this.measurementElement.style.left = '-9999px';
+    // Apply same text rendering properties as .chapter-text
+    this.measurementElement.style.textRendering = 'geometricPrecision';
+    this.measurementElement.style.webkitFontSmoothing = 'antialiased';
+    this.measurementElement.style.mozOsxFontSmoothing = 'grayscale';
+    document.body.appendChild(this.measurementElement);
     
     // Cache for text measurements (performance optimization)
     this.measurementCache = new Map();
@@ -17,6 +25,7 @@ class TextLayoutEngine {
 
   /**
    * Measure exact pixel width of text with given font
+   * Uses DOM element for accurate measurement matching actual rendering
    */
   measureText(text, fontSize, fontFamily) {
     const cacheKey = `${text}|${fontSize}|${fontFamily}`;
@@ -25,8 +34,13 @@ class TextLayoutEngine {
       return this.measurementCache.get(cacheKey);
     }
     
-    this.ctx.font = `${fontSize}px ${fontFamily}`;
-    const width = this.ctx.measureText(text).width;
+    // Set font properties on measurement element
+    this.measurementElement.style.fontSize = `${fontSize}px`;
+    this.measurementElement.style.fontFamily = fontFamily;
+    this.measurementElement.textContent = text;
+    
+    // Get actual rendered width
+    const width = this.measurementElement.getBoundingClientRect().width;
     
     // Cache the measurement
     this.measurementCache.set(cacheKey, width);

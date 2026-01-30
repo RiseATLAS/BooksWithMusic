@@ -315,9 +315,9 @@ export class EPUBParser {
           img.setAttribute('src', imageUrl);
           img.setAttribute('style', 'max-width: 100%; height: auto; display: block; margin: 1rem auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);');
         } else {
-          console.warn(`Image not found: ${src}`);
-          img.setAttribute('alt', `[Image: ${src}]`);
-          img.setAttribute('style', 'display: none;');
+          // Image not found - remove it entirely to avoid 404 errors
+          console.warn(`Image not found, removing: ${src}`);
+          img.remove();
         }
       }
     });

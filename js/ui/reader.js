@@ -729,8 +729,8 @@ export class ReaderUI {
         const availableWidth = rect.width - paddingLeft - paddingRight;
         
         // CRITICAL: Add safety margin to prevent browser wrapping
-        // Browser rendering can be slightly different from Canvas measurements
-        // Subtract a small buffer to ensure lines never exceed actual width
+        // Browser rendering can be slightly different from measurements
+        // Small buffer to ensure lines never exceed actual width
         const safetyMargin = 10; // pixels
         textWidth = Math.max(200, availableWidth - safetyMargin);
       } else {
