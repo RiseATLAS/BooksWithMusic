@@ -381,13 +381,13 @@ export class ReaderUI {
         }
       }
       
-      // Re-paginate when fullscreen changes (available height changes)
+      // Re-paginate when fullscreen changes
       setTimeout(async () => {
         if (this.currentChapterIndex >= 0 && this.chapters.length > 0 && !this._isInitializing) {
-          // Get current reading position before re-pagination
-          const position = this.getBlockPosition();
+          // Save page number to restore approximately the same position
+          const savedPage = this.currentPageInChapter;
           
-          // Clear caches and force re-pagination
+          // Clear caches
           if (this.layoutEngine) {
             this.layoutEngine.clearCache();
           }
@@ -403,12 +403,10 @@ export class ReaderUI {
             this.chapters[this.currentChapterIndex].title
           );
           
-          // Restore reading position
+          // Restore approximately the same position
           const totalPagesInChapter = this.chapterPages[this.currentChapterIndex].length;
           this.pagesPerChapter[this.currentChapterIndex] = totalPagesInChapter;
-          
-          const newPage = this.findPageByBlockPosition(this.currentChapterIndex, position);
-          this.currentPageInChapter = Math.max(1, Math.min(newPage, totalPagesInChapter));
+          this.currentPageInChapter = Math.min(savedPage, totalPagesInChapter);
           
           this.renderCurrentPage();
           this.currentPage = this.calculateCurrentPageNumber();
