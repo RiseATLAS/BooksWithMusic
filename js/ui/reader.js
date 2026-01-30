@@ -775,9 +775,19 @@ export class ReaderUI {
     
     // Check if the first element is a heading that matches the chapter title
     const firstElement = tempDiv.querySelector('h1, h2, h3, h4, h5, h6, p, div');
-    const firstElementIsTitle = firstElement && 
-      ['h1', 'h2', 'h3'].includes(firstElement.tagName.toLowerCase()) &&
-      firstElement.textContent.trim().toLowerCase() === chapterTitle?.toLowerCase();
+    let firstElementIsTitle = false;
+    
+    if (firstElement && chapterTitle) {
+      const elementText = firstElement.textContent.trim().toLowerCase();
+      const titleText = chapterTitle.trim().toLowerCase();
+      
+      // Check if it's a heading and matches the title (exact or contains)
+      if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(firstElement.tagName.toLowerCase())) {
+        firstElementIsTitle = elementText === titleText || 
+                             elementText.includes(titleText) ||
+                             titleText.includes(elementText);
+      }
+    }
     
     // Only add chapter title if it's not already present as the first heading
     if (chapterTitle && chapterTitle.trim() && !firstElementIsTitle) {

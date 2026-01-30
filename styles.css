@@ -13,7 +13,7 @@
   --reader-text: #1c1e21;
   --glass-bg: rgba(255, 255, 255, 0.7);
   --glass-border: rgba(255, 255, 255, 0.3);
-  --reader-text-align: justify;
+  --reader-text-align: left;
   --reader-font-size: 18px;
   --reader-line-height: 1.8;
   --page-gap: 120px;
