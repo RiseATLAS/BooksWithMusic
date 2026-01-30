@@ -43,6 +43,9 @@ export class ReaderUI {
 
     this._viewportEl = null;
     this._boundViewportScrollHandler = null;
+    
+    // Fullscreen position tracking
+    this._positionBeforeFullscreen = null; // { chapterIndex, pageInChapter, textBlock }
   }
 
   /**
@@ -525,6 +528,14 @@ export class ReaderUI {
       const isMobile = window.innerWidth <= 768;
       
       if (isFullscreen) {
+        // ENTERING fullscreen - save current position
+        this._positionBeforeFullscreen = {
+          chapterIndex: this.currentChapterIndex,
+          pageInChapter: this.currentPageInChapter,
+          textBlock: this.getFirstVisibleTextBlock()
+        };
+        console.log(`[Fullscreen] Saved position: Chapter ${this.currentChapterIndex}, Page ${this.currentPageInChapter}`);
+        
         // Hide page indicator in fullscreen on all devices
         if (pageIndicator) {
           pageIndicator.style.display = 'none';
@@ -540,7 +551,7 @@ export class ReaderUI {
           }
         }
       } else {
-        // Exited fullscreen - restore page indicator ONLY if we're actually out of fullscreen
+        // EXITING fullscreen - restore page indicator
         if (pageIndicator) {
           pageIndicator.style.display = '';
         }
@@ -556,8 +567,13 @@ export class ReaderUI {
         if (this.currentChapterIndex >= 0 && this.chapters.length > 0 && !this._isInitializing) {
           console.log('=== FULLSCREEN RE-PAGINATION ===');
           
-          // Save the first visible text block with its index
-          const textBlock = this.getFirstVisibleTextBlock();
+          // Check if we're exiting fullscreen and haven't changed position
+          const isExitingFullscreen = !isFullscreen && this._positionBeforeFullscreen;
+          const hasSameChapter = this._positionBeforeFullscreen?.chapterIndex === this.currentChapterIndex;
+          const hasSamePage = this._positionBeforeFullscreen?.pageInChapter === this.currentPageInChapter;
+          
+          // Save the current visible text block
+          const currentTextBlock = this.getFirstVisibleTextBlock();
           const oldPage = this.currentPageInChapter;
           const oldTotalPages = this.pagesPerChapter[this.currentChapterIndex];
           
@@ -583,24 +599,45 @@ export class ReaderUI {
           this.pagesPerChapter[this.currentChapterIndex] = totalPagesInChapter;
           console.log(`[After] Re-paginated into ${totalPagesInChapter} pages`);
           
+          // Determine which position to restore to
+          let restoredPage;
+          let textBlockToFind;
+          
+          if (isExitingFullscreen && hasSameChapter && hasSamePage) {
+            // Exiting fullscreen and user hasn't navigated - restore to original position
+            textBlockToFind = this._positionBeforeFullscreen.textBlock;
+            console.log(`[Restore] Using saved pre-fullscreen position: "${textBlockToFind.text.substring(0, 40)}..."`);
+          } else {
+            // Entering fullscreen OR user has navigated - use current position
+            textBlockToFind = currentTextBlock;
+            console.log(`[Restore] Using current position: "${textBlockToFind.text.substring(0, 40)}..."`);
+          }
+          
           // Find which page contains our text block
-          const restoredPage = this.findPageByTextBlock(
+          restoredPage = this.findPageByTextBlock(
             this.currentChapterIndex, 
-            textBlock.text,
-            textBlock.blockIndex
+            textBlockToFind.text,
+            textBlockToFind.blockIndex
           );
+          
           this.currentPageInChapter = restoredPage;
           console.log(`[Result] Restored to page ${restoredPage}/${totalPagesInChapter}`);
           
           // Verify the restoration
           const newTextBlock = this.getFirstVisibleTextBlock();
-          if (newTextBlock.text && textBlock.text && 
-              newTextBlock.text.substring(0, 40).toLowerCase() === textBlock.text.substring(0, 40).toLowerCase()) {
+          if (newTextBlock.text && textBlockToFind.text && 
+              newTextBlock.text.substring(0, 40).toLowerCase() === textBlockToFind.text.substring(0, 40).toLowerCase()) {
             console.log(`[Verify] ✓ Position restored perfectly!`);
           } else {
             console.log(`[Verify] Text comparison:`);
-            console.log(`  Before: "${textBlock.text.substring(0, 50)}"`);
-            console.log(`  After:  "${newTextBlock.text.substring(0, 50)}"`);
+            console.log(`  Target: "${textBlockToFind.text.substring(0, 50)}"`);
+            console.log(`  Got:    "${newTextBlock.text.substring(0, 50)}"`);
+          }
+          
+          // Clear saved position when exiting fullscreen
+          if (isExitingFullscreen) {
+            this._positionBeforeFullscreen = null;
+            console.log(`[Fullscreen] Cleared saved position`);
           }
           
           this.renderCurrentPage();
