@@ -880,8 +880,8 @@ body.reader-page::-webkit-scrollbar {
   color: inherit;
   opacity: 1 !important;
   visibility: visible !important;
-  /* JS controls all text layout - remove CSS text properties */
-  text-align: left;
+  /* Use the text-align setting from CSS variable */
+  text-align: var(--reader-text-align, left) !important;
   word-spacing: normal;
   letter-spacing: normal;
   text-indent: 0;

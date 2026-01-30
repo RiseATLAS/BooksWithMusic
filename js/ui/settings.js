@@ -390,7 +390,7 @@ export class SettingsUI {
   }
 
   applyTextAlign() {
-    const align = this.settings.textAlign || 'justify';
+    const align = this.settings.textAlign || 'left';
     document.documentElement.style.setProperty('--reader-text-align', align);
     document.querySelectorAll('.chapter-text').forEach((el) => el.style.setProperty('--reader-text-align', align));
   }
