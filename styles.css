@@ -1812,7 +1812,7 @@ html:-ms-fullscreen .page-indicator,
 
 :fullscreen .chapter-text,
 :-webkit-full-screen .chapter-text {
-  padding: 16px 24px 32px !important; /* Minimal internal padding */
+  padding: 16px 0 32px !important; /* No horizontal padding - utilize full width */
   top: 20px !important; /* Match reduced viewport padding */
   bottom: 20px !important;
   height: auto !important; /* Let content determine height */
@@ -1973,7 +1973,7 @@ html:-ms-fullscreen .page-indicator,
   /* Fullscreen mode - even more space for text */
   :fullscreen .chapter-text,
   :-webkit-full-screen .chapter-text {
-    padding: 3% 3% 5%;
+    padding: 3% 0 5%; /* No horizontal padding on mobile fullscreen */
     top: 3vh;
     bottom: 3vh;
   }
