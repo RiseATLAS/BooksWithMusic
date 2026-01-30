@@ -387,22 +387,22 @@ export class ReaderUI {
         if (this.currentChapterIndex >= 0 && this.chapters.length > 0) {
           console.log('🖥️ Fullscreen changed, re-paginating...');
           
-          // Get current position BEFORE clearing cached data
+          // Get current position before re-pagination
           const currentPosition = this.getBlockPosition();
-          console.log('🖥️ Saving position:', currentPosition);
+          console.log('🖥️ Current position:', currentPosition);
           
           // Clear layout engine cache for fresh measurements
           if (this.layoutEngine) {
             this.layoutEngine.clearCache();
           }
           
-          // Clear cached pages (do this AFTER getting position)
-          this.chapterPages = {};
-          this.chapterPageData = {};
+          // Force re-pagination by removing cached pages for this chapter
+          delete this.chapterPages[this.currentChapterIndex];
+          delete this.chapterPageData[this.currentChapterIndex];
           
-          // Re-load chapter with new dimensions
+          // Re-load chapter with new dimensions - this will re-paginate
           await this.loadChapter(this.currentChapterIndex, {
-            pageInChapter: 1, // Start at page 1, we'll restore position after
+            pageInChapter: 1,
             preservePage: false
           });
           
@@ -410,13 +410,11 @@ export class ReaderUI {
           const newPage = this.findPageByBlockPosition(this.currentChapterIndex, currentPosition);
           console.log('🖥️ Restoring to page:', newPage);
           
-          if (newPage && newPage !== this.currentPageInChapter) {
-            this.currentPageInChapter = newPage;
-            this.renderCurrentPage();
-            this.currentPage = this.calculateCurrentPageNumber();
-            this.totalPages = this.calculateTotalPages();
-            this.updatePageIndicator();
-          }
+          this.currentPageInChapter = newPage;
+          this.renderCurrentPage();
+          this.currentPage = this.calculateCurrentPageNumber();
+          this.totalPages = this.calculateTotalPages();
+          this.updatePageIndicator();
         }
       }, 100); // Small delay for layout to settle
     };
