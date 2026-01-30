@@ -384,10 +384,10 @@ export class ReaderUI {
       // Re-paginate when fullscreen changes (available height changes)
       setTimeout(async () => {
         if (this.currentChapterIndex >= 0 && this.chapters.length > 0 && !this._isInitializing) {
-          // Simply preserve the current page number
-          const savedPage = this.currentPageInChapter;
+          // Get current reading position before re-pagination
+          const position = this.getBlockPosition();
           
-          // Clear caches
+          // Clear caches and force re-pagination
           if (this.layoutEngine) {
             this.layoutEngine.clearCache();
           }
@@ -395,20 +395,20 @@ export class ReaderUI {
           delete this.chapterPages[this.currentChapterIndex];
           delete this.chapterPageData[this.currentChapterIndex];
           
-          // Re-render and re-paginate
           this._renderEmptyPageStructure();
           
+          // Re-paginate with new dimensions
           this.chapterPages[this.currentChapterIndex] = this.splitChapterIntoPages(
             this.chapters[this.currentChapterIndex].content,
             this.chapters[this.currentChapterIndex].title
           );
           
-          // Update counts and restore page
+          // Restore reading position
           const totalPagesInChapter = this.chapterPages[this.currentChapterIndex].length;
           this.pagesPerChapter[this.currentChapterIndex] = totalPagesInChapter;
           
-          // Restore to same page number (or closest valid page)
-          this.currentPageInChapter = Math.max(1, Math.min(savedPage, totalPagesInChapter));
+          const newPage = this.findPageByBlockPosition(this.currentChapterIndex, position);
+          this.currentPageInChapter = Math.max(1, Math.min(newPage, totalPagesInChapter));
           
           this.renderCurrentPage();
           this.currentPage = this.calculateCurrentPageNumber();
