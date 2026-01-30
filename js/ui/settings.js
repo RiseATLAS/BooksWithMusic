@@ -13,7 +13,6 @@ export class SettingsUI {
       fontFamily: 'serif',
       textAlign: 'left',
       pageWidth: 650,
-      pageDensity: 5000, // Characters per page
       brightness: 100,
       pageColor: 'cream',
       pageWarmth: 10,
@@ -139,25 +138,6 @@ export class SettingsUI {
       this.applyPageWidth();
       this.saveSettings();
       this._emitLayoutChanged('pageWidth');
-    });
-
-    // Page density (characters per page)
-    const pageDensityInput = document.getElementById('page-density');
-    const pageDensityValue = document.getElementById('page-density-value');
-    pageDensityInput?.addEventListener('input', (e) => {
-      this.settings.pageDensity = parseInt(e.target.value);
-      if (pageDensityValue) {
-        pageDensityValue.textContent = `${this.settings.pageDensity} chars`;
-      }
-      this.applyPageDensity();
-      this.saveSettings();
-      this._emitLayoutChanged('pageDensity');
-    });
-
-    // Auto-calibrate page density button
-    document.getElementById('calibrate-pages')?.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.calibratePageDensity();
     });
 
     // Brightness
@@ -424,33 +404,14 @@ export class SettingsUI {
     });
   }
 
-  applyPageDensity() {
-    // Notify reader to update page density (chars per page)
-    window.dispatchEvent(new CustomEvent('pageDensityChanged', { 
-      detail: { charsPerPage: this.settings.pageDensity } 
-    }));
-  }
+
 
   /**
    * Auto-calibrate page density based on current viewport and font settings
    * Calculates how many characters fit comfortably on one page
    * Also calibrates optimal page width based on viewport
    */
-  calibratePageDensity() {
-    console.log('=== CALIBRATION START ===');
-    
-    // Check if in fullscreen and ensure page indicator stays hidden
-    const isFullscreen = document.fullscreenElement || 
-                        document.webkitFullscreenElement || 
-                        document.mozFullScreenElement || 
-                        document.msFullscreenElement;
-    
-    const pageIndicator = document.querySelector('.page-indicator');
-    
-    if (isFullscreen && pageIndicator) {
-      console.log('📍 In fullscreen - ensuring page indicator remains hidden during calibration');
-      pageIndicator.style.display = 'none';
-    }
+  
     
     // Get the actual page container (where pages are rendered)
     const pageContainer = document.querySelector('.page-container');

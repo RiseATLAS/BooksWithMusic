@@ -45,6 +45,11 @@ class TextLayoutEngine {
    * Split text into words, handling punctuation and whitespace
    */
   tokenizeText(text) {
+    // Handle null/undefined/empty text
+    if (!text || typeof text !== 'string') {
+      return [];
+    }
+    
     // Split on whitespace but preserve the whitespace type
     const tokens = [];
     let currentWord = '';
@@ -76,6 +81,11 @@ class TextLayoutEngine {
    * Returns array of line strings
    */
   layoutParagraph(text, maxWidth, fontSize, fontFamily) {
+    // Handle empty/invalid text
+    if (!text || typeof text !== 'string') {
+      return [''];
+    }
+    
     const tokens = this.tokenizeText(text);
     const lines = [];
     let currentLine = [];
@@ -156,6 +166,17 @@ class TextLayoutEngine {
   breakLongWord(word, availableWidth, maxWidth, fontSize, fontFamily) {
     const result = { first: '', middle: [], last: '' };
     
+    // Validate inputs
+    if (!word || typeof word !== 'string' || word.length === 0) {
+      return result;
+    }
+    
+    if (maxWidth <= 0 || availableWidth < 0) {
+      // Invalid dimensions - return word as-is
+      result.last = word;
+      return result;
+    }
+    
     // Try to fit as much as possible on current line
     if (availableWidth > maxWidth * 0.3) {
       let chars = '';
@@ -219,6 +240,16 @@ class TextLayoutEngine {
    * Each page has exactly maxLinesPerPage lines (or fewer for last page)
    */
   layoutIntoPages(contentBlocks, maxWidth, maxLinesPerPage, fontSize, fontFamily, lineHeight) {
+    // Validate inputs
+    if (!contentBlocks || !Array.isArray(contentBlocks) || contentBlocks.length === 0) {
+      return [{ lines: [], blocks: [] }];
+    }
+    
+    if (maxWidth <= 0 || maxLinesPerPage <= 0) {
+      console.error('Invalid layout dimensions:', { maxWidth, maxLinesPerPage });
+      return [{ lines: [], blocks: [] }];
+    }
+    
     const pages = [];
     let currentPage = {
       lines: [],
@@ -227,6 +258,11 @@ class TextLayoutEngine {
     
     for (let blockIndex = 0; blockIndex < contentBlocks.length; blockIndex++) {
       const block = contentBlocks[blockIndex];
+      
+      // Skip invalid blocks
+      if (!block || !block.text) {
+        continue;
+      }
       
       // Layout this block into lines
       const blockLines = this.layoutParagraph(block.text, maxWidth, fontSize, fontFamily);
@@ -331,12 +367,20 @@ class TextLayoutEngine {
    * Convert page data to HTML
    */
   pageToHTML(page) {
+    // Validate input
+    if (!page || !page.lines || !Array.isArray(page.lines)) {
+      return '<div class="page-lines"><p>Empty page</p></div>';
+    }
+    
     let html = '<div class="page-lines">';
     
     let currentBlock = null;
     let currentBlockLines = [];
     
     for (const line of page.lines) {
+      // Skip invalid lines
+      if (!line) continue;
+      
       if (line.type === 'spacing') {
         // Close current block if any
         if (currentBlock !== null && currentBlockLines.length > 0) {
@@ -391,15 +435,25 @@ class TextLayoutEngine {
    * Used for position restoration after re-pagination
    */
   getBlockPositionForPage(pages, targetPageIndex) {
+    // Validate inputs
+    if (!pages || !Array.isArray(pages) || pages.length === 0) {
+      return { blockIndex: 0, lineInBlock: 0 };
+    }
+    
     if (targetPageIndex < 0 || targetPageIndex >= pages.length) {
       return { blockIndex: 0, lineInBlock: 0 };
     }
     
     const page = pages[targetPageIndex];
     
+    // Validate page structure
+    if (!page || !page.lines || !Array.isArray(page.lines)) {
+      return { blockIndex: 0, lineInBlock: 0 };
+    }
+    
     // Find first text line on this page
     for (const line of page.lines) {
-      if (line.type === 'text' && line.blockIndex !== undefined) {
+      if (line && line.type === 'text' && line.blockIndex !== undefined) {
         return {
           blockIndex: line.blockIndex,
           lineInBlock: line.lineInBlock || 0
@@ -415,11 +469,21 @@ class TextLayoutEngine {
    * Find page index that contains a specific block and line
    */
   findPageForBlockPosition(pages, targetBlockIndex, targetLineInBlock = 0) {
+    // Validate inputs
+    if (!pages || !Array.isArray(pages) || pages.length === 0) {
+      return 0;
+    }
+    
     for (let pageIndex = 0; pageIndex < pages.length; pageIndex++) {
       const page = pages[pageIndex];
       
+      // Validate page structure
+      if (!page || !page.lines || !Array.isArray(page.lines)) {
+        continue;
+      }
+      
       for (const line of page.lines) {
-        if (line.type === 'text' &&
+        if (line && line.type === 'text' &&
             line.blockIndex === targetBlockIndex &&
             line.lineInBlock === targetLineInBlock) {
           return pageIndex;
@@ -430,7 +494,7 @@ class TextLayoutEngine {
     // If exact line not found, find page with this block
     for (let pageIndex = 0; pageIndex < pages.length; pageIndex++) {
       const page = pages[pageIndex];
-      if (page.blocks.includes(targetBlockIndex)) {
+      if (page && page.blocks && Array.isArray(page.blocks) && page.blocks.includes(targetBlockIndex)) {
         return pageIndex;
       }
     }
