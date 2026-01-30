@@ -335,8 +335,8 @@ export class SettingsUI {
     this.syncPageIndicatorSettings();
     window.dispatchEvent(new CustomEvent('settings:pageIndicatorChanged'));
 
-    // Ensure pagination updates after initial settings apply
-    this._emitLayoutChanged('init');
+    // Don't emit layoutChanged on initial apply - causes unnecessary re-pagination
+    // Layout changes during initial load are handled by reader initialization
   }
 
   syncPageIndicatorSettings() {

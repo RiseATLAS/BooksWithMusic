@@ -651,12 +651,6 @@ export class ReaderUI {
         return;
       }
       
-      // Skip the 'init' event from settings initialization - already paginated
-      if (reason === 'init') {
-        console.log('⏭️ Skipping initial settings apply - already paginated');
-        return;
-      }
-      
       // Settings that affect pagination and require shift point recalculation
       const paginationAffectingChanges = ['fontSize', 'lineHeight', 'fontFamily', 'textAlign', 'pageWidth', 'pageDensity', 'calibration'];
       

@@ -39,10 +39,18 @@ class BooksWithMusicApp {
       // Check if we're on reader page
       if (window.location.pathname.includes("reader.html")) {
         document.body.classList.add("reader-page");
+        
+        // Load and apply settings BEFORE rendering to avoid visual shifts
+        this.settings.loadSettings();
+        this.settings.applySettings();
+        
+        // Now initialize reader with settings already applied
         await this.reader.initializeReader();
 
-        // Apply settings ASAP
-        this.settings.initialize();
+        // Complete settings initialization (UI sync, event listeners)
+        this.settings.setupEventListeners();
+        this.settings.syncUIWithSettings();
+        this.settings.showIOSTipIfNeeded();
 
         // Initialize music panel with reader's music manager and reader reference
         this.musicPanel = new MusicPanelUI(this.db, this.reader.musicManager, this.reader);
