@@ -96,11 +96,55 @@ export class ReaderUI {
   }
 
   /**
-   * Find which page contains specific text
-   * Searches ALL pages and returns the page number where this text appears
+   * Get the text content index - which block of text we're at in the chapter
+   * Returns the full first line of text for reliable matching
    */
-  findPageByText(chapterIndex, searchText) {
-    if (!searchText || searchText.trim().length === 0) {
+  getFirstVisibleTextBlock() {
+    const pageData = this.chapterPageData?.[this.currentChapterIndex];
+    if (!pageData || pageData.length === 0) {
+      return { text: '', blockIndex: 0 };
+    }
+    
+    const pageIndex = this.currentPageInChapter - 1;
+    if (pageIndex < 0 || pageIndex >= pageData.length) {
+      return { text: '', blockIndex: 0 };
+    }
+    
+    // Count how many text blocks come before this page
+    let blockIndex = 0;
+    for (let i = 0; i < pageIndex; i++) {
+      const page = pageData[i];
+      if (page && page.lines) {
+        for (const line of page.lines) {
+          if (line && line.type === 'text' && line.text && line.text.trim()) {
+            blockIndex++;
+          }
+        }
+      }
+    }
+    
+    // Get the first text block on current page
+    const currentPage = pageData[pageIndex];
+    let firstText = '';
+    if (currentPage && currentPage.lines) {
+      for (const line of currentPage.lines) {
+        if (line && line.type === 'text' && line.text && line.text.trim()) {
+          firstText = line.text.trim();
+          break;
+        }
+      }
+    }
+    
+    console.log(`[SavePosition] Page ${this.currentPageInChapter}, Block ${blockIndex}: "${firstText.substring(0, 50)}..."`);
+    return { text: firstText, blockIndex };
+  }
+
+  /**
+   * Find which page contains the given text - ANYWHERE on the page
+   * The text just needs to be visible on that page, doesn't matter if it's at the start or middle
+   */
+  findPageByTextBlock(chapterIndex, targetText, targetBlockIndex) {
+    if (!targetText || targetText.trim().length === 0) {
       console.log('[FindPage] No search text provided, returning page 1');
       return 1;
     }
@@ -111,24 +155,23 @@ export class ReaderUI {
       return 1;
     }
     
-    const searchLower = searchText.toLowerCase().trim();
-    console.log(`[FindPage] Searching for: "${searchLower.substring(0, 40)}..."`);
+    const searchLower = targetText.toLowerCase().trim();
+    console.log(`[FindPage] Looking for text: "${searchLower.substring(0, 40)}..."`);
     
-    // Search through ALL pages
+    // Search through all pages and find where this text appears (anywhere on the page is fine)
     for (let pageIndex = 0; pageIndex < pageData.length; pageIndex++) {
       const page = pageData[pageIndex];
       if (!page || !page.lines) continue;
       
-      // Check each text line on this page
+      // Check all text lines on this page
       for (const line of page.lines) {
         if (line && line.type === 'text' && line.text) {
           const lineText = line.text.trim().toLowerCase();
           
-          // Check if this line contains our search text
-          // We use substring matching to be flexible with minor differences
-          if (lineText.includes(searchLower) || 
-              searchLower.includes(lineText.substring(0, Math.min(30, lineText.length)))) {
-            console.log(`[FindPage] ✓ Found on page ${pageIndex + 1}: "${line.text.trim().substring(0, 40)}..."`);
+          // Match if the line contains our text, or our text contains the line
+          if (lineText.startsWith(searchLower.substring(0, Math.min(40, searchLower.length))) ||
+              searchLower.startsWith(lineText.substring(0, Math.min(40, lineText.length)))) {
+            console.log(`[FindPage] ✓ Found on page ${pageIndex + 1}`);
             return pageIndex + 1;
           }
         }
@@ -513,8 +556,8 @@ export class ReaderUI {
         if (this.currentChapterIndex >= 0 && this.chapters.length > 0 && !this._isInitializing) {
           console.log('=== FULLSCREEN RE-PAGINATION ===');
           
-          // Save the first visible text on current page
-          const firstVisibleText = this.getFirstVisibleText();
+          // Save the first visible text block with its index
+          const textBlock = this.getFirstVisibleTextBlock();
           const oldPage = this.currentPageInChapter;
           const oldTotalPages = this.pagesPerChapter[this.currentChapterIndex];
           
@@ -540,20 +583,24 @@ export class ReaderUI {
           this.pagesPerChapter[this.currentChapterIndex] = totalPagesInChapter;
           console.log(`[After] Re-paginated into ${totalPagesInChapter} pages`);
           
-          // Find which page contains our saved text
-          const restoredPage = this.findPageByText(this.currentChapterIndex, firstVisibleText);
+          // Find which page contains our text block
+          const restoredPage = this.findPageByTextBlock(
+            this.currentChapterIndex, 
+            textBlock.text,
+            textBlock.blockIndex
+          );
           this.currentPageInChapter = restoredPage;
           console.log(`[Result] Restored to page ${restoredPage}/${totalPagesInChapter}`);
           
           // Verify the restoration
-          const newFirstText = this.getFirstVisibleText();
-          if (newFirstText && firstVisibleText && 
-              newFirstText.substring(0, 30) === firstVisibleText.substring(0, 30)) {
+          const newTextBlock = this.getFirstVisibleTextBlock();
+          if (newTextBlock.text && textBlock.text && 
+              newTextBlock.text.substring(0, 40).toLowerCase() === textBlock.text.substring(0, 40).toLowerCase()) {
             console.log(`[Verify] ✓ Position restored perfectly!`);
           } else {
             console.log(`[Verify] Text comparison:`);
-            console.log(`  Before: "${firstVisibleText}"`);
-            console.log(`  After:  "${newFirstText}"`);
+            console.log(`  Before: "${textBlock.text.substring(0, 50)}"`);
+            console.log(`  After:  "${newTextBlock.text.substring(0, 50)}"`);
           }
           
           this.renderCurrentPage();
@@ -725,8 +772,8 @@ export class ReaderUI {
       
       console.log('=== PAGE DENSITY CHANGED ===');
       
-      // Save the first visible text
-      const firstVisibleText = this.getFirstVisibleText();
+      // Save the first visible text block
+      const textBlock = this.getFirstVisibleTextBlock();
       
       // Update internal setting
       this.charsPerPage = newDensity;
@@ -743,7 +790,11 @@ export class ReaderUI {
         });
         
         // Restore position by finding the text
-        const newPage = this.findPageByText(this.currentChapterIndex, firstVisibleText);
+        const newPage = this.findPageByTextBlock(
+          this.currentChapterIndex, 
+          textBlock.text,
+          textBlock.blockIndex
+        );
         
         if (newPage !== this.currentPageInChapter) {
           this.currentPageInChapter = newPage;
@@ -820,8 +871,8 @@ export class ReaderUI {
           this.layoutEngine.clearCache();
         }
         
-        // Save the first visible text
-        const firstVisibleText = this.getFirstVisibleText();
+        // Save the first visible text block
+        const textBlock = this.getFirstVisibleTextBlock();
         
         // Now clear cached pages to force re-pagination
         this.chapterPages = {};
@@ -835,7 +886,11 @@ export class ReaderUI {
           });
           
           // Restore position by finding the text
-          const newPage = this.findPageByText(this.currentChapterIndex, firstVisibleText);
+          const newPage = this.findPageByTextBlock(
+            this.currentChapterIndex, 
+            textBlock.text,
+            textBlock.blockIndex
+          );
           
           if (newPage !== this.currentPageInChapter) {
             this.currentPageInChapter = newPage;
