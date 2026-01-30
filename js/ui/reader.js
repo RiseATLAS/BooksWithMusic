@@ -66,18 +66,33 @@ export class ReaderUI {
    * Get the first words on current page for position restoration
    */
   getFirstWordsOnPage() {
+    console.log('[getFirstWordsOnPage] Starting...');
+    console.log('[getFirstWordsOnPage] currentChapterIndex:', this.currentChapterIndex);
+    console.log('[getFirstWordsOnPage] currentPageInChapter:', this.currentPageInChapter);
+    
     const pageData = this.chapterPageData?.[this.currentChapterIndex];
+    console.log('[getFirstWordsOnPage] pageData exists:', !!pageData);
+    console.log('[getFirstWordsOnPage] pageData length:', pageData?.length);
+    
     if (!pageData || pageData.length === 0) {
+      console.log('[getFirstWordsOnPage] No pageData, returning null');
       return null;
     }
     
     const pageIndex = this.currentPageInChapter - 1;
+    console.log('[getFirstWordsOnPage] pageIndex:', pageIndex);
+    
     if (pageIndex < 0 || pageIndex >= pageData.length) {
+      console.log('[getFirstWordsOnPage] Invalid pageIndex, returning null');
       return null;
     }
     
     const page = pageData[pageIndex];
+    console.log('[getFirstWordsOnPage] page exists:', !!page);
+    console.log('[getFirstWordsOnPage] page.lines length:', page?.lines?.length);
+    
     if (!page || !page.lines) {
+      console.log('[getFirstWordsOnPage] No page or lines, returning null');
       return null;
     }
     
@@ -85,10 +100,12 @@ export class ReaderUI {
     for (const line of page.lines) {
       if (line && line.type === 'text' && line.text) {
         const words = line.text.trim().split(/\s+/).slice(0, 10).join(' ');
+        console.log('[getFirstWordsOnPage] Found first words:', words);
         return words;
       }
     }
     
+    console.log('[getFirstWordsOnPage] No text line found, returning null');
     return null;
   }
 
@@ -96,10 +113,21 @@ export class ReaderUI {
    * Find page that starts with the given words
    */
   findPageByFirstWords(chapterIndex, targetWords) {
-    if (!targetWords) return 1;
+    console.log('[findPageByFirstWords] Starting...');
+    console.log('[findPageByFirstWords] targetWords:', targetWords);
+    console.log('[findPageByFirstWords] chapterIndex:', chapterIndex);
+    
+    if (!targetWords) {
+      console.log('[findPageByFirstWords] No target words, returning 1');
+      return 1;
+    }
     
     const pageData = this.chapterPageData?.[chapterIndex];
+    console.log('[findPageByFirstWords] pageData exists:', !!pageData);
+    console.log('[findPageByFirstWords] pageData length:', pageData?.length);
+    
     if (!pageData || pageData.length === 0) {
+      console.log('[findPageByFirstWords] No pageData, returning 1');
       return 1;
     }
     
@@ -113,7 +141,10 @@ export class ReaderUI {
       for (const line of page.lines) {
         if (line && line.type === 'text' && line.text) {
           const lineStart = line.text.trim().toLowerCase();
-          if (lineStart.startsWith(targetLower) || targetLower.startsWith(lineStart)) {
+          const matches = lineStart.startsWith(targetLower) || targetLower.startsWith(lineStart);
+          console.log(`[findPageByFirstWords] Page ${pageIndex + 1} first line: "${lineStart.substring(0, 50)}..." - matches: ${matches}`);
+          if (matches) {
+            console.log('[findPageByFirstWords] Found match on page:', pageIndex + 1);
             return pageIndex + 1; // Convert to 1-indexed
           }
           break; // Only check first text line
@@ -121,6 +152,7 @@ export class ReaderUI {
       }
     }
     
+    console.log('[findPageByFirstWords] No match found, returning 1');
     return 1; // Fallback
   }
 
@@ -407,11 +439,15 @@ export class ReaderUI {
       // Re-paginate when fullscreen changes
       setTimeout(async () => {
         if (this.currentChapterIndex >= 0 && this.chapters.length > 0 && !this._isInitializing) {
+          console.log('=== FULLSCREEN CHANGE - RE-PAGINATION START ===');
+          
           // Save current page number as fallback
           const savedPage = this.currentPageInChapter;
+          console.log('[Fullscreen] Current page before re-pagination:', savedPage);
           
           // Save the first words on the current page
           const firstWords = this.getFirstWordsOnPage();
+          console.log('[Fullscreen] Saved first words:', firstWords);
           
           // Clear caches
           if (this.layoutEngine) {
@@ -420,10 +456,12 @@ export class ReaderUI {
           
           delete this.chapterPages[this.currentChapterIndex];
           delete this.chapterPageData[this.currentChapterIndex];
+          console.log('[Fullscreen] Cleared old pagination data');
           
           this._renderEmptyPageStructure();
           
           // Re-paginate with new dimensions
+          console.log('[Fullscreen] Starting re-pagination...');
           this.chapterPages[this.currentChapterIndex] = this.splitChapterIntoPages(
             this.chapters[this.currentChapterIndex].content,
             this.chapters[this.currentChapterIndex].title
@@ -431,21 +469,29 @@ export class ReaderUI {
           
           const totalPagesInChapter = this.chapterPages[this.currentChapterIndex].length;
           this.pagesPerChapter[this.currentChapterIndex] = totalPagesInChapter;
+          console.log('[Fullscreen] Re-pagination complete. Total pages:', totalPagesInChapter);
           
           // Find page that starts with the same words, or use page number fallback
           let restoredPage;
           if (firstWords) {
+            console.log('[Fullscreen] Looking for page with first words...');
             restoredPage = this.findPageByFirstWords(this.currentChapterIndex, firstWords);
+            console.log('[Fullscreen] Found page:', restoredPage);
           } else {
+            console.log('[Fullscreen] No first words, using page number fallback');
             restoredPage = Math.min(savedPage, totalPagesInChapter);
+            console.log('[Fullscreen] Fallback page:', restoredPage);
           }
           
           this.currentPageInChapter = restoredPage;
+          console.log('[Fullscreen] Final restored page:', this.currentPageInChapter);
           
           this.renderCurrentPage();
           this.currentPage = this.calculateCurrentPageNumber();
           this.totalPages = this.calculateTotalPages();
           this.updatePageIndicator();
+          
+          console.log('=== FULLSCREEN CHANGE - RE-PAGINATION END ===');
         }
       }, 200); // Longer delay for fullscreen transition to complete
     };
