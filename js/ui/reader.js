@@ -726,59 +726,15 @@ export class ReaderUI {
       const lineHeightMultiplier = settings.lineHeight || 1.6;
       const lineHeight = fontSize * lineHeightMultiplier;
       
-      // Get ACTUAL rendered dimensions from DOM or create temporary element
-      let chapterText = document.querySelector('.chapter-text');
+      // Calculate text width from page container dimensions
+      const pageContainer = document.querySelector('.page-container');
       let textWidth;
-      let tempElement = null;
       
-      // If .chapter-text doesn't exist yet, create a temporary one to get accurate measurements
-      if (!chapterText) {
-        console.log('📏 No .chapter-text found, creating temporary element for measurement');
-        tempElement = document.createElement('div');
-        tempElement.className = 'chapter-text';
-        tempElement.style.position = 'absolute';
-        tempElement.style.visibility = 'hidden';
-        tempElement.style.pointerEvents = 'none';
-        tempElement.style.zIndex = '-9999';
-        
-        // Add some dummy content to ensure proper layout
-        tempElement.innerHTML = '<p>Measuring text width</p>';
-        
-        // Add to a page structure to get accurate measurements with proper parent dimensions
-        const pageContainer = document.querySelector('.page-container');
-        const pageViewport = document.querySelector('.page-viewport');
-        
-        if (pageViewport) {
-          pageViewport.appendChild(tempElement);
-        } else if (pageContainer) {
-          pageContainer.appendChild(tempElement);
-        } else {
-          document.body.appendChild(tempElement);
-        }
-        
-        // Force a layout reflow to ensure proper dimensions
-        void tempElement.offsetHeight;
-        
-        chapterText = tempElement;
-      }
-      
-      console.log('📏 chapterText element found:', !!chapterText, '(temporary:', !!tempElement, ')');
-      
-      if (chapterText) {
-        // Get the actual content width (clientWidth excludes padding)
-        const rect = chapterText.getBoundingClientRect();
-        const styles = window.getComputedStyle(chapterText);
-        const paddingLeft = parseFloat(styles.paddingLeft) || 24;
-        const paddingRight = parseFloat(styles.paddingRight) || 24;
-        const availableWidth = rect.width - paddingLeft - paddingRight;
-        
-        console.log('📏 Width calculation:', {
-          rectWidth: rect.width,
-          paddingLeft,
-          paddingRight,
-          availableWidth,
-          textWidthSetting: settings.textWidth
-        });
+      if (pageContainer) {
+        // Use page container width (consistent whether chapter-text exists or not)
+        const containerWidth = pageContainer.clientWidth;
+        const chapterTextPadding = 24 * 2; // Left + right padding on .chapter-text
+        const availableWidth = containerWidth - chapterTextPadding;
         
         // Apply text width percentage setting to control line length
         const textWidthPercent = (settings.textWidth || 100) / 100;
@@ -788,13 +744,16 @@ export class ReaderUI {
         const safetyMargin = 5;
         textWidth = Math.max(200, targetWidth - safetyMargin);
         
-        // Clean up temporary element
-        if (tempElement) {
-          tempElement.remove();
-        }
+        console.log('📏 Width calculation:', {
+          containerWidth,
+          chapterTextPadding,
+          availableWidth,
+          textWidthSetting: settings.textWidth,
+          textWidth: Math.round(textWidth)
+        });
       } else {
-        // Ultimate fallback: use settings (should rarely happen)
-        console.warn('📏 Could not create measurement element, using settings fallback');
+        // Fallback: use settings
+        console.warn('📏 No .page-container found, using settings fallback');
         const pageWidth = settings.pageWidth || 800;
         const availableWidth = pageWidth - (24 * 2); // Subtract horizontal padding
         const textWidthPercent = (settings.textWidth || 100) / 100;
