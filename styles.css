@@ -2567,8 +2567,22 @@ html:-ms-fullscreen .page-indicator,
 }
 
 .page-lines .line-spacing {
-  height: 2.5em;
-  /* Empty div for spacing between paragraphs - provides clear visual separation */
+  height: 1em;
+  /* Reduced spacing since we're using indents for paragraph breaks */
+}
+
+/* Paragraphs get first-line indent like traditional book formatting */
+.page-lines p {
+  text-indent: 2em;
+  margin: 0;
+  padding: 0;
+}
+
+/* First paragraph after heading should not be indented */
+.page-lines .h1 + .line-spacing + p,
+.page-lines .h2 + .line-spacing + p,
+.page-lines .h3 + .line-spacing + p {
+  text-indent: 0;
 }
 
 /* Text lines within paragraphs - each line is a span displayed as block */
@@ -2576,7 +2590,17 @@ html:-ms-fullscreen .page-indicator,
   display: block;
   white-space: nowrap;
   overflow: hidden;
-  /* No margins - spacing is controlled by parent paragraph and line-spacing divs */
+  /* No margins - spacing is controlled by parent paragraph */
+}
+
+/* First line of paragraph gets the indent */
+.page-lines p .text-line:first-child {
+  text-indent: 2em;
+}
+
+/* Other lines have no indent */
+.page-lines p .text-line:not(:first-child) {
+  text-indent: 0;
 }
 
 /* Update Notification */

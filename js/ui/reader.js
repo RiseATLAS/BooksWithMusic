@@ -782,14 +782,34 @@ export class ReaderUI {
     console.log('📄 Parsing chapter content, length:', chapterContent.length);
     console.log('📄 Sample of original EPUB HTML (first 1000 chars):');
     console.log(chapterContent.substring(0, 1000));
-    console.log('📄 Found elements:', tempDiv.querySelectorAll('p, h1, h2, h3, h4, h5, h6, div').length);
+    
+    // Count all element types in the EPUB
+    const elementTypeCounts = {};
+    tempDiv.querySelectorAll('*').forEach(el => {
+      const tag = el.tagName.toLowerCase();
+      elementTypeCounts[tag] = (elementTypeCounts[tag] || 0) + 1;
+    });
+    console.log('📄 Element type counts:', elementTypeCounts);
+    
+    // Get all potential text containers
+    const allElements = Array.from(tempDiv.querySelectorAll('*'));
+    const textElements = allElements.filter(el => {
+      const text = el.textContent?.trim();
+      return text && text.length > 0;
+    });
+    console.log('📄 Total elements with text:', textElements.length);
+    
+    // Log unique element types that contain text
+    const textElementTypes = new Set();
+    textElements.forEach(el => textElementTypes.add(el.tagName.toLowerCase()));
+    console.log('📄 Element types containing text:', Array.from(textElementTypes).sort());
     
     // Debug: Check if there are <br> tags in the content
     const brCount = (chapterContent.match(/<br\s*\/?>/gi) || []).length;
     console.log('📄 Found <br> tags:', brCount);
     
-    // Get all content elements
-    const elements = Array.from(tempDiv.querySelectorAll('p, h1, h2, h3, h4, h5, h6, div'));
+    // Get all content elements (extend selector based on what we find)
+    const elements = Array.from(tempDiv.querySelectorAll('p, h1, h2, h3, h4, h5, h6, div, section, article, blockquote, pre'));
     
     for (const element of elements) {
       // Determine block type
@@ -835,27 +855,31 @@ export class ReaderUI {
       }
     }
     
-    // Fallback: if no elements found, treat entire content as plain text
-    if (blocks.length === 1) { // Only has title
-      console.log('⚠️ Only title block found, using fallback text parsing');
-      const textContent = tempDiv.textContent
-        .replace(/\s+/g, ' ')  // Normalize whitespace
-        .trim();
-      if (textContent && textContent !== chapterTitle) {
-        blocks.push({
-          type: 'p',
-          text: textContent,
-          htmlTag: 'p'
-        });
-      }
-    }
-    
     console.log('📚 Created', blocks.length, 'content blocks');
+    
+    // Count block types
+    const blockTypeCounts = {};
+    blocks.forEach(block => {
+      blockTypeCounts[block.htmlTag] = (blockTypeCounts[block.htmlTag] || 0) + 1;
+    });
+    console.log('📚 Block type counts:', blockTypeCounts);
+    
+    // Show length distribution of blocks
+    const blockLengths = blocks.map(b => b.text.length);
+    const avgLength = blockLengths.reduce((a, b) => a + b, 0) / blockLengths.length;
+    const maxLength = Math.max(...blockLengths);
+    const minLength = Math.min(...blockLengths);
+    console.log('📚 Block length stats:', {
+      avg: Math.round(avgLength),
+      min: minLength,
+      max: maxLength,
+      totalBlocks: blocks.length
+    });
     
     // Debug: Show first few blocks to understand structure
     console.log('📚 First 5 blocks:');
     blocks.slice(0, 5).forEach((block, i) => {
-      console.log(`  Block ${i}: [${block.type}] ${block.text.substring(0, 60)}...`);
+      console.log(`  Block ${i}: [${block.type}/${block.htmlTag}] ${block.text.substring(0, 60)}...`);
     });
     
     return blocks;
