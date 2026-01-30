@@ -382,30 +382,40 @@ export class ReaderUI {
       }
       
       // Re-paginate when fullscreen changes (available height changes)
-      if (this.currentChapterIndex >= 0 && this.chapters.length > 0) {
-        // Get current position before re-pagination
-        const currentPosition = this.getBlockPosition();
-        
-        // Clear cached pages
-        this.chapterPages = {};
-        this.chapterPageData = {};
-        
-        // Re-load chapter with new dimensions
-        await this.loadChapter(this.currentChapterIndex, {
-          pageInChapter: this.currentPageInChapter,
-          preservePage: true
-        });
-        
-        // Restore position
-        const newPage = this.findPageByBlockPosition(this.currentChapterIndex, currentPosition);
-        if (newPage !== this.currentPageInChapter) {
-          this.currentPageInChapter = newPage;
-          this.renderCurrentPage();
-          this.currentPage = this.calculateCurrentPageNumber();
-          this.totalPages = this.calculateTotalPages();
-          this.updatePageIndicator();
+      // Use a small delay to ensure layout has settled
+      setTimeout(async () => {
+        if (this.currentChapterIndex >= 0 && this.chapters.length > 0) {
+          console.log('🖥️ Fullscreen changed, re-paginating...');
+          
+          // Get current position before re-pagination
+          const currentPosition = this.getBlockPosition();
+          
+          // Clear layout engine cache for fresh measurements
+          if (this.layoutEngine) {
+            this.layoutEngine.clearCache();
+          }
+          
+          // Clear cached pages
+          this.chapterPages = {};
+          this.chapterPageData = {};
+          
+          // Re-load chapter with new dimensions
+          await this.loadChapter(this.currentChapterIndex, {
+            pageInChapter: this.currentPageInChapter,
+            preservePage: true
+          });
+          
+          // Restore position
+          const newPage = this.findPageByBlockPosition(this.currentChapterIndex, currentPosition);
+          if (newPage !== this.currentPageInChapter) {
+            this.currentPageInChapter = newPage;
+            this.renderCurrentPage();
+            this.currentPage = this.calculateCurrentPageNumber();
+            this.totalPages = this.calculateTotalPages();
+            this.updatePageIndicator();
+          }
         }
-      }
+      }, 100); // Small delay for layout to settle
     };
     
     document.addEventListener('fullscreenchange', handleFullscreenChange);
@@ -729,6 +739,10 @@ export class ReaderUI {
         tempElement.style.position = 'absolute';
         tempElement.style.visibility = 'hidden';
         tempElement.style.pointerEvents = 'none';
+        tempElement.style.zIndex = '-9999';
+        
+        // Add some dummy content to ensure proper layout
+        tempElement.innerHTML = '<p>Measuring text width</p>';
         
         // Add to a page structure to get accurate measurements with proper parent dimensions
         const pageContainer = document.querySelector('.page-container');
@@ -741,6 +755,9 @@ export class ReaderUI {
         } else {
           document.body.appendChild(tempElement);
         }
+        
+        // Force a layout reflow to ensure proper dimensions
+        void tempElement.offsetHeight;
         
         chapterText = tempElement;
       }
@@ -802,7 +819,10 @@ export class ReaderUI {
         textHeight,
         fontSize,
         lineHeight,
-        maxLinesPerPage
+        maxLinesPerPage,
+        isFullscreen: !!(document.fullscreenElement || document.webkitFullscreenElement),
+        windowHeight: window.innerHeight,
+        textWidthPercent: settings.textWidth
       });
       
       // Parse HTML content into structured blocks
