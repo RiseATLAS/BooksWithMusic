@@ -908,6 +908,11 @@ export class ReaderUI {
         return;
       }
       
+      // Apply text centering offset for text width changes
+      if (reason === 'textWidth') {
+        this._applyTextCenteringOffset();
+      }
+      
       // Settings that affect pagination
       const paginationAffectingChanges = ['fontSize', 'lineHeight', 'fontFamily', 'textAlign', 'pageWidth', 'textWidth', 'pageDensity', 'calibration'];
       
@@ -1104,6 +1109,38 @@ export class ReaderUI {
   }
 
   /**
+   * Calculate and apply text centering offset based on text width percentage
+   * Formula: As text width decreases, increase centering offset proportionally
+   * - 100% width = 0px offset (left-aligned)
+   * - 70% width = 100px offset
+   * - 50% width = 200px offset
+   * - 30% width = 300px offset
+   */
+  _applyTextCenteringOffset() {
+    const settings = window.settingsManager?.settings || {};
+    const textWidthPercent = settings.textWidth || 100;
+    
+    // Calculate offset: 0px at 100%, scaling up as width decreases
+    // Formula: offset = (100 - textWidthPercent) * (300 / 70)
+    // This gives us the desired mapping:
+    // 100% -> 0px, 70% -> ~130px, 50% -> ~214px, 30% -> ~300px
+    let offset;
+    if (textWidthPercent >= 100) {
+      offset = 0;
+    } else {
+      // Linear interpolation from 0px at 100% to 300px at 30%
+      const widthReduction = 100 - textWidthPercent;
+      offset = (widthReduction / 70) * 300;
+      
+      // Cap at 300px maximum
+      offset = Math.min(offset, 300);
+    }
+    
+    // Apply to CSS custom property
+    document.documentElement.style.setProperty('--text-center-offset', `${offset}px`);
+  }
+
+  /**
    * Get text layout dimensions from the page structure
    * Must be called after page structure exists in DOM
    */
@@ -1178,6 +1215,9 @@ export class ReaderUI {
       const { pageGap } = this._getPageMetrics();
       document.documentElement.style.setProperty('--page-width', '100%');
       document.documentElement.style.setProperty('--page-gap', `${pageGap}px`);
+      
+      // Apply text centering offset based on text width
+      this._applyTextCenteringOffset();
 
       // First, render an empty page structure to ensure DOM elements exist
       if (!this.chapterPages[index]) {

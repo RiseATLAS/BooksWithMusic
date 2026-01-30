@@ -134,8 +134,8 @@ export class MusicAPI {
     const maxEnergyLevel = settings.maxEnergyLevel || 3; // Default to 3 (Moderate)
 
     // Build filter to get high-quality, conventional music (not weird sound effects)
-    // IMPORTANT: Only use CC0 (Creative Commons Zero) licensed sounds for legal compliance
-    let filter = 'duration:[30 TO 360] tag:music license:"Creative Commons 0"';
+    // Include all Creative Commons licensed music
+    let filter = 'duration:[30 TO 360] tag:music';
     
     // Require soundtrack/background music tags for better quality
     // This dramatically reduces weird experimental sounds
@@ -189,17 +189,12 @@ export class MusicAPI {
       
       const tracks = data.results
         .filter(sound => {
-          // FAIL-SAFE: Only use CC0 licensed sounds
-          // Check for CC0 license (can be URL or text)
-          const isCC0 = sound.license && (
-            sound.license.includes('Creative Commons 0') ||
-            sound.license.includes('publicdomain/zero') ||
-            sound.license.includes('CC0')
-          );
-          if (!isCC0) {
-            console.warn(`❌ Filtered out non-CC0 sound: ${sound.name} (License: ${sound.license})`);
+          // Include all Creative Commons licensed sounds
+          const hasLicense = sound.license && sound.license.length > 0;
+          if (!hasLicense) {
+            console.warn(`❌ Filtered out sound without license: ${sound.name}`);
           }
-          return isCC0;
+          return hasLicense;
         })
         .map(sound => ({
           // Core identifiers

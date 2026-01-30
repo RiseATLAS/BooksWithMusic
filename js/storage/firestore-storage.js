@@ -336,8 +336,8 @@ export async function updateBook(bookId, updates) {
   console.log(`📚 Book ${bookId} updated`);}
 
 /**
- * Log track usage to Firestore for CC0 compliance documentation
- * Stores: freesoundId, license (CC0), source URL, timestamp, file hash (if available)
+ * Log track usage to Firestore for Creative Commons compliance documentation
+ * Stores: freesoundId, license type, source URL, timestamp
  * @param {string} userId - User's unique ID
  * @param {Object} trackInfo - Track information
  * @returns {Promise<void>}
@@ -348,15 +348,9 @@ export async function logTrackUsage(userId, trackInfo) {
     return;
   }
   
-  // Only log CC0 tracks (fail-safe)
-  // Check for both text format ('CC0') and URL format ('publicdomain/zero')
-  const licenseType = trackInfo.license?.type?.toString().toLowerCase() || '';
-  const isCC0 = licenseType === 'cc0' || 
-                licenseType.includes('publicdomain/zero') ||
-                licenseType.includes('creative commons 0');
-  
-  if (!isCC0) {
-    console.error(`❌ Attempted to log non-CC0 track: ${trackInfo.title} (${trackInfo.license?.type})`);
+  // Verify track has a license
+  if (!trackInfo.license || !trackInfo.license.type) {
+    console.error(`❌ Attempted to log track without license: ${trackInfo.title}`);
     return;
   }
   
@@ -367,14 +361,14 @@ export async function logTrackUsage(userId, trackInfo) {
       freesoundId: trackInfo.freesoundId,
       trackTitle: trackInfo.title,
       artist: trackInfo.artist,
-      license: 'CC0',
+      license: trackInfo.license.type,
       sourceUrl: trackInfo.license.sourceUrl,
       fetchedAt: trackInfo.license.fetchedAt,
       playedAt: serverTimestamp(),
       duration: trackInfo.duration,
       tags: trackInfo.tags || []
     });
-    console.log(`Track usage logged: ${trackInfo.title} (Freesound ID: ${trackInfo.freesoundId})`);
+    console.log(`Track usage logged: ${trackInfo.title} (License: ${trackInfo.license.type})`);
 
   } catch (error) {
     console.error('Failed to log track usage:', error);

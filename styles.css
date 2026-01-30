@@ -855,7 +855,8 @@ body.reader-page::-webkit-scrollbar {
   min-height: calc(100% - var(--page-gap, 120px) * 2); /* Subtract top and bottom gaps */
   box-sizing: border-box; /* Include padding in width */
   /* Force BOTH pages onto GPU layer for consistent rendering */
-  transform: translate3d(0, 0, 0);
+  /* Dynamic horizontal centering based on text width percentage */
+  transform: translate3d(var(--text-center-offset, 0px), 0, 0);
   backface-visibility: hidden;
   /* Consistent text rendering */
   text-align: left;
