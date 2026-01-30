@@ -965,6 +965,12 @@ export class ReaderUI {
    * Render only the current page (not the whole chapter)
    */
   renderCurrentPage() {
+    console.log('🎨 renderCurrentPage called:', { 
+      chapter: this.currentChapterIndex, 
+      page: this.currentPageInChapter,
+      stack: new Error().stack.split('\n')[2].trim()
+    });
+    
     try {
       const contentEl = document.getElementById('reader-content');
       if (!contentEl) {
