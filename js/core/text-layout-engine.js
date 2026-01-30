@@ -39,8 +39,10 @@ class TextLayoutEngine {
     this.measurementElement.style.fontFamily = fontFamily;
     this.measurementElement.textContent = text;
     
-    // Get actual rendered width
-    const width = this.measurementElement.getBoundingClientRect().width;
+    // Get actual rendered width with sub-pixel precision
+    const rect = this.measurementElement.getBoundingClientRect();
+    // Always round UP to account for sub-pixel rendering
+    const width = Math.ceil(rect.width);
     
     // Cache the measurement
     this.measurementCache.set(cacheKey, width);

@@ -729,9 +729,9 @@ export class ReaderUI {
         const availableWidth = rect.width - paddingLeft - paddingRight;
         
         // CRITICAL: Add safety margin to prevent browser wrapping
-        // Browser rendering can be slightly different from measurements
-        // Small buffer to ensure lines never exceed actual width
-        const safetyMargin = 10; // pixels
+        // Account for sub-pixel rendering differences and letter-spacing
+        // Browser may round text width differently than measurement
+        const safetyMargin = 15; // pixels (accounts for sub-pixel rounding + letter-spacing)
         textWidth = Math.max(200, availableWidth - safetyMargin);
       } else {
         // Fallback: use settings
