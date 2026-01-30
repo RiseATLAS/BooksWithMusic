@@ -2520,10 +2520,10 @@ html:-ms-fullscreen .page-indicator,
   position: relative;
   width: 100%;
   height: 100%;
-  /* Center content when text width is less than 100% */
+  /* Left-align content */
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   /* Remove all CSS that could affect text measurement */
   box-sizing: border-box;
   word-spacing: normal;
