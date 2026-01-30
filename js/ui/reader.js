@@ -641,13 +641,21 @@ export class ReaderUI {
 
     // Listen for layout changes (font size, line height, etc.) that affect pagination
     window.addEventListener('reader:layoutChanged', async (e) => {
+      const { reason, settings } = e.detail;
+      
+      console.log('📐 Layout change event received:', { reason, isInitializing: this._isInitializing });
+      
       // Skip during initial reader setup to avoid double pagination
       if (this._isInitializing) {
         console.log('⏭️ Skipping layout change during initialization');
         return;
       }
       
-      const { reason, settings } = e.detail;
+      // Skip the 'init' event from settings initialization - already paginated
+      if (reason === 'init') {
+        console.log('⏭️ Skipping initial settings apply - already paginated');
+        return;
+      }
       
       // Settings that affect pagination and require shift point recalculation
       const paginationAffectingChanges = ['fontSize', 'lineHeight', 'fontFamily', 'textAlign', 'pageWidth', 'pageDensity', 'calibration'];
