@@ -934,8 +934,11 @@ export class ReaderUI {
     
     // Calculate text width from container
     const containerWidth = pageContainer.clientWidth;
-    // We removed horizontal padding, so use full container width
-    const availableWidth = containerWidth;
+    
+    // Account for left padding (48px in normal mode, less in fullscreen)
+    const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
+    const leftPadding = isFullscreen ? 32 : 48;
+    const availableWidth = containerWidth - leftPadding;
     
     // Apply text width percentage - this will be the actual line width
     const targetWidth = availableWidth * textWidthPercent;
@@ -947,7 +950,6 @@ export class ReaderUI {
     document.documentElement.style.setProperty('--text-width-percent', `${textWidthPercent * 100}%`);
     
     // Calculate page height
-    const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
     let pageHeight;
     let textHeight;
     
