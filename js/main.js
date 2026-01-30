@@ -386,17 +386,16 @@ class BooksWithMusicApp {
         // Use correct path for GitHub Pages (with repo name in URL)
         const swPath = "/BooksWithMusic/service-worker.js";
         const registration = await navigator.serviceWorker.register(swPath);
-        console.log('[App] Service Worker registered');
 
         
         // Listen for updates
         registration.addEventListener('updatefound', () => {
           const newWorker = registration.installing;
-          console.log('[App] Service Worker update found');
+
           
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state === 'activated') {
-              console.log('[App] New Service Worker activated');
+
             }
           });
         });
@@ -404,7 +403,7 @@ class BooksWithMusicApp {
         // Listen for messages from the service worker
         navigator.serviceWorker.addEventListener('message', (event) => {
           if (event.data && event.data.type === 'SW_UPDATED') {
-            console.log('[App] Service Worker updated to version:', event.data.version);
+
             this.showUpdateNotification();
           }
         });

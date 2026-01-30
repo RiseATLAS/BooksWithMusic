@@ -98,7 +98,7 @@ export class MusicManager {
       this.musicAPI = await this.apiFactory.getMusicAPI();
       this.currentMusicSource = this.apiFactory.getCurrentSource();
       
-      console.log(`🎵 Initializing music system with ${this.currentMusicSource}...`);
+
       
       // First, do a quick analysis to get book vibe keywords
       const quickAnalysis = await this.moodProcessor.analyzeBook({ id: bookId, title: 'Current Book', chapters });

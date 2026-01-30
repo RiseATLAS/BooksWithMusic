@@ -145,7 +145,7 @@ export class MoodProcessor {
    */
   setVerboseLogging(verbose) {
     this.verboseLogging = verbose;
-    console.log(`🔊 Logging mode: ${verbose ? 'VERBOSE (detailed analysis)' : 'CLEAN (minimal info)'}`);
+
   }
 
   /**
@@ -1397,7 +1397,7 @@ export class MoodProcessor {
     }
     
     if (this.verboseLogging && selectedShifts.length > 0) {
-      console.log(`📄 Mood shifts at pages: ${selectedShifts.map(sp => sp.page).join(', ')}`);
+
     }
 
     return {

@@ -16,7 +16,7 @@ import { checkAndPromptTerms } from './terms-of-service.js';
  * Sets up authentication listeners and handlers
  */
 export function initAuth() {
-  console.log(' Firebase Auth initialized');
+
 }
 
 function getDevAuthUser() {

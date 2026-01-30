@@ -29,7 +29,7 @@ export class AudioPlayer {
    */
   initializeMediaSession() {
     if ('mediaSession' in navigator) {
-      console.log(' Media Session API available - hardware controls enabled');
+
       
       // Action handlers will be set when tracks are played
       // They need to be connected to the music panel's controls
@@ -40,7 +40,7 @@ export class AudioPlayer {
         nexttrack: null
       };
     } else {
-      console.log(' Media Session API not available in this browser');
+
     }
   }
 
@@ -57,7 +57,7 @@ export class AudioPlayer {
           { src: '/BooksWithMusic/favicon.svg', sizes: '512x512', type: 'image/svg+xml' }
         ]
       });
-      console.log(' Media Session updated:', track.title);
+
     }
   }
 
@@ -70,33 +70,33 @@ export class AudioPlayer {
       
       if (play) {
         navigator.mediaSession.setActionHandler('play', () => {
-          console.log(' Hardware play button pressed');
+
           play();
         });
       }
       
       if (pause) {
         navigator.mediaSession.setActionHandler('pause', () => {
-          console.log(' Hardware pause button pressed');
+
           pause();
         });
       }
       
       if (nextTrack) {
         navigator.mediaSession.setActionHandler('nexttrack', () => {
-          console.log(' Hardware next button pressed');
+
           nextTrack();
         });
       }
       
       if (prevTrack) {
         navigator.mediaSession.setActionHandler('previoustrack', () => {
-          console.log(' Hardware previous button pressed');
+
           prevTrack();
         });
       }
       
-      console.log(' Media Session handlers configured');
+
     }
   }
 

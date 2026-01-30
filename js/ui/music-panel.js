@@ -1276,7 +1276,7 @@ export class MusicPanelUI {
       
       console.log(`Reanalyzing with settings: ${songsPerChapter} songs/chapter, 1 song per ${minSongsPerPages} pages`);
       if (bookVibeKeywords) {
-        console.log(`🎭 Book vibe: ${bookVibeKeywords}`);
+
       }
 
       // Reinitialize music manager with new settings
@@ -1354,12 +1354,12 @@ export class MusicPanelUI {
     const bookVibeKeywordsInput = document.getElementById('book-vibe-keywords');
     
     if (!autoDetectedKeywordsList || !autoDetectedKeywordsDiv) {
-      console.log('🔍 Auto-detected keywords elements not found');
+
       return;
     }
     
     const autoKeywords = this.musicManager?.bookAnalysis?.bookProfile?.autoDetectedKeywords;
-    console.log(`🔍 Auto-detected keywords: ${autoKeywords ? autoKeywords.join(', ') : 'none'}`);
+
     
     if (autoKeywords) {
       
@@ -1375,11 +1375,11 @@ export class MusicPanelUI {
           bookVibeKeywordsInput.placeholder = `Using: ${autoKeywords.join(', ')}`;
         }
       } else {
-        console.log('❌ No auto-detected keywords found (empty array)');
+
         autoDetectedKeywordsDiv.classList.add('hidden');
       }
     } else {
-      console.log('❌ No auto-detected keywords in bookProfile');
+
       autoDetectedKeywordsDiv.classList.add('hidden');
     }
   }

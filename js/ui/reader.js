@@ -799,7 +799,6 @@ export class ReaderUI {
     // Log unique element types that contain text
     const textElementTypes = new Set();
     textElements.forEach(el => textElementTypes.add(el.tagName.toLowerCase()));
-    console.log('📄 Element types containing text:', Array.from(textElementTypes).sort());
     
     // Debug: Check if there are <br> tags in the content
     const brCount = (chapterContent.match(/<br\s*\/?>/gi) || []).length;
@@ -1169,11 +1168,6 @@ export class ReaderUI {
       .replace(/<br>/gi, '↵<br>')  // Show <br> tags
       .replace(/\n/g, '⏎')          // Show newlines
       .replace(/\r/g, '⌐');         // Show carriage returns
-    console.log('📖 Page Content Sample (first 500 chars):');
-    console.log('━'.repeat(60));
-    console.log(visualized);
-    console.log('━'.repeat(60));
-    console.log('Line break legend: ↵=<br tag> ⏎=newline ⌐=carriage return');
 
   }
 

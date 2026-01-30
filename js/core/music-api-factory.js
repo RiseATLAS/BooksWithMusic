@@ -49,7 +49,6 @@ export class MusicAPIFactory {
     const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
     const source = preferredSource || settings.musicSource || 'freesound';
 
-    console.log(`🎵 Music source: ${source}`);
 
     // Try to return requested source
     if (source === 'spotify') {
@@ -57,7 +56,7 @@ export class MusicAPIFactory {
       
       // Check if Spotify is configured and authenticated
       if (await spotifyAPI.isConfigured()) {
-        console.log('✅ Using Spotify API');
+
         return spotifyAPI;
       } else {
         console.warn('⚠️ Spotify not configured or not authenticated. Falling back to Freesound.');
@@ -67,7 +66,7 @@ export class MusicAPIFactory {
 
     // Default to Freesound
     const freesoundAPI = this._getFreesoundAPI();
-    console.log('✅ Using Freesound API');
+
     return freesoundAPI;
   }
 
@@ -155,7 +154,6 @@ export class MusicAPIFactory {
     settings.musicSource = newSource;
     localStorage.setItem('booksWithMusic-settings', JSON.stringify(settings));
 
-    console.log(`🔄 Switched music source to: ${newSource}`);
 
     // Return new API
     return await this.getMusicAPI(newSource);
