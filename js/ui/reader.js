@@ -1115,10 +1115,19 @@ export class ReaderUI {
    * - 70% width = 15% offset (30% reduction → 15% offset)
    * - 50% width = 25% offset (50% reduction → 25% offset)
    * - 30% width = 35% offset (70% reduction → 35% offset)
+   * 
+   * Ensures text never extends beyond viewport boundaries
    */
   _applyTextCenteringOffset() {
     const settings = window.settingsManager?.settings || {};
     const textWidthPercent = settings.textWidth || 100;
+    
+    // On mobile, always use 0 offset (full width, left-aligned)
+    const isMobile = window.settingsManager?.isMobile || false;
+    if (isMobile || textWidthPercent >= 100) {
+      document.documentElement.style.setProperty('--text-center-offset', '0px');
+      return;
+    }
     
     // Calculate the percentage reduction
     const widthReduction = 100 - textWidthPercent;
@@ -1132,8 +1141,13 @@ export class ReaderUI {
       const viewportWidth = pageViewport.clientWidth;
       const offsetPx = (offsetPercent / 100) * viewportWidth;
       
+      // Ensure text + offset doesn't exceed viewport width
+      // Max safe offset = (100% - textWidth%) * viewportWidth
+      const maxSafeOffset = ((100 - textWidthPercent) / 100) * viewportWidth;
+      const safeOffset = Math.min(offsetPx, maxSafeOffset);
+      
       // Apply to CSS custom property
-      document.documentElement.style.setProperty('--text-center-offset', `${offsetPx}px`);
+      document.documentElement.style.setProperty('--text-center-offset', `${safeOffset}px`);
     } else {
       // Fallback: use percentage-based offset
       document.documentElement.style.setProperty('--text-center-offset', `${offsetPercent}%`);
@@ -1167,8 +1181,26 @@ export class ReaderUI {
     // Get full viewport width
     const viewportWidth = pageViewport.clientWidth;
     
-    // Apply text width percentage directly to viewport width
-    const textWidth = Math.max(200, viewportWidth * textWidthPercent);
+    // Calculate text width as percentage of viewport
+    let textWidth = viewportWidth * textWidthPercent;
+    
+    // Calculate centering offset
+    const isMobile = window.settingsManager?.isMobile || false;
+    let horizontalOffset = 0;
+    
+    if (!isMobile && textWidthPercent < 1) {
+      // Apply half of the reduction as offset
+      const widthReduction = 1 - textWidthPercent;
+      horizontalOffset = (widthReduction / 2) * viewportWidth;
+    }
+    
+    // Ensure text + offset doesn't exceed viewport (with safety margin for padding)
+    const safetyMargin = 48; // Account for padding
+    const maxTextWidth = viewportWidth - horizontalOffset - safetyMargin;
+    textWidth = Math.min(textWidth, maxTextWidth);
+    
+    // Ensure minimum readable width
+    textWidth = Math.max(200, textWidth);
     
     // Calculate page height
     let pageHeight;

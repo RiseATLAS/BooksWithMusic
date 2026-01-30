@@ -4,6 +4,11 @@ import { saveUserSettings } from '../storage/firestore-storage.js';
 export class SettingsUI {
   constructor() {
     this.STORAGE_KEY = 'booksWithMusic-settings'; // Consistent key with music panel
+    this.STORAGE_KEY_DESKTOP = 'booksWithMusic-settings-desktop';
+    this.STORAGE_KEY_MOBILE = 'booksWithMusic-settings-mobile';
+    
+    // Detect if mobile device
+    this.isMobile = this._detectMobile();
     
     // Default to sepia theme with cream pages for a warm reading experience
     this.settings = {
@@ -31,6 +36,19 @@ export class SettingsUI {
     this._layoutChangeTimer = null;
     this._saveDebounceTimer = null;
     this._isInitializing = false; // Flag to prevent event triggers during initialization
+  }
+
+  /**
+   * Detect if device is mobile (phone or small tablet)
+   * Returns true for devices with touch and small screens
+   */
+  _detectMobile() {
+    const hasTouchScreen = ('ontouchstart' in window) || 
+                          (navigator.maxTouchPoints > 0) || 
+                          (navigator.msMaxTouchPoints > 0);
+    const isSmallScreen = window.innerWidth <= 768; // Mobile/small tablet breakpoint
+    
+    return hasTouchScreen && isSmallScreen;
   }
 
   initialize() {
@@ -115,14 +133,26 @@ export class SettingsUI {
     // Text width
     const textWidthInput = document.getElementById('text-width');
     const textWidthValue = document.getElementById('text-width-value');
-    textWidthInput?.addEventListener('input', (e) => {
-      this.settings.textWidth = parseInt(e.target.value);
-      if (textWidthValue) {
-        textWidthValue.textContent = `${this.settings.textWidth}%`;
+    
+    // Disable text width control on mobile devices
+    if (this.isMobile) {
+      if (textWidthInput) {
+        textWidthInput.disabled = true;
+        textWidthInput.value = 100;
       }
-      this.saveSettings();
-      this._emitLayoutChanged('textWidth');
-    });
+      if (textWidthValue) {
+        textWidthValue.textContent = '100% (Mobile)';
+      }
+    } else {
+      textWidthInput?.addEventListener('input', (e) => {
+        this.settings.textWidth = parseInt(e.target.value);
+        if (textWidthValue) {
+          textWidthValue.textContent = `${this.settings.textWidth}%`;
+        }
+        this.saveSettings();
+        this._emitLayoutChanged('textWidth');
+      });
+    }
 
     // Font family
     document.getElementById('font-family')?.addEventListener('change', (e) => {
@@ -286,12 +316,21 @@ export class SettingsUI {
   }
 
   loadSettings() {
-    const saved = localStorage.getItem(this.STORAGE_KEY);
+    // Load from device-specific storage key
+    const storageKey = this.isMobile ? this.STORAGE_KEY_MOBILE : this.STORAGE_KEY_DESKTOP;
+    const saved = localStorage.getItem(storageKey);
+    
     if (saved) {
       const savedSettings = JSON.parse(saved);
       // Merge saved settings with current defaults (in case new settings were added)
       this.settings = { ...this.settings, ...savedSettings };
     }
+    
+    // Force textWidth to 100% on mobile devices for optimal reading
+    if (this.isMobile) {
+      this.settings.textWidth = 100;
+    }
+    
     if (
       this.settings.showBookPageNumbers === false &&
       this.settings.showBookPageCount === undefined &&
@@ -317,7 +356,15 @@ export class SettingsUI {
   }
 
   saveSettings() {
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.settings));
+    // Force textWidth to 100% on mobile before saving
+    if (this.isMobile) {
+      this.settings.textWidth = 100;
+    }
+    
+    // Save to device-specific storage key
+    const storageKey = this.isMobile ? this.STORAGE_KEY_MOBILE : this.STORAGE_KEY_DESKTOP;
+    localStorage.setItem(storageKey, JSON.stringify(this.settings));
+    
     // Sync to Firestore if user is signed in
     this.syncToFirestore();
   }
@@ -542,8 +589,24 @@ export class SettingsUI {
 
     const textWidthInput = document.getElementById('text-width');
     const textWidthValue = document.getElementById('text-width-value');
-    if (textWidthInput) textWidthInput.value = this.settings.textWidth;
-    if (textWidthValue) textWidthValue.textContent = `${this.settings.textWidth}%`;
+    if (this.isMobile) {
+      // Force 100% on mobile
+      if (textWidthInput) {
+        textWidthInput.disabled = true;
+        textWidthInput.value = 100;
+      }
+      if (textWidthValue) {
+        textWidthValue.textContent = '100% (Mobile)';
+      }
+    } else {
+      if (textWidthInput) {
+        textWidthInput.disabled = false;
+        textWidthInput.value = this.settings.textWidth;
+      }
+      if (textWidthValue) {
+        textWidthValue.textContent = `${this.settings.textWidth}%`;
+      }
+    }
 
     const fontFamilySelect = document.getElementById('font-family');
     if (fontFamilySelect) fontFamilySelect.value = this.settings.fontFamily;
