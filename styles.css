@@ -1800,25 +1800,13 @@ html:-ms-fullscreen .page-indicator,
 :fullscreen .page-container,
 :-webkit-full-screen .page-container {
   height: 100vh !important; /* Use full viewport height */
-}
-
-:fullscreen .page-viewport,
-:-webkit-full-screen .page-viewport {
-  max-width: 100% !important; /* Minimal side margins - only 20px each side for nav */
-  padding: 20px 0 !important; /* Minimal top/bottom padding */
-  min-height: calc(100vh - 40px) !important; /* Use almost full height */
-}
+} 
 
 :fullscreen .chapter-text,
 :-webkit-full-screen .chapter-text {
-  padding: 16px 0 32px 0 !important; /* Only vertical padding */
-  left: 0 !important; /* No left margin */
-  width: 100% !important; /* Full width */
-  top: 20px !important; /* Match reduced viewport padding */
-  bottom: 20px !important;
+  padding: 0px 0 0px 0 !important; /* Only vertical padding */
   height: auto !important; /* Let content determine height */
   min-height: calc(100vh - 88px) !important; /* Minimum full height: 100vh - (20+20 viewport + 16+32 padding) */
-  max-height: calc(100vh - 88px) !important; /* Maximum to prevent overflow */
 }
 
 /* Mobile fullscreen - controls hidden by default, tap center to toggle */
@@ -1964,29 +1952,15 @@ html:-ms-fullscreen .page-indicator,
 
   /* Reduce page gaps on mobile to maximize text area */
   .page-viewport {
-    --page-gap: 5vh;
-    padding-top: 5vh;
-    padding-bottom: 5vh;
     max-width: 100%;
-    width: 100%;
+    translate: 10px 0px;
   }
 
   /* Fullscreen mode - maximize space for text */
   :fullscreen .chapter-text,
   :-webkit-full-screen .chapter-text {
-    padding: 2vh 0 3vh 0 !important; /* Minimal vertical padding on mobile fullscreen */
-    left: 0 !important; /* No left margin */
-    width: 100% !important; /* Full width */
     top: 2vh;
     bottom: 2vh;
-  }
-
-  :fullscreen .page-viewport,
-  :-webkit-full-screen .page-viewport {
-    --page-gap: 2vh;
-    padding-top: 2vh;
-    padding-bottom: 2vh;
-    max-width: 100%; /* Use full width in fullscreen */
   }
 
   /* Page indicator - more compact on mobile, fully visible */
