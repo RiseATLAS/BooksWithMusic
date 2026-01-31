@@ -1198,23 +1198,26 @@ export class ReaderUI {
     
     // Calculate CSS padding on .chapter-text element
     // Mobile: padding: 4% 3% 6% (top, right, bottom, left) = 3% horizontal each side = 6% total
-    // Mobile Fullscreen: padding: 3% 0 5% 0 = 0% horizontal
+    // Mobile Fullscreen: padding: 2vh 0 3vh 0 = 0% horizontal - USE FULL WIDTH!
     // Desktop: padding: 48px 0 96px 0 = 0px horizontal
     let horizontalPaddingPercent = 0;
     let verticalPaddingTop = 48;
     let verticalPaddingBottom = 96;
+    let pageGap = 120; // Desktop default
     
     if (isMobile) {
       if (isFullscreen) {
-        // Mobile fullscreen: padding: 3% 0 5% 0
+        // Mobile fullscreen: padding: 2vh 0 3vh 0 - NO horizontal padding!
         horizontalPaddingPercent = 0;
-        verticalPaddingTop = viewportHeight * 0.03;
-        verticalPaddingBottom = viewportHeight * 0.05;
+        verticalPaddingTop = viewportHeight * 0.02; // 2vh
+        verticalPaddingBottom = viewportHeight * 0.03; // 3vh
+        pageGap = viewportHeight * 0.02; // 2vh
       } else {
         // Mobile normal: padding: 4% 3% 6%
         horizontalPaddingPercent = 0.06; // 3% left + 3% right
         verticalPaddingTop = viewportHeight * 0.04;
         verticalPaddingBottom = viewportHeight * 0.06;
+        pageGap = viewportHeight * 0.05; // 5vh
       }
     }
     
@@ -1225,7 +1228,7 @@ export class ReaderUI {
     // Apply text width percentage to available width (after padding)
     let textWidth = availableWidth * textWidthPercent;
     
-    // Calculate centering offset (only on desktop)
+    // Calculate centering offset (only on desktop, never on mobile)
     let horizontalOffset = 0;
     if (!isMobile && textWidthPercent < 1) {
       // Apply half of the reduction as offset
@@ -1240,8 +1243,14 @@ export class ReaderUI {
     textWidth = Math.max(200, textWidth);
     
     // Calculate available height after CSS padding and page-gap
-    const pageGap = isMobile ? (isFullscreen ? viewportHeight * 0.03 : viewportHeight * 0.05) : 120;
     let availableHeight = viewportHeight - (pageGap * 2) - verticalPaddingTop - verticalPaddingBottom;
+    
+    // In mobile fullscreen, maximize space
+    if (isMobile && isFullscreen) {
+      // Total padding: 2vh (top) + 3vh (bottom) + 2vh (gap top) + 2vh (gap bottom) = 9vh
+      // Available: 100vh - 9vh = 91vh
+      availableHeight = viewportHeight * 0.91;
+    }
     
     // Ensure reasonable height
     availableHeight = Math.max(availableHeight, lineHeight * 5);

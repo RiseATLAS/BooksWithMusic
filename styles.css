@@ -1972,21 +1972,22 @@ html:-ms-fullscreen .page-indicator,
     width: 100%;
   }
 
-  /* Fullscreen mode - even more space for text */
+  /* Fullscreen mode - maximize space for text */
   :fullscreen .chapter-text,
   :-webkit-full-screen .chapter-text {
-    padding: 3% 0 5% 0 !important; /* Only vertical padding on mobile */
+    padding: 2vh 0 3vh 0 !important; /* Minimal vertical padding on mobile fullscreen */
     left: 0 !important; /* No left margin */
     width: 100% !important; /* Full width */
-    top: 3vh;
-    bottom: 3vh;
+    top: 2vh;
+    bottom: 2vh;
   }
 
   :fullscreen .page-viewport,
   :-webkit-full-screen .page-viewport {
-    --page-gap: 3vh;
-    padding-top: 3vh;
-    padding-bottom: 3vh;
+    --page-gap: 2vh;
+    padding-top: 2vh;
+    padding-bottom: 2vh;
+    max-width: 100%; /* Use full width in fullscreen */
   }
 
   /* Page indicator - more compact on mobile, fully visible */
