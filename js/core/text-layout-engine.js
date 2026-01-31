@@ -460,7 +460,11 @@ class TextLayoutEngine {
           }
         }
         
-        currentBlockLines.push(line.text);
+        // Store line with metadata about whether it's the first line of the paragraph
+        currentBlockLines.push({
+          text: line.text,
+          lineInBlock: line.lineInBlock
+        });
       }
     }
     
@@ -492,7 +496,16 @@ class TextLayoutEngine {
     
     // Wrap all lines in a single block element
     // Each line is a span with display: block for proper line breaks
-    const lineSpans = lines.map(line => `<span class="text-line">${line}</span>`).join('');
+    // Mark only the FIRST line of the paragraph (lineInBlock === 0) for indenting
+    const lineSpans = lines.map(lineData => {
+      const text = typeof lineData === 'string' ? lineData : lineData.text;
+      const lineInBlock = typeof lineData === 'object' ? lineData.lineInBlock : undefined;
+      
+      // Only the very first line of the paragraph gets the 'first-line' class
+      const lineClass = lineInBlock === 0 ? ' class="text-line first-line"' : ' class="text-line"';
+      return `<span${lineClass}>${text}</span>`;
+    }).join('');
+    
     const result = `<${htmlTag}${className}>${lineSpans}</${htmlTag}>`;
     
     return result;

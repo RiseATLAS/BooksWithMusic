@@ -2570,10 +2570,10 @@ html:-ms-fullscreen .page-indicator,
   text-indent: 0;
 }
 
-.page-lines .h1 + .line-spacing + p .text-line:first-child,
-.page-lines .h2 + .line-spacing + p .text-line:first-child,
-.page-lines .h3 + .line-spacing + p .text-line:first-child,
-.page-lines p.after-heading .text-line:first-child {
+.page-lines .h1 + .line-spacing + p .text-line.first-line,
+.page-lines .h2 + .line-spacing + p .text-line.first-line,
+.page-lines .h3 + .line-spacing + p .text-line.first-line,
+.page-lines p.after-heading .text-line.first-line {
   text-indent: 0 !important;
 }
 
@@ -2586,13 +2586,13 @@ html:-ms-fullscreen .page-indicator,
   /* No margins - spacing is controlled by parent paragraph */
 }
 
-/* First line of paragraph - traditional book indent */
-.page-lines p .text-line:first-child {
+/* ONLY the very first line of a paragraph gets indented (marked with first-line class) */
+.page-lines p .text-line.first-line {
   text-indent: 2em;
 }
 
-/* Other lines have no indent */
-.page-lines p .text-line:not(:first-child) {
+/* All other lines have no indent (including continuation lines on new pages) */
+.page-lines p .text-line:not(.first-line) {
   text-indent: 0;
 }
 
