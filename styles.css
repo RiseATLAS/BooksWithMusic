@@ -647,7 +647,6 @@ body.reader-page::-webkit-scrollbar {
   position: relative;
   overflow: visible; /* Allow overflow for tall pages */
   display: flex;
-  justify-content: center;
   align-items: flex-start; /* Align to top */
   /* Perspective handled by .page-viewport */
 }
@@ -2447,6 +2446,8 @@ html:-ms-fullscreen .page-indicator,
 
 .freesound-key-help li {
   margin-bottom: 0.25rem;
+}
+
 }
 
 .freesound-key-help a {
