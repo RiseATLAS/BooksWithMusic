@@ -1117,6 +1117,7 @@ export class ReaderUI {
    * - 30% width = 35% offset (70% reduction → 35% offset)
    * 
    * Ensures text never extends beyond viewport boundaries
+   * MUST account for CSS padding on .chapter-text
    */
   _applyTextCenteringOffset() {
     const settings = window.settingsManager?.settings || {};
@@ -1139,6 +1140,9 @@ export class ReaderUI {
     const pageViewport = document.querySelector('.page-viewport');
     if (pageViewport) {
       const viewportWidth = pageViewport.clientWidth;
+      
+      // Calculate offset based on available width (after accounting for CSS padding)
+      // Desktop has no horizontal padding on .chapter-text
       const offsetPx = (offsetPercent / 100) * viewportWidth;
       
       // Ensure text + offset doesn't exceed viewport width
@@ -1157,6 +1161,7 @@ export class ReaderUI {
   /**
    * Get text layout dimensions from the page structure
    * Must be called after page structure exists in DOM
+   * CRITICAL: Must account for CSS padding on .chapter-text to prevent overflow
    */
   _getLayoutDimensions() {
     // Measure the viewport, not the container, since that's where chapter-text lives
@@ -1167,7 +1172,9 @@ export class ReaderUI {
       return {
         textWidth: 800,  // Fallback
         pageHeight: 765,
-        maxLinesPerPage: 24
+        maxLinesPerPage: 24,
+        fontSize: 18,
+        lineHeight: 28.8
       };
     }
     
@@ -1178,50 +1185,74 @@ export class ReaderUI {
     const lineHeight = fontSize * lineHeightMultiplier;
     const textWidthPercent = (settings.textWidth || 100) / 100;
     
-    // Get full viewport width
-    const viewportWidth = pageViewport.clientWidth;
-    
-    // Calculate text width as percentage of viewport
-    let textWidth = viewportWidth * textWidthPercent;
-    
-    // Calculate centering offset
+    // Detect mobile
     const isMobile = window.settingsManager?.isMobile || false;
-    let horizontalOffset = 0;
+    const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
     
+    // Get full viewport dimensions
+    const viewportWidth = pageViewport.clientWidth;
+    const viewportHeight = pageViewport.clientHeight;
+    
+    // Calculate CSS padding on .chapter-text element
+    // Mobile: padding: 4% 3% 6% (top, right, bottom, left) = 3% horizontal each side = 6% total
+    // Mobile Fullscreen: padding: 3% 0 5% 0 = 0% horizontal
+    // Desktop: padding: 48px 0 96px 0 = 0px horizontal
+    let horizontalPaddingPercent = 0;
+    let verticalPaddingTop = 48;
+    let verticalPaddingBottom = 96;
+    
+    if (isMobile) {
+      if (isFullscreen) {
+        // Mobile fullscreen: padding: 3% 0 5% 0
+        horizontalPaddingPercent = 0;
+        verticalPaddingTop = viewportHeight * 0.03;
+        verticalPaddingBottom = viewportHeight * 0.05;
+      } else {
+        // Mobile normal: padding: 4% 3% 6%
+        horizontalPaddingPercent = 0.06; // 3% left + 3% right
+        verticalPaddingTop = viewportHeight * 0.04;
+        verticalPaddingBottom = viewportHeight * 0.06;
+      }
+    }
+    
+    // Calculate available width after CSS padding
+    const horizontalPaddingPx = viewportWidth * horizontalPaddingPercent;
+    let availableWidth = viewportWidth - horizontalPaddingPx;
+    
+    // Apply text width percentage to available width (after padding)
+    let textWidth = availableWidth * textWidthPercent;
+    
+    // Calculate centering offset (only on desktop)
+    let horizontalOffset = 0;
     if (!isMobile && textWidthPercent < 1) {
       // Apply half of the reduction as offset
       const widthReduction = 1 - textWidthPercent;
-      horizontalOffset = (widthReduction / 2) * viewportWidth;
+      horizontalOffset = (widthReduction / 2) * availableWidth;
     }
     
-    // Ensure text + offset doesn't exceed viewport (with safety margin for padding)
-    const safetyMargin = 48; // Account for padding
-    const maxTextWidth = viewportWidth - horizontalOffset - safetyMargin;
-    textWidth = Math.min(textWidth, maxTextWidth);
+    // Ensure text doesn't exceed available space
+    textWidth = Math.min(textWidth, availableWidth - horizontalOffset);
     
     // Ensure minimum readable width
     textWidth = Math.max(200, textWidth);
     
-    // Calculate page height
-    let pageHeight;
-    let textHeight;
+    // Calculate available height after CSS padding and page-gap
+    const pageGap = isMobile ? (isFullscreen ? viewportHeight * 0.03 : viewportHeight * 0.05) : 120;
+    let availableHeight = viewportHeight - (pageGap * 2) - verticalPaddingTop - verticalPaddingBottom;
     
-    const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
-    
-    if (isFullscreen) {
-      // Fullscreen: use full window height minus minimal padding
-      pageHeight = window.innerHeight;
-      textHeight = pageHeight - 60; // Minimal top + bottom padding
-    } else {
-      // Normal mode: use viewport height
-      pageHeight = pageViewport.clientHeight;
-      textHeight = pageHeight - 144; // Subtract vertical padding
-    }
+    // Ensure reasonable height
+    availableHeight = Math.max(availableHeight, lineHeight * 5);
     
     // Calculate max lines per page
-    const maxLinesPerPage = Math.floor(textHeight / lineHeight);
+    const maxLinesPerPage = Math.floor(availableHeight / lineHeight);
     
-    return { textWidth, pageHeight, maxLinesPerPage, fontSize, lineHeight };
+    return { 
+      textWidth, 
+      pageHeight: viewportHeight, 
+      maxLinesPerPage: Math.max(5, maxLinesPerPage), 
+      fontSize, 
+      lineHeight 
+    };
   }
 
   async loadChapter(index, { pageInChapter = 1, preservePage = false } = {}) {
