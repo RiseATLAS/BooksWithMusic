@@ -1804,7 +1804,7 @@ html:-ms-fullscreen .page-indicator,
 
 :fullscreen .page-viewport,
 :-webkit-full-screen .page-viewport {
-  max-width: calc(100% - 40px) !important; /* Minimal side margins - only 20px each side for nav */
+  max-width: 100% !important; /* Minimal side margins - only 20px each side for nav */
   padding: 20px 0 !important; /* Minimal top/bottom padding */
   min-height: calc(100vh - 40px) !important; /* Use almost full height */
 }
@@ -2448,7 +2448,6 @@ html:-ms-fullscreen .page-indicator,
   margin-bottom: 0.25rem;
 }
 
-}
 
 .freesound-key-help a {
   color: var(--accent);
