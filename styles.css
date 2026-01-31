@@ -1967,7 +1967,7 @@ html:-ms-fullscreen .page-indicator,
     --page-gap: 5vh;
     padding-top: 5vh;
     padding-bottom: 5vh;
-    max-width: calc(100% - 32px);
+    max-width: 100%;
     width: 100%;
   }
 
