@@ -103,6 +103,7 @@ class TextLayoutEngine {
   /**
    * Layout a paragraph of text into lines that fit within maxWidth
    * Returns array of line strings
+   * IMPORTANT: First line has 2em text-indent in CSS, so we need to reduce available width
    */
   layoutParagraph(text, maxWidth, fontSize, fontFamily) {
     // Handle empty/invalid text
@@ -116,6 +117,9 @@ class TextLayoutEngine {
     let currentWidth = 0;
     
     const spaceWidth = this.measureText(' ', fontSize, fontFamily);
+    
+    // Calculate indent width for first line (2em = 2 * fontSize)
+    const firstLineIndent = fontSize * 2;
     
     for (let i = 0; i < tokens.length; i++) {
       const token = tokens[i];
@@ -132,15 +136,21 @@ class TextLayoutEngine {
       // It's a word
       const wordWidth = this.measureText(token.text, fontSize, fontFamily);
       
+      // Determine available width for this line
+      // First line has reduced width due to 2em indent
+      const availableWidth = (lines.length === 0 && currentLine.length === 0) 
+        ? maxWidth - firstLineIndent 
+        : maxWidth;
+      
       // Check if word fits on current line
-      if (currentWidth + wordWidth <= maxWidth || currentLine.length === 0) {
+      if (currentWidth + wordWidth <= availableWidth || currentLine.length === 0) {
         currentLine.push(token);
         currentWidth += wordWidth;
       } else {
         // Word doesn't fit - check if it's too long for any line
-        if (wordWidth > maxWidth) {
+        if (wordWidth > availableWidth) {
           // Word is too long - need to break it
-          const brokenWord = this.breakLongWord(token.text, maxWidth - currentWidth, maxWidth, fontSize, fontFamily);
+          const brokenWord = this.breakLongWord(token.text, availableWidth - currentWidth, maxWidth, fontSize, fontFamily);
           
           // Add first part to current line
           if (brokenWord.first && currentLine.length > 0) {
