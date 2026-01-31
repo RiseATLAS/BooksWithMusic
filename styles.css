@@ -2556,9 +2556,8 @@ html:-ms-fullscreen .page-indicator,
   /* Reduced spacing since we're using indents for paragraph breaks */
 }
 
-/* Paragraphs get first-line indent like traditional book formatting */
+/* Paragraphs - default book-style indent */
 .page-lines p {
-  text-indent: 2em;
   margin: 0;
   padding: 0;
 }
@@ -2566,8 +2565,16 @@ html:-ms-fullscreen .page-indicator,
 /* First paragraph after heading should not be indented */
 .page-lines .h1 + .line-spacing + p,
 .page-lines .h2 + .line-spacing + p,
-.page-lines .h3 + .line-spacing + p {
+.page-lines .h3 + .line-spacing + p,
+.page-lines p.after-heading {
   text-indent: 0;
+}
+
+.page-lines .h1 + .line-spacing + p .text-line:first-child,
+.page-lines .h2 + .line-spacing + p .text-line:first-child,
+.page-lines .h3 + .line-spacing + p .text-line:first-child,
+.page-lines p.after-heading .text-line:first-child {
+  text-indent: 0 !important;
 }
 
 /* Text lines within paragraphs - each line is a span displayed as block */
@@ -2575,10 +2582,11 @@ html:-ms-fullscreen .page-indicator,
   display: block;
   white-space: nowrap;
   overflow: hidden;
+  text-indent: 0;
   /* No margins - spacing is controlled by parent paragraph */
 }
 
-/* First line of paragraph gets the indent */
+/* First line of paragraph - traditional book indent */
 .page-lines p .text-line:first-child {
   text-indent: 2em;
 }

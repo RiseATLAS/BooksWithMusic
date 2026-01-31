@@ -103,7 +103,7 @@ class TextLayoutEngine {
   /**
    * Layout a paragraph of text into lines that fit within maxWidth
    * Returns array of line strings
-   * IMPORTANT: First line has 2em text-indent in CSS, so we need to reduce available width
+   * First line accounts for 2em indent (traditional book formatting)
    */
   layoutParagraph(text, maxWidth, fontSize, fontFamily) {
     // Handle empty/invalid text
@@ -118,8 +118,8 @@ class TextLayoutEngine {
     
     const spaceWidth = this.measureText(' ', fontSize, fontFamily);
     
-    // Calculate indent width for first line (2em = 2 * fontSize)
-    const firstLineIndent = fontSize * 2;
+    // Calculate indent width (2em = 2 * fontSize)
+    const indentWidth = 2 * fontSize;
     
     for (let i = 0; i < tokens.length; i++) {
       const token = tokens[i];
@@ -136,11 +136,9 @@ class TextLayoutEngine {
       // It's a word
       const wordWidth = this.measureText(token.text, fontSize, fontFamily);
       
-      // Determine available width for this line
       // First line has reduced width due to 2em indent
-      const availableWidth = (lines.length === 0 && currentLine.length === 0) 
-        ? maxWidth - firstLineIndent 
-        : maxWidth;
+      // Subsequent lines use full width
+      const availableWidth = lines.length === 0 ? maxWidth - indentWidth : maxWidth;
       
       // Check if word fits on current line
       if (currentWidth + wordWidth <= availableWidth || currentLine.length === 0) {
@@ -298,6 +296,10 @@ class TextLayoutEngine {
         continue;
       }
       
+      // Check if previous block was a heading (for indent suppression)
+      const prevBlock = blockIndex > 0 ? contentBlocks[blockIndex - 1] : null;
+      const isAfterHeading = prevBlock && ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(prevBlock.type);
+      
       // Layout this block into lines
       const blockLines = this.layoutParagraph(block.text, maxWidth, fontSize, fontFamily);
       
@@ -326,13 +328,20 @@ class TextLayoutEngine {
           currentPage = { lines: [], blocks: [] };
         }
         
+        // Check if this is the first line of this block on the current page
+        const isFirstLineOfBlockOnPage = !currentPage.lines.some(
+          l => l.type === 'text' && l.blockIndex === blockIndex
+        );
+        
         currentPage.lines.push({
           type: 'text',
           text: blockLines[lineIndex],
           blockType: block.type,
           blockIndex: blockIndex,
           lineInBlock: lineIndex,
-          htmlTag: block.htmlTag || 'p'
+          htmlTag: block.htmlTag || 'p',
+          isFirstLineOfBlockOnPage: isFirstLineOfBlockOnPage, // Track for indent handling
+          isAfterHeading: isAfterHeading && lineIndex === 0 // Mark first line if paragraph after heading
         });
       }
       
@@ -410,6 +419,7 @@ class TextLayoutEngine {
     
     let currentBlock = null;
     let currentBlockLines = [];
+    let isAfterHeading = false;
     
     for (const line of page.lines) {
       // Skip invalid lines
@@ -418,9 +428,10 @@ class TextLayoutEngine {
       if (line.type === 'spacing') {
         // Close current block if any
         if (currentBlock !== null && currentBlockLines.length > 0) {
-          html += this.wrapBlockLines(currentBlockLines, currentBlock.htmlTag);
+          html += this.wrapBlockLines(currentBlockLines, currentBlock.htmlTag, isAfterHeading);
           currentBlockLines = [];
           currentBlock = null;
+          isAfterHeading = false;
         }
         // Add spacing
         html += '<div class="line-spacing"></div>';
@@ -432,8 +443,9 @@ class TextLayoutEngine {
           
           // Close previous block if any
           if (currentBlock !== null && currentBlockLines.length > 0) {
-            html += this.wrapBlockLines(currentBlockLines, currentBlock.htmlTag);
+            html += this.wrapBlockLines(currentBlockLines, currentBlock.htmlTag, isAfterHeading);
             currentBlockLines = [];
+            isAfterHeading = false;
           }
           
           // Start new block
@@ -441,6 +453,11 @@ class TextLayoutEngine {
             blockIndex: line.blockIndex,
             htmlTag: line.htmlTag
           };
+          
+          // Track if this paragraph comes after a heading
+          if (line.isAfterHeading) {
+            isAfterHeading = true;
+          }
         }
         
         currentBlockLines.push(line.text);
@@ -449,7 +466,7 @@ class TextLayoutEngine {
     
     // Close final block
     if (currentBlock !== null && currentBlockLines.length > 0) {
-      html += this.wrapBlockLines(currentBlockLines, currentBlock.htmlTag);
+      html += this.wrapBlockLines(currentBlockLines, currentBlock.htmlTag, isAfterHeading);
     }
     
     html += '</div>';
@@ -460,8 +477,19 @@ class TextLayoutEngine {
    * Wrap lines in appropriate HTML tag
    * All lines from the same block are wrapped in a single tag, with each line as a span
    */
-  wrapBlockLines(lines, htmlTag) {
-    const className = htmlTag === 'p' ? '' : ' class="' + htmlTag + '"';
+  wrapBlockLines(lines, htmlTag, isAfterHeading = false) {
+    const classNames = [];
+    
+    if (htmlTag !== 'p') {
+      classNames.push(htmlTag);
+    }
+    
+    if (isAfterHeading && htmlTag === 'p') {
+      classNames.push('after-heading');
+    }
+    
+    const className = classNames.length > 0 ? ' class="' + classNames.join(' ') + '"' : '';
+    
     // Wrap all lines in a single block element
     // Each line is a span with display: block for proper line breaks
     const lineSpans = lines.map(line => `<span class="text-line">${line}</span>`).join('');
