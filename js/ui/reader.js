@@ -1112,6 +1112,7 @@ export class ReaderUI {
    * Calculate and apply text centering offset based on text width percentage
    * Formula: Apply half the percentage reduction as the centering offset
    * - 100% width = 0% offset (left-aligned)
+   * - 80% width = 10% offset (20% reduction → 10% offset) - Mobile default
    * - 70% width = 15% offset (30% reduction → 15% offset)
    * - 50% width = 25% offset (50% reduction → 25% offset)
    * - 30% width = 35% offset (70% reduction → 35% offset)
@@ -1123,9 +1124,11 @@ export class ReaderUI {
     const settings = window.settingsManager?.settings || {};
     const textWidthPercent = settings.textWidth || 100;
     
-    // On mobile, always use 0 offset (full width, left-aligned)
+    // Mobile uses 80% width with centering, desktop can customize
     const isMobile = window.settingsManager?.isMobile || false;
-    if (isMobile || textWidthPercent >= 100) {
+    
+    // No offset needed at 100% width
+    if (textWidthPercent >= 100) {
       document.documentElement.style.setProperty('--text-center-offset', '0px');
       return;
     }
@@ -1141,13 +1144,20 @@ export class ReaderUI {
     if (pageViewport) {
       const viewportWidth = pageViewport.clientWidth;
       
-      // Calculate offset based on available width (after accounting for CSS padding)
-      // Desktop has no horizontal padding on .chapter-text
-      const offsetPx = (offsetPercent / 100) * viewportWidth;
+      // On mobile, we need to account for the CSS padding (3% on each side = 6% total)
+      // So offset is calculated on the full viewport width
+      let effectiveWidth = viewportWidth;
+      
+      if (isMobile) {
+        // Mobile has 6% horizontal padding, so calculate offset based on that
+        const paddingPercent = 0.06; // 3% left + 3% right
+        effectiveWidth = viewportWidth * (1 - paddingPercent);
+      }
+      
+      const offsetPx = (offsetPercent / 100) * effectiveWidth;
       
       // Ensure text + offset doesn't exceed viewport width
-      // Max safe offset = (100% - textWidth%) * viewportWidth
-      const maxSafeOffset = ((100 - textWidthPercent) / 100) * viewportWidth;
+      const maxSafeOffset = ((100 - textWidthPercent) / 100) * effectiveWidth;
       const safeOffset = Math.min(offsetPx, maxSafeOffset);
       
       // Apply to CSS custom property
