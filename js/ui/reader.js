@@ -369,15 +369,7 @@ export class ReaderUI {
       try {
         persistedProgress = await this.db.getBook(book.id);
         if (persistedProgress) {
-          console.log('📖 Loading saved progress:', {
-            bookId: book.id,
-            bookTitle: book.title,
-            savedChapter: persistedProgress.currentChapter,
-            savedPage: persistedProgress.currentPageInChapter,
-            progress: persistedProgress.progress
-          });
-        } else {
-          console.log('ℹ️ No saved progress found, starting from beginning');
+          console.log(`📖 Resuming "${book.title}" at chapter ${persistedProgress.currentChapter + 1}, page ${persistedProgress.currentPageInChapter} (${(persistedProgress.progress || 0).toFixed(1)}%)`);
         }
       } catch (error) {
         console.error('❌ Failed to load progress from IndexedDB:', error);
@@ -389,11 +381,6 @@ export class ReaderUI {
       // Use saved page number (will be corrected after pagination if block position exists)
       this.currentPageInChapter =
         persistedProgress?.currentPageInChapter ?? book.currentPageInChapter ?? 1;
-
-      console.log('📍 Starting position:', {
-        chapter: this.currentChapterIndex + 1,
-        pageInChapter: this.currentPageInChapter
-      });
 
       this.pagesPerChapter = {};
       this.currentPage = 1;
@@ -1876,18 +1863,9 @@ export class ReaderUI {
         progress: progress
       };
       
-      console.log('💾 Saving progress:', {
-        bookId: this.currentBook.id,
-        bookTitle: this.currentBook.title,
-        chapter: this.currentChapterIndex + 1,
-        pageInChapter: this.currentPageInChapter,
-        overallProgress: progress.toFixed(1) + '%'
-      });
-      
       // Save to IndexedDB (always, for offline support and local caching)
       try {
         await this.db.updateBook(this.currentBook.id, progressData);
-        console.log('✅ Progress saved to IndexedDB');
       } catch (dbError) {
         console.error('❌ Failed to save progress to IndexedDB:', dbError);
         console.error('   Book ID:', this.currentBook.id);
@@ -1899,14 +1877,11 @@ export class ReaderUI {
       if (userId) {
         try {
           await saveBookProgress(userId, this.currentBook.id, progressData);
-          console.log('✅ Progress saved to Firestore');
         } catch (firestoreError) {
           console.error('❌ Failed to save progress to Firestore:', firestoreError);
           console.error('   User ID:', userId);
           console.error('   Book ID:', this.currentBook.id);
         }
-      } else {
-        console.log('ℹ️ User not signed in, skipping Firestore sync');
       }
 
     } catch (error) {

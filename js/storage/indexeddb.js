@@ -104,11 +104,8 @@ export class DatabaseManager {
       console.error('❌ IndexedDB: Book not found for update:', id);
       throw new Error('Book not found');
     }
-    console.log('💾 IndexedDB: Updating book:', id, 'with:', updates);
     Object.assign(book, updates);
-    const result = await this._performTransaction('books', 'readwrite', (store) => store.put(book));
-    console.log('✅ IndexedDB: Book updated successfully');
-    return result;
+    return this._performTransaction('books', 'readwrite', (store) => store.put(book));
   }
 
   async addTrack(track) {
