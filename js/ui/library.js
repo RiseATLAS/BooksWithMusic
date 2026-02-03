@@ -1,3 +1,31 @@
+/**
+ * BookLibrary - EPUB Library Management UI
+ * 
+ * RESPONSIBILITIES:
+ * - Display user's book collection with covers and metadata
+ * - Handle EPUB file uploads and parsing
+ * - Manage book storage in IndexedDB (local) and Firestore (cloud)
+ * - Compress/decompress large EPUBs for Firestore storage
+ * - Handle book deletion and metadata updates
+ * - Track last opened time and reading progress
+ * - Navigate to reader when book is opened
+ * - Show loading states and error messages
+ * 
+ * STORAGE STRATEGY:
+ * - IndexedDB: Full book data (EPUB binary) for offline access
+ * - Firestore: Metadata + compressed EPUB (chunked if > 1MB)
+ * - Cache initialization on first load
+ * - Sync between local and cloud storage
+ * 
+ * BOOK DATA FLOW:
+ * 1. User uploads EPUB file
+ * 2. Parse EPUB (EPUBParser) to extract metadata and chapters
+ * 3. Store full data in IndexedDB
+ * 4. Compress and chunk for Firestore (if user signed in)
+ * 5. Display in library grid
+ * 6. On open: Pass to ReaderUI via sessionStorage
+ */
+
 import { db, auth } from '../config/firebase-config.js';
 import { 
     getUserBooks, 

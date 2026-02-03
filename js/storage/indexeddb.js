@@ -1,3 +1,32 @@
+/**
+ * DatabaseManager - IndexedDB Local Storage
+ * 
+ * RESPONSIBILITIES:
+ * - Manage local IndexedDB database for offline storage
+ * - Store complete EPUB book data (binary files, metadata, chapters)
+ * - Store music track metadata and cached audio (Freesound only)
+ * - Save reading progress (currentChapter, currentPageInChapter, progress %)
+ * - Provide CRUD operations for books and tracks
+ * - Handle database versioning and upgrades
+ * 
+ * OBJECT STORES:
+ * - books: Store complete book objects
+ *   - Primary key: id (unique book identifier)
+ *   - Index: by-date (addedDate for sorting)
+ *   - Contains: title, author, chapters, progress, fileData
+ * 
+ * - tracks: Store music track metadata
+ *   - Primary key: id (track identifier)
+ *   - Index: by-source (filter by Freesound/Spotify)
+ *   - Contains: name, url, preview, tags, source
+ * 
+ * USAGE:
+ * - Initialize once at app startup
+ * - Books stored here persist across sessions
+ * - Progress updates saved after page flips (debounced)
+ * - Tracks cached for offline playback (Freesound only)
+ */
+
 export class DatabaseManager {
   constructor() {
     this.db = null;

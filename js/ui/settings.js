@@ -1,3 +1,28 @@
+/**
+ * SettingsUI - User Preferences Management
+ * 
+ * RESPONSIBILITIES:
+ * - Manage reader settings (theme, font, colors, layout, music preferences)
+ * - Maintain separate settings for mobile and desktop viewports
+ * - Detect viewport changes and reload appropriate settings
+ * - Save settings to localStorage (per device type) and Firestore (cloud sync)
+ * - Apply settings to DOM (CSS variables, element styles)
+ * - Emit events for layout changes that require re-pagination
+ * - Sync UI controls with current settings
+ * 
+ * SETTINGS STORAGE:
+ * - localStorage: Separate keys for mobile/desktop (booksWithMusic-settings-mobile/desktop)
+ * - Firestore: Cloud sync when user is signed in
+ * - Mobile: Force textWidth to 81%, auto-detect on resize
+ * - Desktop: User-configurable textWidth
+ * 
+ * SETTINGS CATEGORIES:
+ * - Visual: theme, pageColor, pageWarmth, brightness
+ * - Typography: fontSize, lineHeight, fontFamily, textAlign, textWidth
+ * - Reading: showBookPageCount, showBookProgress, showChapterPageCount, showChapterCount
+ * - Music: musicEnabled, autoPlay, crossfadeDuration, pageBasedMusicSwitch, instrumentalOnly, maxEnergyLevel
+ */
+
 import { auth } from '../config/firebase-config.js';
 import { saveUserSettings } from '../storage/firestore-storage.js';
 

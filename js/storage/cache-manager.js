@@ -1,3 +1,27 @@
+/**
+ * CacheManager - Audio Track Caching (Freesound Only)
+ * 
+ * RESPONSIBILITIES:
+ * - Cache audio files from Freesound API in browser Cache API
+ * - Provide offline playback capability for cached tracks
+ * - Enforce cache size limits (max 100 tracks)
+ * - Manage cache lifecycle (add, retrieve, remove)
+ * - Only works with Freesound (Spotify streams directly)
+ * 
+ * CACHE STRATEGY:
+ * - Cache name: 'booksWithMusic-audio-v1'
+ * - Max cached tracks: 100
+ * - LRU eviction when limit reached
+ * - Stores audio/mpeg Response objects
+ * 
+ * USAGE:
+ * - Called by MusicManager during track pre-caching
+ * - Used by AudioPlayer for offline playback
+ * - Not used for Spotify (streams in real-time)
+ * 
+ * NOTE: Spotify tracks cannot be cached due to DRM restrictions
+ */
+
 export class CacheManager {
   constructor() {
     this.CACHE_NAME = 'booksWithMusic-audio-v1';

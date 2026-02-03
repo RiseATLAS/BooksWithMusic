@@ -1,3 +1,27 @@
+/**
+ * BooksWithMusic - Main Application Entry Point
+ * 
+ * RESPONSIBILITIES:
+ * - Initialize core application components (Database, Library, Reader, Settings, Music)
+ * - Coordinate Firebase authentication state changes
+ * - Sync settings between devices via Firestore
+ * - Handle page routing (library vs reader)
+ * - Manage global app state and user session
+ * - Expose global instances (reader, settingsManager) for cross-component access
+ * 
+ * COMPONENT INITIALIZATION ORDER:
+ * 1. DatabaseManager (IndexedDB) - Local storage
+ * 2. BookLibrary - Book management UI
+ * 3. ReaderUI - EPUB reading interface
+ * 4. SettingsUI - User preferences (exposed globally as settingsManager)
+ * 5. MusicPanelUI - Music controls (initialized after reader)
+ * 
+ * AUTHENTICATION FLOW:
+ * - Listens to Firebase auth state changes
+ * - Syncs settings from Firestore when user signs in
+ * - Handles sign-in/sign-out UI updates
+ */
+
 import { BookLibrary } from "./ui/library.js";
 import { ReaderUI } from "./ui/reader.js";
 import { SettingsUI } from "./ui/settings.js";

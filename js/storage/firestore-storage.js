@@ -1,3 +1,36 @@
+/**
+ * Firestore Storage Module - Cloud Data Persistence
+ * 
+ * RESPONSIBILITIES:
+ * - Store user settings in Firestore for cross-device sync
+ * - Save book metadata and reading progress to cloud
+ * - Handle chunked storage for large EPUBs (> 1MB)
+ * - Manage user book collections in Firestore
+ * - Provide progress tracking across devices
+ * - Handle authentication-required operations
+ * 
+ * DATA STRUCTURE:
+ * users/{userId}/
+ *   settings: { theme, fontSize, lineHeight, ... }
+ *   books/{bookId}/
+ *     metadata: { title, author, cover, lastRead, createdAt }
+ *     progress: { currentChapter, currentPageInChapter, progress % }
+ *     chunks/{chunkId}: { data } (for large EPUBs)
+ * 
+ * FUNCTIONS:
+ * - saveUserSettings / getUserSettings
+ * - saveBookMetadata / getBook / getUserBooks
+ * - saveBookProgress / getBookProgress
+ * - saveBookChunks / getBookChunks (for large files)
+ * - updateBook / deleteBookMetadata
+ * 
+ * INTEGRATION:
+ * - Used by SettingsUI for cloud sync
+ * - Used by BookLibrary for book management
+ * - Used by ReaderUI for progress tracking
+ * - Requires Firebase authentication
+ */
+
 // Firestore Storage Module
 // Handles user settings, book metadata, and reading progress in Firestore
 
