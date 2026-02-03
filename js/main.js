@@ -463,12 +463,10 @@ class BooksWithMusicApp {
     notification.id = 'update-notification';
     notification.className = 'update-notification';
     
-    const versionText = newVersion ? ` (v${newVersion})` : '';
-    
     notification.innerHTML = `
       <div class="update-notification-content">
         <span class="update-icon">🎉</span>
-        <span class="update-message">A new version is available${versionText}!</span>
+        <span class="update-message">A new version is available!</span>
         <button class="update-reload-btn">Reload</button>
         <button class="update-dismiss-btn">×</button>
       </div>
@@ -495,22 +493,29 @@ class BooksWithMusicApp {
 
   async checkForUpdates() {
     try {
-      // Get current local version
-      const localVersionResponse = await fetch('./version.json');
-      const localVersion = await localVersionResponse.json();
+      // Check if there's a newer version on GitHub by comparing cache timestamps
+      // This works by checking if service worker has new content
       
-      // Get latest version from GitHub (raw content)
-      const githubVersionResponse = await fetch('https://raw.githubusercontent.com/RiseATLAS/BooksWithMusic/main/version.json', {
+      // Alternative: Check GitHub's last commit date
+      const response = await fetch('https://api.github.com/repos/RiseATLAS/BooksWithMusic/commits/main', {
         cache: 'no-cache'
       });
-      const githubVersion = await githubVersionResponse.json();
+      const data = await response.json();
+      const githubLastUpdate = new Date(data.commit.committer.date).getTime();
       
-      console.log(`📦 Local version: ${localVersion.version}, GitHub version: ${githubVersion.version}`);
+      // Get local last check time
+      const localLastCheck = localStorage.getItem('booksWithMusic-lastGitHubCheck');
+      const localCheckTime = localLastCheck ? parseInt(localLastCheck) : 0;
       
-      // Compare versions
-      if (githubVersion.version !== localVersion.version) {
-        console.log('🎉 New version available!');
-        this.showUpdateNotification(githubVersion.version);
+      console.log(`📦 GitHub last commit: ${data.commit.committer.date}`);
+      console.log(`📦 Local last check: ${localLastCheck ? new Date(localCheckTime).toISOString() : 'Never'}`);
+      
+      // If GitHub has newer commits, show notification
+      if (githubLastUpdate > localCheckTime) {
+        console.log('🎉 New version available on GitHub!');
+        this.showUpdateNotification();
+        // Update the last check time after showing notification
+        localStorage.setItem('booksWithMusic-lastGitHubCheck', githubLastUpdate.toString());
         return true;
       } else {
         console.log('✅ App is up to date');
