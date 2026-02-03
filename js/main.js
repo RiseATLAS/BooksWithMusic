@@ -512,7 +512,7 @@ class BooksWithMusicApp {
       
       // If GitHub has newer commits, show notification
       if (githubLastUpdate > localCheckTime) {
-        console.log('🎉 New version available on GitHub!');
+        console.log('🎉 New version available on GitHub, hard refresh to receive!');
         this.showUpdateNotification();
         // Update the last check time after showing notification
         localStorage.setItem('booksWithMusic-lastGitHubCheck', githubLastUpdate.toString());
