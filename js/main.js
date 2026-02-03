@@ -106,13 +106,10 @@ class BooksWithMusicApp {
       this.setupEventListeners();
       await this.registerServiceWorker();
       
-      // Check for updates from GitHub
-      await this.checkForUpdates();
-      
-      // Check for updates periodically (every hour)
+      // Check for updates periodically (every 5 minutes)
       setInterval(() => {
         this.checkForUpdates();
-      }, 60 * 60 * 1000);
+      }, 5 * 60 * 1000);
       
     } catch (error) {
       console.error("Init error:", error);
@@ -479,6 +476,8 @@ class BooksWithMusicApp {
     const dismissBtn = notification.querySelector('.update-dismiss-btn');
     
     reloadBtn.addEventListener('click', () => {
+      // Save current timestamp as "last reload" so we know user has latest version
+      localStorage.setItem('booksWithMusic-lastReload', Date.now().toString());
       // Hard reload to bypass cache and get fresh files
       window.location.reload(true);
     });
@@ -494,29 +493,24 @@ class BooksWithMusicApp {
 
   async checkForUpdates() {
     try {
-      // Check if there's a newer version on GitHub by comparing cache timestamps
-      // This works by checking if service worker has new content
-      
-      // Alternative: Check GitHub's last commit date
+      // Check GitHub's last commit date
       const response = await fetch('https://api.github.com/repos/RiseATLAS/BooksWithMusic/commits/main', {
         cache: 'no-cache'
       });
       const data = await response.json();
       const githubLastUpdate = new Date(data.commit.committer.date).getTime();
       
-      // Get local last check time
-      const localLastCheck = localStorage.getItem('booksWithMusic-lastGitHubCheck');
-      const localCheckTime = localLastCheck ? parseInt(localLastCheck) : 0;
+      // Get the last update time when user actually reloaded the app
+      const localLastReload = localStorage.getItem('booksWithMusic-lastReload');
+      const localReloadTime = localLastReload ? parseInt(localLastReload) : 0;
       
       console.log(`📦 GitHub last commit: ${data.commit.committer.date}`);
-      console.log(`📦 Local last check: ${localLastCheck ? new Date(localCheckTime).toISOString() : 'Never'}`);
+      console.log(`📦 Local last reload: ${localLastReload ? new Date(localReloadTime).toISOString() : 'Never'}`);
       
-      // If GitHub has newer commits, show notification
-      if (githubLastUpdate > localCheckTime) {
-        console.log('🎉 New version available on GitHub, hard refresh to receive!');
+      // If GitHub has newer commits than our last reload, keep showing notification
+      if (githubLastUpdate > localReloadTime) {
+        console.log('🎉 New version available on GitHub!');
         this.showUpdateNotification();
-        // Update the last check time after showing notification
-        localStorage.setItem('booksWithMusic-lastGitHubCheck', githubLastUpdate.toString());
         return true;
       } else {
         console.log('✅ App is up to date');
