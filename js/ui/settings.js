@@ -138,10 +138,10 @@ export class SettingsUI {
     if (this.isMobile) {
       if (textWidthInput) {
         textWidthInput.disabled = true;
-        textWidthInput.value = 79;
+        textWidthInput.value = 81;
       }
       if (textWidthValue) {
-        textWidthValue.textContent = '79% (Mobile)';
+        textWidthValue.textContent = '81% (Mobile)';
       }
     } else {
       textWidthInput?.addEventListener('input', (e) => {
@@ -326,9 +326,9 @@ export class SettingsUI {
       this.settings = { ...this.settings, ...savedSettings };
     }
     
-    // Force textWidth to 79% on mobile devices for optimal reading with proper margins
+    // Force textWidth to 81% on mobile devices for optimal reading with proper margins
     if (this.isMobile) {
-      this.settings.textWidth = 79;
+      this.settings.textWidth = 81;
     }
     
     if (
@@ -356,9 +356,9 @@ export class SettingsUI {
   }
 
   saveSettings() {
-    // Force textWidth to 79% on mobile before saving
+    // Force textWidth to 81% on mobile before saving
     if (this.isMobile) {
-      this.settings.textWidth = 79;
+      this.settings.textWidth = 81;
     }
     
     // Save to device-specific storage key
@@ -590,13 +590,13 @@ export class SettingsUI {
     const textWidthInput = document.getElementById('text-width');
     const textWidthValue = document.getElementById('text-width-value');
     if (this.isMobile) {
-      // Force 79% on mobile
+      // Force 81% on mobile
       if (textWidthInput) {
         textWidthInput.disabled = true;
-        textWidthInput.value = 79;
+        textWidthInput.value = 81;
       }
       if (textWidthValue) {
-        textWidthValue.textContent = '79% (Mobile)';
+        textWidthValue.textContent = '81% (Mobile)';
       }
     } else {
       if (textWidthInput) {

@@ -285,7 +285,8 @@ class TextLayoutEngine {
     const pages = [];
     let currentPage = {
       lines: [],
-      blocks: [] // Track which blocks are on this page
+      blocks: [], // Track which blocks are on this page
+      spaceUsed: 0 // Track actual vertical space used (accounts for heading sizes)
     };
     
     for (let blockIndex = 0; blockIndex < contentBlocks.length; blockIndex++) {
@@ -307,25 +308,31 @@ class TextLayoutEngine {
       const spacingBefore = this.getSpacingBefore(block.type, currentPage.lines.length === 0);
       
       for (let i = 0; i < spacingBefore; i++) {
-        if (currentPage.lines.length < maxLinesPerPage) {
+        if (currentPage.spaceUsed + 1 <= maxLinesPerPage) {
           currentPage.lines.push({
             type: 'spacing',
             text: '',
             blockType: block.type
           });
+          currentPage.spaceUsed += 1;
         } else {
           // Page is full, start new page
           pages.push(currentPage);
-          currentPage = { lines: [], blocks: [] };
+          currentPage = { lines: [], blocks: [], spaceUsed: 0 };
         }
       }
       
       // Add block lines to current page
       for (let lineIndex = 0; lineIndex < blockLines.length; lineIndex++) {
-        if (currentPage.lines.length >= maxLinesPerPage) {
+        // Calculate how much space this line actually takes
+        const lineMultiplier = this.getLineHeightMultiplier(block.type);
+        
+        // Check if adding this line would exceed the page capacity
+        // For headings, they count as multiple lines due to larger font size
+        if (currentPage.spaceUsed + lineMultiplier > maxLinesPerPage) {
           // Page is full, start new page
           pages.push(currentPage);
-          currentPage = { lines: [], blocks: [] };
+          currentPage = { lines: [], blocks: [], spaceUsed: 0 };
         }
         
         // Check if this is the first line of this block on the current page
@@ -341,8 +348,12 @@ class TextLayoutEngine {
           lineInBlock: lineIndex,
           htmlTag: block.htmlTag || 'p',
           isFirstLineOfBlockOnPage: isFirstLineOfBlockOnPage, // Track for indent handling
-          isAfterHeading: isAfterHeading && lineIndex === 0 // Mark first line if paragraph after heading
+          isAfterHeading: isAfterHeading && lineIndex === 0, // Mark first line if paragraph after heading
+          lineMultiplier: lineMultiplier // Track space this line occupies
         });
+        
+        // Add the actual space used by this line
+        currentPage.spaceUsed += lineMultiplier;
       }
       
       // Track that this block appears on this page
@@ -353,12 +364,13 @@ class TextLayoutEngine {
       // Add spacing after block
       const spacingAfter = this.getSpacingAfter(block.type);
       for (let i = 0; i < spacingAfter; i++) {
-        if (currentPage.lines.length < maxLinesPerPage) {
+        if (currentPage.spaceUsed + 1 <= maxLinesPerPage) {
           currentPage.lines.push({
             type: 'spacing',
             text: '',
             blockType: block.type
           });
+          currentPage.spaceUsed += 1;
         }
       }
     }
@@ -369,6 +381,26 @@ class TextLayoutEngine {
     }
     
     return pages.length > 0 ? pages : [{ lines: [], blocks: [] }];
+  }
+
+  /**
+   * Get the line height multiplier for different block types
+   * Headings are larger and take up more vertical space
+   */
+  getLineHeightMultiplier(blockType) {
+    switch (blockType) {
+      case 'h1':
+        return 2.0; // h1 is 2em, takes ~2 lines of space
+      case 'h2':
+        return 1.5; // h2 is 1.5em, takes ~1.5 lines of space
+      case 'h3':
+        return 1.2; // h3 is 1.17em, takes ~1.2 lines of space
+      case 'h4':
+        return 1.2;
+      case 'p':
+      default:
+        return 1.0; // Normal paragraphs are 1 line per line
+    }
   }
 
   /**

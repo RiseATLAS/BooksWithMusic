@@ -748,22 +748,22 @@ body.reader-page::-webkit-scrollbar {
   background: rgba(0, 0, 0, 0.3);
 }
 
-/* Page flip animations - Simple perpendicular to flat flip */
+/* Page flip animations - Include horizontal centering offset */
 @keyframes pageFlipNext {
   0% {
-    transform: rotateY(90deg) translateZ(0);
+    transform: translate3d(var(--text-center-offset, 0px), 0, 0) rotateY(90deg);
     opacity: 1;
     z-index: 20;
     box-shadow: 20px 0 40px rgba(0, 0, 0, 0.4);
   }
   99% {
-    transform: rotateY(0deg) translateZ(0);
+    transform: translate3d(var(--text-center-offset, 0px), 0, 0) rotateY(0deg);
     opacity: 1;
     z-index: 20;
     box-shadow: 0 0 30px rgba(0, 0, 0, 0.15);
   }
   100% {
-    transform: translateZ(0);
+    transform: translate3d(var(--text-center-offset, 0px), 0, 0);
     opacity: 1;
     z-index: 1;
     box-shadow: none;
@@ -772,19 +772,19 @@ body.reader-page::-webkit-scrollbar {
 
 @keyframes pageFlipPrev {
   0% {
-    transform: rotateY(-90deg) translateZ(0);
+    transform: translate3d(var(--text-center-offset, 0px), 0, 0) rotateY(-90deg);
     opacity: 1;
     z-index: 20;
     box-shadow: -20px 0 40px rgba(0, 0, 0, 0.4);
   }
   99% {
-    transform: rotateY(0deg) translateZ(0);
+    transform: translate3d(var(--text-center-offset, 0px), 0, 0) rotateY(0deg);
     opacity: 1;
     z-index: 20;
     box-shadow: 0 0 30px rgba(0, 0, 0, 0.15);
   }
   100% {
-    transform: translateZ(0);
+    transform: translate3d(var(--text-center-offset, 0px), 0, 0);
     opacity: 1;
     z-index: 1;
     box-shadow: none;
@@ -793,44 +793,44 @@ body.reader-page::-webkit-scrollbar {
 
 @keyframes pageSlideNext {
   0% {
-    transform: translateX(0);
+    transform: translate3d(var(--text-center-offset, 0px), 0, 0);
     opacity: 1;
   }
   100% {
-    transform: translateX(-30px);
+    transform: translate3d(calc(var(--text-center-offset, 0px) - 30px), 0, 0);
     opacity: 0;
   }
 }
 
 @keyframes pageSlideIn {
   0% {
-    transform: translateX(30px);
+    transform: translate3d(calc(var(--text-center-offset, 0px) + 30px), 0, 0);
     opacity: 0;
   }
   100% {
-    transform: translateX(0);
+    transform: translate3d(var(--text-center-offset, 0px), 0, 0);
     opacity: 1;
   }
 }
 
 @keyframes pageSlidePrev {
   0% {
-    transform: translateX(0);
+    transform: translate3d(var(--text-center-offset, 0px), 0, 0);
     opacity: 1;
   }
   100% {
-    transform: translateX(30px);
+    transform: translate3d(calc(var(--text-center-offset, 0px) + 30px), 0, 0);
     opacity: 0;
   }
 }
 
 @keyframes pageSlideInPrev {
   0% {
-    transform: translateX(-30px);
+    transform: translate3d(calc(var(--text-center-offset, 0px) - 30px), 0, 0);
     opacity: 0;
   }
   100% {
-    transform: translateX(0);
+    transform: translate3d(var(--text-center-offset, 0px), 0, 0);
     opacity: 1;
   }
 }
@@ -2533,27 +2533,27 @@ html:-ms-fullscreen .page-indicator,
 .page-lines .h1 {
   font-size: 2em;
   font-weight: bold;
-  margin-top: 0.5em;
-  margin-bottom: 0.5em;
+  margin: 0;
+  padding: 0;
 }
 
 .page-lines .h2 {
   font-size: 1.5em;
   font-weight: bold;
-  margin-top: 0.4em;
-  margin-bottom: 0.4em;
+  margin: 0;
+  padding: 0;
 }
 
 .page-lines .h3 {
   font-size: 1.17em;
   font-weight: bold;
-  margin-top: 0.3em;
-  margin-bottom: 0.3em;
+  margin: 0;
+  padding: 0;
 }
 
 .page-lines .line-spacing {
   height: 1em;
-  /* Reduced spacing since we're using indents for paragraph breaks */
+  /* Spacing handled by layout engine - accounts for heading context */
 }
 
 /* Paragraphs - default book-style indent */
