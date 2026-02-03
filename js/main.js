@@ -105,6 +105,15 @@ class BooksWithMusicApp {
 
       this.setupEventListeners();
       await this.registerServiceWorker();
+      
+      // Check for updates from GitHub
+      await this.checkForUpdates();
+      
+      // Check for updates periodically (every hour)
+      setInterval(() => {
+        this.checkForUpdates();
+      }, 60 * 60 * 1000);
+      
     } catch (error) {
       console.error("Init error:", error);
       alert("Failed to initialize app. Check console for details.");
@@ -443,7 +452,7 @@ class BooksWithMusicApp {
     }
   }
   
-  showUpdateNotification() {
+  showUpdateNotification(newVersion) {
     // Check if notification is already shown
     if (document.getElementById('update-notification')) {
       return;
@@ -453,10 +462,13 @@ class BooksWithMusicApp {
     const notification = document.createElement('div');
     notification.id = 'update-notification';
     notification.className = 'update-notification';
+    
+    const versionText = newVersion ? ` (v${newVersion})` : '';
+    
     notification.innerHTML = `
       <div class="update-notification-content">
         <span class="update-icon">🎉</span>
-        <span class="update-message">A new version is available!</span>
+        <span class="update-message">A new version is available${versionText}!</span>
         <button class="update-reload-btn">Reload</button>
         <button class="update-dismiss-btn">×</button>
       </div>
@@ -479,6 +491,35 @@ class BooksWithMusicApp {
     
     // Auto-show with animation
     setTimeout(() => notification.classList.add('show'), 100);
+  }
+
+  async checkForUpdates() {
+    try {
+      // Get current local version
+      const localVersionResponse = await fetch('./version.json');
+      const localVersion = await localVersionResponse.json();
+      
+      // Get latest version from GitHub (raw content)
+      const githubVersionResponse = await fetch('https://raw.githubusercontent.com/RiseATLAS/BooksWithMusic/main/version.json', {
+        cache: 'no-cache'
+      });
+      const githubVersion = await githubVersionResponse.json();
+      
+      console.log(`📦 Local version: ${localVersion.version}, GitHub version: ${githubVersion.version}`);
+      
+      // Compare versions
+      if (githubVersion.version !== localVersion.version) {
+        console.log('🎉 New version available!');
+        this.showUpdateNotification(githubVersion.version);
+        return true;
+      } else {
+        console.log('✅ App is up to date');
+        return false;
+      }
+    } catch (error) {
+      console.warn('Could not check for updates:', error);
+      return false;
+    }
   }
 }
 
