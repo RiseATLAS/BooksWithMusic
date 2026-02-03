@@ -479,7 +479,8 @@ class BooksWithMusicApp {
     const dismissBtn = notification.querySelector('.update-dismiss-btn');
     
     reloadBtn.addEventListener('click', () => {
-      window.location.reload();
+      // Hard reload to bypass cache and get fresh files
+      window.location.reload(true);
     });
     
     dismissBtn.addEventListener('click', () => {
