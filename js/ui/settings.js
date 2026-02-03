@@ -73,6 +73,29 @@ export class SettingsUI {
   }
 
   setupEventListeners() {
+    // Monitor window resize to detect mobile/desktop switches
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        const wasMobile = this.isMobile;
+        this.isMobile = this._detectMobile();
+        
+        // If device type changed, reload settings from appropriate storage
+        if (wasMobile !== this.isMobile) {
+          console.log(`📱 Device type changed: ${wasMobile ? 'Mobile' : 'Desktop'} → ${this.isMobile ? 'Mobile' : 'Desktop'}`);
+          this.loadSettings();
+          this.applySettings();
+          this.syncUIWithSettings();
+          
+          // Trigger layout recalculation for text width changes
+          if (window.reader) {
+            window.reader._handleSettingsChange?.('textWidth');
+          }
+        }
+      }, 300); // Debounce resize events
+    });
+    
     // Toggle settings panel
     document.getElementById('settings-btn')?.addEventListener('click', (e) => {
       e.preventDefault();
