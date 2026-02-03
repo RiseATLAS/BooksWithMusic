@@ -1958,7 +1958,6 @@ export class ReaderUI {
     // Save progress (debounced)
     window.clearTimeout(this._progressSaveTimer);
     this._progressSaveTimer = window.setTimeout(() => {
-      console.log('⏱️ Debounced progress save triggered (400ms after page flip)');
       this.saveProgress().catch((error) => {
         console.error('❌ Debounced progress save failed:', error);
       });
