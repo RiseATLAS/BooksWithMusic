@@ -330,14 +330,21 @@ export class BookLibrary {
                         await saveBook(userId, bookData.id, bookData, compressedBase64);
                     }
                     
-                    // Also save to local cache with full cover image
+                    // Also save to local cache with full cover image and parsed chapters
                     if (this.cacheInitialized) {
-                        const cacheData = { ...bookData, cover: parsed.coverImage || '' };
+                        const cacheData = { 
+                            ...bookData, 
+                            cover: parsed.coverImage || '',
+                            chapters: parsed.chapters,
+                            images: parsed.images ? Array.from(parsed.images.entries()) : [],
+                            parsedData: true // Flag to indicate this has parsed data
+                        };
                         await this.localDb.saveBook(cacheData);
                     }
                     
                     await this.loadBooks();
                     this.displayBooks();
+                    this.showToast('✅ Book imported successfully!', 'success', 3000);
                 } catch (error) {
                     console.error('Import failed:', error);
                     alert(`Failed: ${error.message}`);
@@ -358,6 +365,9 @@ export class BookLibrary {
             return;
         }
         
+        // Show loading indicator
+        this.showToast('📖 Loading book...', 'info', 2000);
+        
         // Only update lastOpened in Firestore if user is signed in
         if (auth.currentUser) {
             try {
@@ -366,6 +376,18 @@ export class BookLibrary {
                 });
             } catch (error) {
                 console.warn('Could not update book in Firestore:', error);
+            }
+        }
+        
+        // First, check if book is already parsed in local cache
+        if (this.cacheInitialized) {
+            const cachedBook = await this.localDb.getBook(bookId);
+            if (cachedBook && cachedBook.parsedData && cachedBook.chapters && cachedBook.chapters.length > 0) {
+                // Book is already parsed and ready, navigate directly
+                console.log('✅ Book already parsed in cache, opening directly');
+                sessionStorage.setItem('currentBookId', bookId);
+                window.location.href = './reader.html';
+                return;
             }
         }
         
