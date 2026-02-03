@@ -86,7 +86,7 @@ class TextLayoutEngine {
           tokens.push({ type: 'word', text: currentWord });
           currentWord = '';
         }
-        // Preserve space (important for proper spacing)
+        // Preserve space (important for proper spacing)  
         tokens.push({ type: 'space', text: char });
       } else {
         currentWord += char;
