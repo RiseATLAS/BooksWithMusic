@@ -307,9 +307,12 @@ export async function getUserBooks(userId) {
     
     const books = [];
     querySnapshot.forEach((doc) => {
+      const bookData = doc.data();
       books.push({
         id: doc.id,
-        ...doc.data()
+        ...bookData,
+        // Extract progress percentage from nested progress object for easy display
+        progress: bookData.progress?.progress || 0
       });
     });
     console.log(`📚 Loaded ${books.length} books from Firestore`);

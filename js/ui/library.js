@@ -149,15 +149,28 @@ export class BookLibrary {
             return;
         }
         
-        grid.innerHTML = this.books.map(book => `
+        grid.innerHTML = this.books.map(book => {
+            // Extract progress percentage (handle both nested and flat structures)
+            const progressPercent = book.progress?.progress ?? book.progress ?? 0;
+            const hasProgress = progressPercent > 0;
+            
+            return `
             <div class="book-card" data-book-id="${book.id}">
                 ${book.cover ? `<img src="${book.cover}" alt="${book.title}" class="book-cover">` : '<div class="book-cover-placeholder">📖</div>'}
                 <h3 class="book-title">${book.title}</h3>
                 <p class="book-author">${book.author}</p>
-                ${book.progress && !isNaN(book.progress) && book.progress > 0 ? `<div class="book-progress">${Math.round(book.progress)}% complete</div>` : ''}
+                ${hasProgress ? `
+                <div class="book-progress">
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: ${progressPercent}%"></div>
+                    </div>
+                    <div class="progress-text">${Math.round(progressPercent)}% complete</div>
+                </div>
+                ` : ''}
                 <button class="delete-btn" data-book-id="${book.id}" title="Delete book">🗑️</button>
             </div>
-        `).join('');
+        `;
+        }).join('');
         
         // Add click handlers for book cards (to open book)
         grid.querySelectorAll('.book-card').forEach(card => {
