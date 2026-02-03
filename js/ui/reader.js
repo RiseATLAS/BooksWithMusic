@@ -368,8 +368,19 @@ export class ReaderUI {
       let persistedProgress = null;
       try {
         persistedProgress = await this.db.getBook(book.id);
-      } catch {
-        // ignore
+        if (persistedProgress) {
+          console.log('📖 Loading saved progress:', {
+            bookId: book.id,
+            bookTitle: book.title,
+            savedChapter: persistedProgress.currentChapter,
+            savedPage: persistedProgress.currentPageInChapter,
+            progress: persistedProgress.progress
+          });
+        } else {
+          console.log('ℹ️ No saved progress found, starting from beginning');
+        }
+      } catch (error) {
+        console.error('❌ Failed to load progress from IndexedDB:', error);
       }
 
       this.currentChapterIndex =
@@ -378,6 +389,11 @@ export class ReaderUI {
       // Use saved page number (will be corrected after pagination if block position exists)
       this.currentPageInChapter =
         persistedProgress?.currentPageInChapter ?? book.currentPageInChapter ?? 1;
+
+      console.log('📍 Starting position:', {
+        chapter: this.currentChapterIndex + 1,
+        pageInChapter: this.currentPageInChapter
+      });
 
       this.pagesPerChapter = {};
       this.currentPage = 1;
@@ -1847,7 +1863,10 @@ export class ReaderUI {
 
   async saveProgress() {
     try {
-      if (!this.currentBook) return;
+      if (!this.currentBook) {
+        console.error('❌ saveProgress: No currentBook available');
+        return;
+      }
 
       const progress = this.totalPages > 0 ? (this.currentPage / this.totalPages) * 100 : 0;
       
@@ -1857,25 +1876,45 @@ export class ReaderUI {
         progress: progress
       };
       
+      console.log('💾 Saving progress:', {
+        bookId: this.currentBook.id,
+        bookTitle: this.currentBook.title,
+        chapter: this.currentChapterIndex + 1,
+        pageInChapter: this.currentPageInChapter,
+        overallProgress: progress.toFixed(1) + '%'
+      });
+      
       // Save to IndexedDB (always, for offline support and local caching)
       try {
         await this.db.updateBook(this.currentBook.id, progressData);
+        console.log('✅ Progress saved to IndexedDB');
       } catch (dbError) {
-        console.warn('Failed to save progress to IndexedDB:', dbError);
+        console.error('❌ Failed to save progress to IndexedDB:', dbError);
+        console.error('   Book ID:', this.currentBook.id);
+        console.error('   Progress data:', progressData);
       }
       
       // Save to Firestore if user is signed in (for cross-device sync)
       const userId = auth.currentUser?.uid;
       if (userId) {
-        await saveBookProgress(userId, this.currentBook.id, progressData);
+        try {
+          await saveBookProgress(userId, this.currentBook.id, progressData);
+          console.log('✅ Progress saved to Firestore');
+        } catch (firestoreError) {
+          console.error('❌ Failed to save progress to Firestore:', firestoreError);
+          console.error('   User ID:', userId);
+          console.error('   Book ID:', this.currentBook.id);
+        }
+      } else {
+        console.log('ℹ️ User not signed in, skipping Firestore sync');
       }
 
-      // Progress saved to both DB and Firestore for redundancy
     } catch (error) {
-      console.error(' Error saving progress:', error);
-      console.error('Book ID:', this.currentBook?.id);
-      console.error('Stack trace:', error.stack);
-      // Don't show toast for save errors as they happen frequently
+      console.error('❌ Critical error in saveProgress:', error);
+      console.error('   Book:', this.currentBook);
+      console.error('   Current chapter:', this.currentChapterIndex);
+      console.error('   Current page:', this.currentPageInChapter);
+      console.error('   Stack trace:', error.stack);
     }
   }
 
@@ -1944,7 +1983,10 @@ export class ReaderUI {
     // Save progress (debounced)
     window.clearTimeout(this._progressSaveTimer);
     this._progressSaveTimer = window.setTimeout(() => {
-      this.saveProgress().catch(() => {});
+      console.log('⏱️ Debounced progress save triggered (400ms after page flip)');
+      this.saveProgress().catch((error) => {
+        console.error('❌ Debounced progress save failed:', error);
+      });
     }, 400);
     
     // Wait for animation to complete (700ms)

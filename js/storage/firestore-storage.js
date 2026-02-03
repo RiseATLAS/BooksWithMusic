@@ -70,14 +70,19 @@ export async function getUserSettings(userId) {
  */
 export async function saveBookProgress(userId, bookId, progress) {
   try {
+    console.log('💾 Firestore: Saving book progress:', { userId, bookId, progress });
     const progressRef = doc(db, 'users', userId, 'books', bookId);
     // Use setDoc with merge to create or update the document
     await setDoc(progressRef, {
       progress: progress,
       lastRead: serverTimestamp()
     }, { merge: true });
+    console.log('✅ Firestore: Progress saved successfully');
   } catch (error) {
-    console.error('Error saving book progress:', error);
+    console.error('❌ Firestore: Error saving book progress:', error);
+    console.error('   User ID:', userId);
+    console.error('   Book ID:', bookId);
+    console.error('   Progress data:', progress);
     throw new Error(`Failed to save progress: ${error.message}`);
   }
 }
@@ -90,16 +95,22 @@ export async function saveBookProgress(userId, bookId, progress) {
  */
 export async function getBookProgress(userId, bookId) {
   try {
+    console.log('📖 Firestore: Loading book progress:', { userId, bookId });
     const progressRef = doc(db, 'users', userId, 'books', bookId);
     const docSnap = await getDoc(progressRef);
     
     if (docSnap.exists()) {
-      return docSnap.data().progress;
+      const progressData = docSnap.data().progress;
+      console.log('✅ Firestore: Progress loaded:', progressData);
+      return progressData;
     } else {
+      console.log('ℹ️ Firestore: No progress found for this book');
       return null;
     }
   } catch (error) {
-    console.error('Error getting book progress:', error);
+    console.error('❌ Firestore: Error getting book progress:', error);
+    console.error('   User ID:', userId);
+    console.error('   Book ID:', bookId);
     throw new Error(`Failed to load progress: ${error.message}`);
   }
 }
