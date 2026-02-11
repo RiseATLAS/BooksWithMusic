@@ -95,7 +95,7 @@ export class SpotifyAuth {
       'streaming',                         // REQUIRED: Web Playback SDK streaming
       'user-read-email',                   // REQUIRED: SDK initialization
       'user-read-private',                 // REQUIRED: SDK initialization
-      'user-read-playback-state',          // Read state + devices
+      'user-read-playback-state',          // Read state + devices 
       'user-modify-playback-state',        // Play/pause/skip/volume
       'user-read-currently-playing'        // Currently playing track
     ];
