@@ -214,14 +214,22 @@ export class SpotifyAPI {
 
     const endpoint = `/search?q=${encodeURIComponent(searchQuery)}&type=track&limit=${limit}`;
 
+    console.log(`🔍 Spotify search endpoint: ${endpoint}`);
+    console.log(`🔍 Search query: "${searchQuery}"`);
+
     try {
       const data = await this._makeRequest(endpoint);
       
+      console.log(`🔍 Spotify search response:`, data);
+      
       if (!data || !data.tracks || !data.tracks.items) {
+        console.warn('⚠️ No tracks in response or invalid response structure');
         return [];
       }
 
       const tracks = data.tracks.items.map(track => this._formatTrack(track));
+      
+      console.log(`✅ Found ${tracks.length} Spotify tracks`);
       
       // Note: Audio features API sometimes returns 403 errors even with correct scopes
       // We'll skip audio features enrichment for now to avoid errors
