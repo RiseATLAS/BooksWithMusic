@@ -118,9 +118,12 @@ export class SpotifyAuth {
     const origin = window.location.origin;
     const pathname = window.location.pathname;
     
-    // GitHub Pages: https://riseatlas.github.io/BooksWithMusic/
+    // GitHub Pages: Dynamically extract repo name from current pathname
     if (origin.includes('github.io')) {
-      return `${origin}/BooksWithMusic/callback.html`;
+      // Extract repo name from pathname (e.g., /BooksWithMusic/index.html -> /BooksWithMusic)
+      const repoMatch = pathname.match(/^\/([^\/]+)/);
+      const repoName = repoMatch ? repoMatch[1] : '';
+      return `${origin}/${repoName}/callback.html`;
     }
     
     // Local development with port
