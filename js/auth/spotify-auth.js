@@ -19,7 +19,7 @@
  * 5. Exchange code for access token using PKCE verifier
  * 6. Store access token (expires in 1 hour) and refresh token (never expires)
  * 7. Use access token for API calls
- * 8. When expired, refresh automatically 
+ * 8. When expired, refresh automatically  
  * 
  * SPOTIFY API CONTRACT:
  * - Auth URL: https://accounts.spotify.com/authorize (PKCE/code redirect)
