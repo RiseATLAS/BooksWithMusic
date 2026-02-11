@@ -1,97 +1,83 @@
 /**
- * SpotifyAuth - Spotify OAuth 2.0 Authentication
+ * SpotifyAuth - Spotify OAuth 2.0 PKCE Authentication
  * 
  * RESPONSIBILITIES:
- * - Handle OAuth 2.0 Authorization Code Flow
+ * - Handle OAuth 2.0 Authorization Code + PKCE Flow (recommended for SPAs)
  * - Redirect user to Spotify authorization page
  * - Handle OAuth callback with authorization code
- * - Exchange authorization code for access/refresh tokens
+ * - Exchange authorization code for access/refresh tokens (PKCE)
  * - Store tokens securely in IndexedDB
  * - Auto-refresh expired tokens
  * - Provide logout/disconnect functionality
  * - Check authentication status
  * 
- * INTEGRATION NOTES:
- * - Used by spotify-api.js for authenticated API calls
- * - Tokens stored in IndexedDB (more secure than localStorage)
- * - See SPOTIFY-INTEGRATION.md for OAuth flow diagram
- * - Access token expires after 1 hour (auto-refreshed)
- * - Refresh token never expires (until user revokes)
+ * SPOTIFY API CONTRACT:
+ * - Auth URL: https://accounts.spotify.com/authorize (PKCE/code redirect)
+ * - Token endpoint: https://accounts.spotify.com/api/token (exchange/refresh)
+ * - Uses PKCE (no client secret exposed in browser)
+ * - Header format: Authorization: Bearer <access_token>
  * 
- * OAUTH SCOPES REQUIRED:
- * - user-modify-playback-state (control playback)
- * - user-read-playback-state (read playback state)
- * - playlist-modify-public (create public playlists)
- * - playlist-modify-private (create private playlists)
- * - user-read-currently-playing (get current track)
+ * OAUTH SCOPES (for Web Playback SDK - embedded streaming):
+ * - streaming (REQUIRED: Web Playback SDK streaming)
+ * - user-read-email (REQUIRED: SDK initialization)
+ * - user-read-private (REQUIRED: SDK initialization)
+ * - user-read-playback-state (read state + devices) - REQUIRED
+ * - user-modify-playback-state (play/pause/skip/volume) - REQUIRED
+ * - user-read-currently-playing (currently playing) - Optional
  * 
- * SPOTIFY APP SETUP:
- * 1. Create app at https://developer.spotify.com/dashboard
- * 2. Add redirect URI (e.g., http://localhost:8080/callback)
- * 3. Get Client ID and Client Secret
- * 4. Store in environment/config (not in git!)
+ * POLICY CONSTRAINTS:
+ * - Player endpoints only work for Spotify Premium users
+ * - Streaming applications may not be commercial
+ * - Spotify content may not be used to train ML/AI models
+ * 
+ * PLAYBACK MODEL: Embedded Web Playback SDK
+ * - Music streams directly in the browser
+ * - Creates a virtual "device" in user's Spotify
+ * - Full control over playback (volume, seek, etc.)
+ * - No external Spotify app needed (browser only)
+ * - Requires Premium subscription
+ * 
+ * SDK ERROR EVENTS TO HANDLE:
+ * - initialization_error
+ * - authentication_error
+ * - account_error (Premium missing)
+ * 
+ * CREDENTIALS:
+ * - Client ID: 8eb244f79da24a448a2633ba8552a5c8
+ * - Client Secret: (not needed for PKCE flow)
  * 
  * REFERENCES:
- * - Authorization Guide: https://developer.spotify.com/documentation/general/guides/authorization/
+ * - PKCE Guide: https://developer.spotify.com/documentation/web-api/tutorials/code-pkce-flow
+ * - Web Playback SDK: https://developer.spotify.com/documentation/web-playback-sdk/
  */
 
 export class SpotifyAuth {
   constructor() {
-    // Spotify App Credentials (should come from environment/config)
-    // TODO: Move to environment variables or secure config
-    this.clientId = this._getClientId();
-    this.clientSecret = this._getClientSecret();
+    // Spotify App Credentials (PKCE - no client secret needed)
+    this.clientId = '8eb244f79da24a448a2633ba8552a5c8';
     this.redirectUri = this._getRedirectUri();
     
-    // OAuth endpoints
+    // OAuth endpoints (Spotify API contract)
     this.authEndpoint = 'https://accounts.spotify.com/authorize';
     this.tokenEndpoint = 'https://accounts.spotify.com/api/token';
     
-    // Required scopes
+    // Required scopes for Web Playback SDK (embedded streaming)
     this.scopes = [
-      'user-modify-playback-state',
-      'user-read-playback-state',
-      'playlist-modify-public',
-      'playlist-modify-private',
-      'user-read-currently-playing',
-      'user-read-email'  // To identify user
+      'streaming',                         // REQUIRED: Web Playback SDK streaming
+      'user-read-email',                   // REQUIRED: SDK initialization
+      'user-read-private',                 // REQUIRED: SDK initialization
+      'user-read-playback-state',          // Read state + devices
+      'user-modify-playback-state',        // Play/pause/skip/volume
+      'user-read-currently-playing'        // Currently playing track
     ];
     
     // Token storage keys
     this.STORAGE_KEYS = {
       ACCESS_TOKEN: 'spotify_access_token',
       REFRESH_TOKEN: 'spotify_refresh_token',
-      TOKEN_EXPIRY: 'spotify_token_expiry'
+      TOKEN_EXPIRY: 'spotify_token_expiry',
+      CODE_VERIFIER: 'spotify_code_verifier'  // PKCE
     };
-  }
-
-  /**
-   * Get Spotify Client ID from config or localStorage
-   * @private
-   */
-  _getClientId() {
-    // Try localStorage first (user can set in settings)
-    const stored = localStorage.getItem('spotify_client_id');
-    if (stored) return stored;
-    
-    // TODO: Add environment variable support
-    // For now, require user to set in settings
-    return null;
-  }
-
-  /**
-   * Get Spotify Client Secret (should be server-side for production)
-   * @private
-   */
-  _getClientSecret() {
-    // ⚠️ WARNING: Client secret should NOT be in client-side code in production
-    // For personal use / friends & family, this is acceptable
-    // For production, implement PKCE flow or use backend proxy
-    
-    const stored = localStorage.getItem('spotify_client_secret');
-    if (stored) return stored;
-    
-    return null;
   }
 
   /**
@@ -99,13 +85,42 @@ export class SpotifyAuth {
    * @private
    */
   _getRedirectUri() {
-    // Allow override from settings
-    const stored = localStorage.getItem('spotify_redirect_uri');
-    if (stored) return stored;
-    
     // Auto-detect based on current URL
     const origin = window.location.origin;
-    return `${origin}/callback.html`;  // Dedicated callback page
+    const path = window.location.pathname.includes('/BooksWithMusic') ? '/BooksWithMusic' : '';
+    return `${origin}${path}/callback.html`;
+  }
+
+  /**
+   * Generate PKCE code verifier (random string)
+   * @private
+   */
+  _generateCodeVerifier() {
+    const array = new Uint8Array(32);
+    crypto.getRandomValues(array);
+    return this._base64URLEncode(array);
+  }
+
+  /**
+   * Generate PKCE code challenge from verifier
+   * @private
+   */
+  async _generateCodeChallenge(verifier) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(verifier);
+    const hash = await crypto.subtle.digest('SHA-256', data);
+    return this._base64URLEncode(new Uint8Array(hash));
+  }
+
+  /**
+   * Base64 URL encode (for PKCE)
+   * @private
+   */
+  _base64URLEncode(buffer) {
+    return btoa(String.fromCharCode(...buffer))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=/g, '');
   }
 
   /**
@@ -126,7 +141,6 @@ export class SpotifyAuth {
 
     // If token is expired or expiring soon (within 5 minutes), refresh it
     if (!token || !expiry || expiry < now + 300000) {
-
       return await this.refreshAccessToken();
     }
 
@@ -134,19 +148,24 @@ export class SpotifyAuth {
   }
 
   /**
-   * Start OAuth flow - redirect user to Spotify authorization page
+   * Start OAuth flow with PKCE - redirect user to Spotify authorization page
    */
-  authorize() {
-    if (!this.clientId) {
-      throw new Error('Spotify Client ID not configured. Please add it in Settings.');
-    }
+  async authorize() {
+    // Generate PKCE code verifier and challenge
+    const codeVerifier = this._generateCodeVerifier();
+    const codeChallenge = await this._generateCodeChallenge(codeVerifier);
+    
+    // Store code verifier for token exchange
+    localStorage.setItem(this.STORAGE_KEYS.CODE_VERIFIER, codeVerifier);
 
-    // Build authorization URL
+    // Build authorization URL with PKCE
     const params = new URLSearchParams({
       client_id: this.clientId,
       response_type: 'code',
       redirect_uri: this.redirectUri,
       scope: this.scopes.join(' '),
+      code_challenge_method: 'S256',
+      code_challenge: codeChallenge,
       show_dialog: 'false'  // Don't show dialog if already authorized
     });
 
@@ -157,7 +176,7 @@ export class SpotifyAuth {
   }
 
   /**
-   * Handle OAuth callback (exchange code for tokens)
+   * Handle OAuth callback with PKCE (exchange code for tokens)
    * Call this from callback page with authorization code
    */
   async handleCallback(authorizationCode) {
@@ -165,19 +184,21 @@ export class SpotifyAuth {
       throw new Error('No authorization code provided');
     }
 
-    if (!this.clientId || !this.clientSecret) {
-      throw new Error('Spotify credentials not configured');
+    // Get stored code verifier from PKCE flow
+    const codeVerifier = localStorage.getItem(this.STORAGE_KEYS.CODE_VERIFIER);
+    if (!codeVerifier) {
+      throw new Error('PKCE code verifier not found');
     }
 
+    console.log('🔐 Exchanging authorization code for tokens (PKCE)...');
 
-
-    // Prepare token request
+    // Prepare token request with PKCE (no client secret needed)
     const body = new URLSearchParams({
       grant_type: 'authorization_code',
       code: authorizationCode,
       redirect_uri: this.redirectUri,
       client_id: this.clientId,
-      client_secret: this.clientSecret
+      code_verifier: codeVerifier
     });
 
     try {
@@ -191,6 +212,7 @@ export class SpotifyAuth {
 
       if (!response.ok) {
         const error = await response.json();
+        console.error('❌ Token exchange error:', error);
         throw new Error(`Spotify token exchange failed: ${error.error_description || error.error}`);
       }
 
@@ -199,7 +221,10 @@ export class SpotifyAuth {
       // Store tokens
       await this._storeTokens(data.access_token, data.refresh_token, data.expires_in);
       
+      // Clean up code verifier
+      localStorage.removeItem(this.STORAGE_KEYS.CODE_VERIFIER);
 
+      console.log('✅ Spotify authentication successful');
       return true;
     } catch (error) {
       console.error('❌ Spotify authentication failed:', error);
@@ -208,7 +233,7 @@ export class SpotifyAuth {
   }
 
   /**
-   * Refresh expired access token using refresh token
+   * Refresh expired access token using refresh token (PKCE)
    */
   async refreshAccessToken() {
     const refreshToken = await this._getRefreshToken();
@@ -217,17 +242,13 @@ export class SpotifyAuth {
       throw new Error('No refresh token available. Please re-authenticate.');
     }
 
-    if (!this.clientId || !this.clientSecret) {
-      throw new Error('Spotify credentials not configured');
-    }
+    console.log('🔄 Refreshing access token...');
 
-
-
+    // PKCE refresh only needs client_id (no client secret)
     const body = new URLSearchParams({
       grant_type: 'refresh_token',
       refresh_token: refreshToken,
-      client_id: this.clientId,
-      client_secret: this.clientSecret
+      client_id: this.clientId
     });
 
     try {

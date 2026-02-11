@@ -109,7 +109,7 @@ export class MusicAPIFactory {
 
   /**
    * Get player for current music source
-   * Returns audio-player.js for Freesound, spotify-player.js for Spotify
+   * Returns audio-player.js for Freesound, spotify-sdk-player.js for Spotify
    * 
    * @param {string} source - 'freesound' or 'spotify'
    * @returns {Object} Player instance
@@ -119,9 +119,9 @@ export class MusicAPIFactory {
     const activeSource = source || settings.musicSource || 'freesound';
 
     if (activeSource === 'spotify') {
-      // Import dynamically to avoid loading if not needed
-      const { SpotifyPlayer } = await import('./spotify-player.js');
-      return new SpotifyPlayer();
+      // Import Web Playback SDK player (embedded streaming)
+      const { SpotifySDKPlayer } = await import('./spotify-sdk-player.js');
+      return new SpotifySDKPlayer();
     } else {
       // Return Freesound player (audio-player.js)
       // Note: This will be handled by music-manager.js

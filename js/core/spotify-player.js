@@ -252,11 +252,31 @@ export class SpotifyPlayer {
   }
 
   /**
-   * Set volume (not supported via API, user controls in Spotify app)
+   * Set volume (0-100) - Premium only, uses Spotify Connect API
    */
-  setVolume(volume) {
-    console.warn('⚠️ Volume control not available via Spotify API. Use Spotify app to adjust volume.');
-    // Note: Volume control IS available via Web Playback SDK, but requires Premium SDK integration
+  async setVolume(volume) {
+    if (!await this.auth.isAuthenticated()) {
+      throw new Error('Not authenticated with Spotify');
+    }
+
+    // Clamp volume to 0-100
+    const volumePercent = Math.max(0, Math.min(100, Math.round(volume)));
+    
+    const endpoint = `/me/player/volume?volume_percent=${volumePercent}${this.currentDeviceId ? `&device_id=${this.currentDeviceId}` : ''}`;
+
+    try {
+      await this._makeRequest(endpoint, 'PUT');
+      console.log(`🔊 Set Spotify volume to ${volumePercent}%`);
+      return true;
+    } catch (error) {
+      // Handle Premium requirement (403)
+      if (error.message.includes('Premium') || error.message.includes('403')) {
+        console.warn('⚠️ Volume control requires Spotify Premium');
+        throw new Error('Spotify Premium required for volume control');
+      }
+      console.error('❌ Error setting volume:', error);
+      throw error;
+    }
   }
 
   /**
@@ -423,10 +443,11 @@ export class SpotifyPlayer {
   }
 
   /**
-   * Make authenticated request to Spotify API
+   * Make authenticated request to Spotify API with error handling
+   * Implements Spotify API error handling decision table
    * @private
    */
-  async _makeRequest(endpoint, method = 'GET', body = null) {
+  async _makeRequest(endpoint, method = 'GET', body = null, retryCount = 0) {
     const token = await this.auth.getAccessToken();
     if (!token) {
       throw new Error('No Spotify access token available');
@@ -445,18 +466,58 @@ export class SpotifyPlayer {
       options.body = JSON.stringify(body);
     }
 
-    const response = await fetch(url, options);
+    try {
+      const response = await fetch(url, options);
 
-    // Handle 204 No Content (success with no response body)
-    if (response.status === 204) {
-      return { success: true };
+      // Handle 204 No Content (success with no response body)
+      if (response.status === 204) {
+        return { success: true };
+      }
+
+      // Handle 401 Unauthorized - refresh token and retry once
+      if (response.status === 401 && retryCount === 0) {
+        console.warn('🔄 Token expired, refreshing and retrying...');
+        await this.auth.refreshAccessToken();
+        return await this._makeRequest(endpoint, method, body, retryCount + 1);
+      }
+
+      // Handle 403 Forbidden - Premium required or account error
+      if (response.status === 403) {
+        const error = await response.json().catch(() => ({}));
+        console.error('❌ Spotify Premium required or account error:', error);
+        throw new Error('Spotify Premium required. Player endpoints only work for Premium users.');
+      }
+
+      // Handle 404 Not Found - fallback strategy
+      if (response.status === 404) {
+        const error = await response.json().catch(() => ({}));
+        console.warn('⚠️ Spotify endpoint not found (404):', endpoint);
+        throw new Error(`Spotify API endpoint not found: ${error.error?.message || 'Unknown error'}`);
+      }
+
+      // Handle 429 Rate Limited - backoff and retry
+      if (response.status === 429) {
+        const retryAfter = response.headers.get('Retry-After');
+        const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : 5000;
+        console.warn(`⏱️ Rate limited, waiting ${waitTime}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        return await this._makeRequest(endpoint, method, body, retryCount + 1);
+      }
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(`Spotify API error: ${error.error?.message || error.error || response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      // Re-throw our custom errors
+      if (error.message.includes('Premium') || error.message.includes('404') || error.message.includes('Rate limited')) {
+        throw error;
+      }
+      // Wrap other errors
+      console.error('❌ Spotify API request failed:', error);
+      throw new Error(`Spotify API request failed: ${error.message}`);
     }
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-      throw new Error(`Spotify API error: ${error.error?.message || error.error || response.statusText}`);
-    }
-
-    return await response.json();
   }
 }
