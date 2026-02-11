@@ -60,6 +60,20 @@
  * CREDENTIALS:
  * - Client ID: 8eb244f79da24a448a2633ba8552a5c8
  * - Client Secret: (not needed for PKCE flow)
+ * - Dashboard: https://developer.spotify.com/dashboard/applications/8eb244f79da24a448a2633ba8552a5c8
+ * 
+ * REDIRECT URIs (must be registered in Spotify Dashboard):
+ * - Production (GitHub Pages): https://riseatlas.github.io/BooksWithMusic/callback.html
+ * - Local development: http://localhost:8080/callback.html
+ * - Local development: http://127.0.0.1:8080/callback.html
+ * 
+ * TROUBLESHOOTING "INVALID_CLIENT: Invalid redirect URI":
+ * 1. Check console log for the actual redirect URI being used
+ * 2. Go to Spotify Developer Dashboard (link above)
+ * 3. Click "Edit Settings"
+ * 4. Add the exact redirect URI to "Redirect URIs" field
+ * 5. Click "Add" then "Save"
+ * 6. Try connecting again
  * 
  * REFERENCES:
  * - PKCE Guide: https://developer.spotify.com/documentation/web-api/tutorials/code-pkce-flow
@@ -97,13 +111,27 @@ export class SpotifyAuth {
 
   /**
    * Get redirect URI based on current location
+   * Must match exactly what's registered in Spotify Developer Dashboard
    * @private
    */
   _getRedirectUri() {
-    // Auto-detect based on current URL
     const origin = window.location.origin;
-    const path = window.location.pathname.includes('/BooksWithMusic') ? '/BooksWithMusic' : '';
-    return `${origin}${path}/callback.html`;
+    const pathname = window.location.pathname;
+    
+    // GitHub Pages: https://riseatlas.github.io/BooksWithMusic/
+    if (origin.includes('github.io')) {
+      return `${origin}/BooksWithMusic/callback.html`;
+    }
+    
+    // Local development with port
+    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      return `${origin}/callback.html`;
+    }
+    
+    // Custom domain or other hosting
+    // Extract base path (everything before the current page)
+    const basePath = pathname.substring(0, pathname.lastIndexOf('/'));
+    return `${origin}${basePath}/callback.html`;
   }
 
   /**
@@ -166,6 +194,11 @@ export class SpotifyAuth {
    * Start OAuth flow with PKCE - redirect user to Spotify authorization page
    */
   async authorize() {
+    // Log redirect URI for debugging
+    console.log('🎵 Spotify OAuth: Using redirect URI:', this.redirectUri);
+    console.log('📝 Make sure this exact URI is registered in your Spotify Developer Dashboard:');
+    console.log('   https://developer.spotify.com/dashboard/applications/' + this.clientId);
+    
     // Generate PKCE code verifier and challenge
     const codeVerifier = this._generateCodeVerifier();
     const codeChallenge = await this._generateCodeChallenge(codeVerifier);
@@ -186,7 +219,6 @@ export class SpotifyAuth {
 
     const authUrl = `${this.authEndpoint}?${params.toString()}`;
     
-
     window.location.href = authUrl;
   }
 
