@@ -227,9 +227,11 @@ export class SpotifyAPI {
         return [];
       }
 
+      console.log(`🔍 Spotify returned ${data.tracks.items.length} items`);
+      
       const tracks = data.tracks.items.map(track => this._formatTrack(track));
       
-      console.log(`✅ Found ${tracks.length} Spotify tracks`);
+      console.log(`✅ Found ${tracks.length} Spotify tracks after formatting`);
       
       // Note: Audio features API sometimes returns 403 errors even with correct scopes
       // We'll skip audio features enrichment for now to avoid errors
@@ -259,37 +261,19 @@ export class SpotifyAPI {
     
     console.log(`🔍 Spotify searchByMood - Mood: ${mood}, Energy: ${energy}, Keywords:`, keywords, `Limit: ${limit}`);
     
-    // Map mood and energy to Spotify search parameters
-    const moodMap = {
-      'tense': ['intense', 'dramatic', 'dark'],
-      'peaceful': ['calm', 'peaceful', 'ambient'],
-      'epic': ['epic', 'orchestral', 'cinematic'],
-      'joyful': ['happy', 'upbeat', 'cheerful'],
-      'sad': ['sad', 'melancholy', 'emotional'],
-      'mysterious': ['mysterious', 'ethereal', 'ambient'],
-      'romantic': ['romantic', 'gentle', 'emotional'],
-      'adventurous': ['adventure', 'uplifting', 'energetic']
-    };
-
-    // Get search terms for this mood
-    const moodTerms = moodMap[mood.toLowerCase()] || [mood];
+    // Simplified: just search for the mood + instrumental
+    // Too many genre filters make the query too restrictive
+    const searchTerms = [mood, 'instrumental'];
     
-    // Add keywords
-    const allTerms = [...moodTerms, ...keywords.slice(0, 2)];
-    
-    // Add genre based on energy level
-    if (energy >= 4) {
-      allTerms.push('genre:soundtrack');
-    } else if (energy <= 2) {
-      allTerms.push('genre:ambient');
-    } else {
-      allTerms.push('genre:instrumental');
+    // Add one keyword if available
+    if (keywords && keywords.length > 0) {
+      searchTerms.push(keywords[0]);
     }
-
-    console.log(`🔍 Search terms:`, allTerms);
+    
+    console.log(`🔍 Search terms:`, searchTerms);
     
     // Use the existing searchByQuery method
-    return await this.searchByQuery(allTerms, limit);
+    return await this.searchByQuery(searchTerms, limit);
   }
 
   /**
