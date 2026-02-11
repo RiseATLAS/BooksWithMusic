@@ -169,7 +169,7 @@ export class SpotifyAPI {
    * This method provides the same interface as Freesound's searchByQuery
    * 
    * @param {Array<string>} queryTerms - Terms to search for (e.g., ['epic', 'orchestral'])
-   * @param {number} limit - Number of results
+   * @param {number} limit - Number of results (1-50, default 15)
    * @returns {Array} Array of track objects
    */
   async searchByQuery(queryTerms, limit = 15) {
@@ -177,6 +177,9 @@ export class SpotifyAPI {
       console.warn('⚠️ Spotify not authenticated');
       return [];
     }
+
+    // Validate and clamp limit to Spotify's allowed range (1-50)
+    limit = Math.max(1, Math.min(50, Math.floor(limit) || 15));
 
     // Get settings
     const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
