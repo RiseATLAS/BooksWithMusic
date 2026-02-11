@@ -144,9 +144,10 @@ export class SpotifySDKPlayer {
         // Create player instance
         this.player = new window.Spotify.Player({
           name: 'BooksWithMusic Reader',
-          getOAuthToken: async (cb) => {
-            const token = await this.auth.getAccessToken();
-            cb(token);
+          getOAuthToken: (cb) => {
+            // SDK expects synchronous callback invocation
+            // Use .then() instead of async/await per Spotify docs
+            this.auth.getAccessToken().then(token => cb(token));
           },
           volume: 0.7
         });
@@ -243,6 +244,15 @@ export class SpotifySDKPlayer {
       }
       
       this.emit('playStateChanged', this.isPlayingState);
+    });
+
+    // Autoplay Failed (mobile support)
+    this.player.addListener('autoplay_failed', () => {
+      console.warn('⚠️ Autoplay blocked by browser. User interaction required.');
+      this.emit('error', { 
+        type: 'autoplay_failed', 
+        message: 'Please click play to start music. Your browser blocked autoplay.' 
+      });
     });
   }
 
@@ -435,6 +445,26 @@ export class SpotifySDKPlayer {
     this.currentTrackIndex = 0;
     this.isPlayingState = false;
     console.log('🔌 Spotify SDK player disconnected');
+  }
+
+  /**
+   * Activate element for mobile autoplay support
+   * Call this from a user interaction event (click/tap) to enable autoplay
+   * Required for iOS and some mobile browsers
+   * @see https://developer.spotify.com/documentation/web-playback-sdk/reference#spotifyplayeractivateelement
+   */
+  async activateElement() {
+    if (!this.player) {
+      console.warn('⚠️ Cannot activate element: player not initialized');
+      return;
+    }
+
+    try {
+      await this.player.activateElement();
+      console.log('✅ Player element activated for mobile autoplay');
+    } catch (error) {
+      console.error('❌ Error activating element:', error);
+    }
   }
 
   /**

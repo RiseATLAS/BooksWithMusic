@@ -361,8 +361,15 @@ export class MusicPanelUI {
     // });
 
     // Playback controls
-    document.getElementById('play-pause')?.addEventListener('click', (e) => {
+    document.getElementById('play-pause')?.addEventListener('click', async (e) => {
       e.preventDefault();
+      
+      // Activate element for mobile autoplay support (iOS)
+      // This must be called from a user interaction event
+      if (this.currentMusicSource === 'spotify' && this.spotifyPlayer?.activateElement) {
+        await this.spotifyPlayer.activateElement();
+      }
+      
       this.togglePlayPause();
     });
 

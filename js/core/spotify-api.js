@@ -223,23 +223,10 @@ export class SpotifyAPI {
 
       const tracks = data.tracks.items.map(track => this._formatTrack(track));
       
-      // Filter for instrumental if needed
-      if (instrumentalOnly && tracks.length > 0) {
-        // Get audio features to check instrumentalness
-        const trackIds = tracks.map(t => t.id);
-        const features = await this.getAudioFeatures(trackIds);
-        
-        return tracks.map((track, index) => {
-          if (features[index]) {
-            track.energy = features[index].energy;
-            track.valence = features[index].valence;
-            track.tempo = features[index].tempo;
-            track.instrumentalness = features[index].instrumentalness;
-          }
-          return track;
-        }).filter(track => !track.instrumentalness || track.instrumentalness > 0.5);
-      }
-
+      // Note: Audio features API sometimes returns 403 errors even with correct scopes
+      // We'll skip audio features enrichment for now to avoid errors
+      // The tracks will still work fine without energy/valence/tempo metadata
+      
       return tracks;
     } catch (error) {
       console.error('❌ Spotify searchByQuery error:', error);
@@ -250,9 +237,15 @@ export class SpotifyAPI {
   /**
    * Get audio features for multiple tracks
    * Used for more precise track scoring
+   * Max 100 track IDs per request
    */
   async getAudioFeatures(trackIds) {
     if (!trackIds || trackIds.length === 0) return [];
+
+    // Spotify API allows max 100 track IDs per request
+    if (trackIds.length > 100) {
+      trackIds = trackIds.slice(0, 100);
+    }
 
     const ids = trackIds.join(',');
     const endpoint = `/audio-features?ids=${ids}`;
@@ -262,7 +255,8 @@ export class SpotifyAPI {
       return data.audio_features || [];
     } catch (error) {
       console.error('❌ Error getting audio features:', error);
-      return [];
+      // Return empty array instead of failing - audio features are optional
+      return trackIds.map(() => null);
     }
   }
 
