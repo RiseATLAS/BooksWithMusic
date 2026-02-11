@@ -10,18 +10,41 @@
  * - Convert MoodProcessor output to Spotify parameters
  * 
  * INTEGRATION NOTES:
- * - This is ONE of TWO music sources (see SPOTIFY-INTEGRATION.md)
+ * - This is ONE of TWO music sources (alternative to Freesound)
  * - Used when settings.musicSource === "spotify"
  * - Requires user authentication (spotify-auth.js)
  * - Returns track objects with Spotify URIs (not direct URLs)
- * - Works with spotify-player.js for playback control
+ * - Works with spotify-sdk-player.js for embedded playback
  * - See music-api-factory.js for API selection logic
  * 
  * API FEATURES:
  * - Recommendations: Get tracks based on audio features + genres
  * - Audio Features: Precise mood matching (energy, valence, tempo, etc.)
  * - Search: Text-based search with filters
- * - Playback Control: Play/pause/skip via Spotify Connect
+ * - Playback Control: Play/pause/skip via Web Playback SDK
+ * 
+ * TRACK SELECTION ALGORITHM:
+ * 1. Book Analysis (mood-processor.js) - Analyze chapters, detect mood/themes/energy, generate keywords
+ * 2. Track Search - Use Recommendations API with audio features (energy, valence, tempo, genre)
+ * 3. Track Scoring - Match keywords/genres, energy level, tempo, sort by score
+ * 4. Track Mapping - Assign 1-5 tracks per chapter, calculate shift points
+ * 
+ * SPOTIFY ENHANCEMENTS vs FREESOUND:
+ * - 100M+ tracks vs ~500K
+ * - Precise audio feature matching (energy, valence, tempo, instrumentalness)
+ * - Professional catalog with consistent quality
+ * - Example: "epic" mood → seed_genres: ["cinematic", "orchestral", "epic"],
+ *   target_energy: 0.85, target_valence: 0.6, target_instrumentalness: 0.8
+ * 
+ * RATE LIMITING:
+ * - API calls limited by Spotify (usually fine for personal use)
+ * - 100ms minimum interval between requests
+ * - Automatic rate limit handling (429 responses)
+ * 
+ * REQUIREMENTS:
+ * - Spotify Premium account
+ * - Valid OAuth tokens (from spotify-auth.js)
+ * - Internet connection
  * 
  * REFERENCES:
  * - Web API Reference: https://developer.spotify.com/documentation/web-api

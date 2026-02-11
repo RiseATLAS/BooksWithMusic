@@ -7,16 +7,42 @@
  * - Validate source availability (authentication, configuration)
  * - Handle fallback to default source if selected source unavailable
  * 
- * INTEGRATION NOTES:
- * - Used by music-manager.js to get correct API instance
- * - See SPOTIFY-INTEGRATION.md for architecture diagram
- * - Both APIs implement the same core interface
- * - Settings key: 'musicSource' = 'freesound' | 'spotify'
+ * DUAL-SOURCE ARCHITECTURE:
+ * 1. Freesound API (Default) - Free, CC0-licensed music, embedded HTML5 playback
+ * 2. Spotify API (Premium) - Professional catalog, embedded SDK playback
  * 
- * INTERFACE (both APIs must implement):
+ * COMMON INTERFACE (both APIs must implement):
  * - async searchTracks(keywords, limit, chapterAnalysis, bookProfile)
  * - async isConfigured()
  * - async getAllTracksForBook(bookAnalysis) [optional]
+ * 
+ * PLAYER INTERFACE (both players must implement):
+ * - async play(track) / pause() / stop() / skipToNext() / skipToPrevious()
+ * - isPlaying() / getCurrentTrack()
+ * - setVolume(level) [Freesound: 0-1, Spotify: 0-100]
+ * 
+ * MOOD → SPOTIFY MAPPING:
+ * - Energy: 1-5 → 0.2-1.0 (e.g., 1=calm 0.2, 5=energetic 1.0)
+ * - Tempo: slow=60-90 BPM, medium=90-120 BPM, fast=120-180 BPM
+ * - Valence: dark=0.1-0.3, sad=0.2-0.4, peaceful=0.5-0.7, joyful=0.7-0.9
+ * - Genres: viking→"nordic folk,epic", celtic→"celtic,irish folk", jazz→"jazz,swing,blues"
+ * 
+ * INTEGRATION NOTES:
+ * - Used by music-manager.js to get correct API instance
+ * - Settings key: 'musicSource' = 'freesound' | 'spotify'
+ * - Spotify requires Premium, Freesound works for all users
+ * - Both sources use same mood analysis system (mood-processor.js)
+ * 
+ * SPOTIFY LIMITATIONS:
+ * - Requires Spotify Premium (free users cannot use)
+ * - Requires internet connection (no offline mode)
+ * - Non-commercial use only
+ * - Cannot train AI/ML models on Spotify content
+ * 
+ * FREESOUND LIMITATIONS:
+ * - Limited catalog (~500K tracks vs Spotify's 100M+)
+ * - Variable quality (community-uploaded)
+ * - Inconsistent tagging
  * 
  * USAGE:
  * ```javascript
@@ -24,6 +50,11 @@
  * const api = await factory.getMusicAPI();
  * const tracks = await api.searchTracks(keywords, 20, analysis);
  * ```
+ * 
+ * REFERENCES:
+ * - Architecture diagram in code comments
+ * - Spotify Web API: https://developer.spotify.com/documentation/web-api
+ * - Freesound API: https://freesound.org/docs/api/
  */
 
 import { MusicAPI as FreesoundAPI } from './music-api.js';

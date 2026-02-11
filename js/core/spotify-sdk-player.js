@@ -10,17 +10,29 @@
  * - Emit events for UI updates
  * - Full playback control without external app
  * 
+ * MIGRATION FROM EXTERNAL CONTROL:
+ * - BEFORE: Required Spotify app open on external device, controlled via API
+ * - AFTER: Music streams directly in browser, no external app needed
+ * - Benefits: Full volume control (0-100%), perfect sync, unified UI, "BooksWithMusic Reader" virtual device
+ * 
  * SPOTIFY WEB PLAYBACK SDK:
  * - Streams Spotify content directly in browser
  * - Requires Premium subscription
  * - Creates virtual device visible in Spotify's device list
  * - Full control over playback state
  * - No external Spotify app needed
+ * - SDK script: https://sdk.scdn.co/spotify-player.js
  * 
  * SDK ERROR EVENTS (must handle):
  * - initialization_error: SDK failed to initialize
- * - authentication_error: Token invalid/expired
- * - account_error: User doesn't have Premium
+ * - authentication_error: Token invalid/expired (auto-refreshes)
+ * - account_error: User doesn't have Premium (shows error)
+ * - playback_error: Playback issues (logs and emits event)
+ * 
+ * REQUIREMENTS:
+ * - Spotify Premium (required for SDK)
+ * - Modern browser with Web Audio API
+ * - User must re-authenticate to get SDK scopes
  * 
  * POLICY CONSTRAINTS:
  * - Requires Spotify Premium
@@ -30,8 +42,14 @@
  * INTEGRATION:
  * - Used when settings.musicSource === "spotify"
  * - Replaces spotify-player.js (external control)
- * - SDK script loaded from https://sdk.scdn.co/spotify-player.js
  * - Implements same interface as audio-player.js
+ * - Loaded by music-api-factory.js
+ * 
+ * USER EXPERIENCE:
+ * - User authenticates once
+ * - Music automatically streams in browser
+ * - "BooksWithMusic Reader" appears in Spotify device list
+ * - Everything in one place, seamless experience
  * 
  * REFERENCES:
  * - Web Playback SDK: https://developer.spotify.com/documentation/web-playback-sdk/

@@ -11,6 +11,16 @@
  * - Provide logout/disconnect functionality
  * - Check authentication status
  * 
+ * OAUTH 2.0 FLOW (PKCE):
+ * 1. User clicks "Connect Spotify" in settings
+ * 2. Redirect to Spotify authorization page with PKCE challenge
+ * 3. User logs in and authorizes
+ * 4. Spotify redirects back with auth code
+ * 5. Exchange code for access token using PKCE verifier
+ * 6. Store access token (expires in 1 hour) and refresh token (never expires)
+ * 7. Use access token for API calls
+ * 8. When expired, refresh automatically
+ * 
  * SPOTIFY API CONTRACT:
  * - Auth URL: https://accounts.spotify.com/authorize (PKCE/code redirect)
  * - Token endpoint: https://accounts.spotify.com/api/token (exchange/refresh)
@@ -42,13 +52,18 @@
  * - authentication_error
  * - account_error (Premium missing)
  * 
+ * RE-AUTHENTICATION NOTE:
+ * - Users must re-authenticate to get new SDK scopes after migration
+ * - Old tokens only had external control scopes
+ * - New tokens include streaming, user-read-email, user-read-private
+ * 
  * CREDENTIALS:
  * - Client ID: 8eb244f79da24a448a2633ba8552a5c8
  * - Client Secret: (not needed for PKCE flow)
  * 
  * REFERENCES:
  * - PKCE Guide: https://developer.spotify.com/documentation/web-api/tutorials/code-pkce-flow
- * - Web Playback SDK: https://developer.spotify.com/documentation/web-playback-sdk/
+ * - Authorization Guide: https://developer.spotify.com/documentation/general/guides/authorization/
  */
 
 export class SpotifyAuth {

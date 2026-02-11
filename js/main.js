@@ -8,6 +8,7 @@
  * - Handle page routing (library vs reader)
  * - Manage global app state and user session
  * - Expose global instances (reader, settingsManager) for cross-component access
+ * - Check for app updates and notify users
  * 
  * COMPONENT INITIALIZATION ORDER:
  * 1. DatabaseManager (IndexedDB) - Local storage
@@ -20,6 +21,24 @@
  * - Listens to Firebase auth state changes
  * - Syncs settings from Firestore when user signs in
  * - Handles sign-in/sign-out UI updates
+ * 
+ * VERSION UPDATE SYSTEM:
+ * - Checks GitHub for new versions on startup
+ * - Re-checks every 5 minutes while app is running
+ * - Compares local version.json with GitHub version
+ * - Shows persistent notification until user reloads or dismisses
+ * - GitHub URL: https://raw.githubusercontent.com/RiseATLAS/BooksWithMusic/main/version.json
+ * - Uses cache: 'no-cache' to ensure fresh version from GitHub
+ * 
+ * VERSION RELEASE PROCESS:
+ * 1. Update version.json with new version, build date, and notes
+ * 2. Commit and push to GitHub
+ * 3. Users automatically notified within 5 minutes or on next app load
+ * 
+ * VERSION NUMBERING (Semantic Versioning):
+ * - X.0.0 → X.0.1: Bug fixes
+ * - X.0.0 → X.1.0: New features (backwards compatible)
+ * - X.0.0 → (X+1).0.0: Breaking changes
  */
 
 import { BookLibrary } from "./ui/library.js";

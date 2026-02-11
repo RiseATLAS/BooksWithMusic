@@ -10,9 +10,37 @@
  * - Build Spotify recommendations API query parameters
  * - Handle instrumentalness filtering
  * 
+ * MAPPING TABLES (from mood analysis to Spotify parameters):
+ * 
+ * ENERGY LEVELS (1-5 → 0.0-1.0):
+ * - Level 1 → 0.2 (Very calm)
+ * - Level 2 → 0.4 (Calm)
+ * - Level 3 → 0.6 (Moderate)
+ * - Level 4 → 0.8 (Energetic)
+ * - Level 5 → 1.0 (Very energetic)
+ * 
+ * TEMPO MAPPING:
+ * - slow: 60-90 BPM
+ * - medium: 90-120 BPM
+ * - fast: 120-180 BPM
+ * 
+ * VALENCE (Happiness/Positivity 0.0-1.0):
+ * - dark: 0.1-0.3 (Very negative/dark)
+ * - sad: 0.2-0.4 (Melancholic)
+ * - mysterious: 0.3-0.5 (Neutral/enigmatic)
+ * - tense: 0.4-0.6 (Anxious)
+ * - peaceful: 0.5-0.7 (Calm/content)
+ * - romantic: 0.6-0.8 (Warm/positive)
+ * - joyful: 0.7-0.9 (Happy)
+ * - epic: 0.5-0.7 (Triumphant)
+ * 
+ * GENRE MAPPING (Cultural/Era/Period):
+ * - Cultural: viking→"nordic folk,epic", celtic→"celtic,irish folk", eastern→"asian,world"
+ * - Era: baroque→"baroque,classical", jazz→"jazz,swing,blues", romantic→"romantic classical,piano"
+ * - Period: ancient→"epic,world,ancient", medieval→"medieval,folk", victorian→"classical,chamber"
+ * 
  * INTEGRATION NOTES:
  * - Used by spotify-api.js to convert MoodProcessor output
- * - See SPOTIFY-INTEGRATION.md for complete mapping tables
  * - Valence: 0.0 = very sad/dark, 1.0 = very happy/positive
  * - Energy: 0.0 = very calm, 1.0 = very energetic
  * - Instrumentalness: 0.0 = vocal, 1.0 = instrumental
