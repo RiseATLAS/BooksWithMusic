@@ -1,5 +1,5 @@
 // Cache version - increment this number when deploying updates
-const CACHE_VERSION = 'v20260211-1920';
+const CACHE_VERSION = 'v20260211-1921';
 const CACHE_NAME = `books-with-music-${CACHE_VERSION}`;
 const AUDIO_CACHE = 'booksWithMusic-audio-v2';
 
