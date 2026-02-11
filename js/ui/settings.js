@@ -721,7 +721,7 @@ export class SettingsUI {
 
   /**
    * Initiate Spotify OAuth connection flow
-   * Checks for required credentials before starting authorization
+   * Uses PKCE flow with hardcoded client ID (no secret needed)
    */
   async handleSpotifyConnect() {
     try {
@@ -729,17 +729,8 @@ export class SettingsUI {
       const { SpotifyAuth } = await import('../auth/spotify-auth.js');
       const spotifyAuth = new SpotifyAuth();
 
-      // Verify Spotify app credentials are configured (required for OAuth)
-      const clientId = localStorage.getItem('spotify_client_id');
-      const clientSecret = localStorage.getItem('spotify_client_secret');
-
-      if (!clientId || !clientSecret) {
-        this.showToast('Please configure Spotify credentials in Settings first', 'error');
-        console.warn('Spotify credentials not found in localStorage. Need: spotify_client_id, spotify_client_secret');
-        return;
-      }
-
-      // Start OAuth 2.0 authorization flow (redirects user to Spotify login)
+      // Start OAuth 2.0 PKCE authorization flow (redirects user to Spotify login)
+      // Client ID is hardcoded in SpotifyAuth class (PKCE = no client secret in browser)
       spotifyAuth.authorize();
       this.showToast('Redirecting to Spotify authorization...', 'info');
     } catch (error) {
