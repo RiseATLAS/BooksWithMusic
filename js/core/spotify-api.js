@@ -249,6 +249,8 @@ export class SpotifyAPI {
     mood = mood || 'peaceful';
     energy = energy || 3;
     
+    console.log(`🔍 Spotify searchByMood - Mood: ${mood}, Energy: ${energy}, Keywords:`, keywords, `Limit: ${limit}`);
+    
     // Map mood and energy to Spotify search parameters
     const moodMap = {
       'tense': ['intense', 'dramatic', 'dark'],
@@ -276,6 +278,8 @@ export class SpotifyAPI {
       allTerms.push('genre:instrumental');
     }
 
+    console.log(`🔍 Search terms:`, allTerms);
+    
     // Use the existing searchByQuery method
     return await this.searchByQuery(allTerms, limit);
   }

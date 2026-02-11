@@ -126,6 +126,7 @@ export class SpotifyMusicManager {
 
     try {
       console.log(`🎵 Fetching Spotify tracks for chapter ${chapterIndex}...`);
+      console.log(`   Mood: ${mapping.mood}, Energy: ${mapping.energy}, Keywords:`, mapping.keywords);
       
       // Use Spotify's recommendation API with chapter mood/energy
       const tracks = await this.spotifyAPI.searchByMood(
