@@ -245,6 +245,10 @@ export class SpotifyAPI {
    * @returns {Promise<Array>} Array of track objects
    */
   async searchByMood(mood, energy, keywords = [], limit = 5) {
+    // Default values for safety
+    mood = mood || 'peaceful';
+    energy = energy || 3;
+    
     // Map mood and energy to Spotify search parameters
     const moodMap = {
       'tense': ['intense', 'dramatic', 'dark'],

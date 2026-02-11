@@ -95,8 +95,8 @@ export class SpotifyMusicManager {
       
       this.chapterMappings[chapterIndex] = {
         chapterIndex,
-        mood: analysis.mood,
-        energy: analysis.energy,
+        mood: analysis.primaryMood || 'peaceful',
+        energy: analysis.energy || 3,
         keywords: analysis.keywords || [],
         tracks: [], // Will be populated on-demand
         tracksFetched: false
