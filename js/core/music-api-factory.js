@@ -76,9 +76,8 @@ export class MusicAPIFactory {
    * @returns {Promise<FreesoundAPI|SpotifyAPI>}
    */
   async getMusicAPI(preferredSource = null) {
-    // Get source from settings or parameter
-    const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
-    const source = preferredSource || settings.musicSource || 'freesound';
+    // Get source from localStorage (use 'music_source' key for consistency)
+    const source = preferredSource || localStorage.getItem('music_source') || 'freesound';
 
 
     // Try to return requested source
@@ -146,8 +145,7 @@ export class MusicAPIFactory {
    * @returns {Object} Player instance
    */
   async getPlayer(source = null) {
-    const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
-    const activeSource = source || settings.musicSource || 'freesound';
+    const activeSource = source || localStorage.getItem('music_source') || 'freesound';
 
     if (activeSource === 'spotify') {
       // Import Web Playback SDK player (embedded streaming)
@@ -180,11 +178,8 @@ export class MusicAPIFactory {
       throw new Error('Spotify is not configured. Please authenticate first.');
     }
 
-    // Update settings
-    const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
-    settings.musicSource = newSource;
-    localStorage.setItem('booksWithMusic-settings', JSON.stringify(settings));
-
+    // Update localStorage with new source
+    localStorage.setItem('music_source', newSource);
 
     // Return new API
     return await this.getMusicAPI(newSource);
@@ -195,7 +190,6 @@ export class MusicAPIFactory {
    * @returns {string} 'freesound' or 'spotify'
    */
   getCurrentSource() {
-    const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
-    return settings.musicSource || 'freesound';
+    return localStorage.getItem('music_source') || 'freesound';
   }
 }

@@ -178,6 +178,30 @@ export class MusicPanelUI {
       return;
     }
     
+    // Listen for music source changes (Freesound ↔ Spotify)
+    this.musicManager.on('musicSourceChanged', async (data) => {
+      console.log(`🔄 Music source changed to: ${data.source}`);
+      this.currentMusicSource = data.source;
+      
+      // Stop current playback when switching sources
+      if (this.audioPlayer?.isPlaying()) {
+        this.audioPlayer.pause();
+      }
+      if (this.spotifyPlayer) {
+        await this.spotifyPlayer.pause?.();
+      }
+      
+      // Update UI
+      this.updatePlayPauseButton(false);
+      
+      // Reload playlist with new tracks from the new source
+      if (this.currentChapter !== null) {
+        this.renderPlaylist();
+      }
+      
+      this.showToast(`Switched to ${data.source === 'spotify' ? 'Spotify' : 'Freesound'} (${data.trackCount} tracks loaded)`, 'success');
+    });
+    
     // Listen for chapter music changes
     this.musicManager.on('chapterMusicChanged', async (data) => {
       
@@ -1395,9 +1419,10 @@ export class MusicPanelUI {
   
   /**
    * Lazy-initialize the Spotify player
-   * Only loads SpotifyPlayer module when needed to reduce initial bundle size
+   * Uses Web Playback SDK for embedded streaming (music plays in browser)
+   * Only loads SpotifySDKPlayer module when needed to reduce initial bundle size
    * Returns cached instance if already initialized
-   * @returns {Promise<SpotifyPlayer>} The initialized Spotify player instance
+   * @returns {Promise<SpotifySDKPlayer>} The initialized Spotify SDK player instance
    */
   async initializeSpotifyPlayer() {
     if (this.spotifyPlayer) {
@@ -1405,14 +1430,14 @@ export class MusicPanelUI {
     }
 
     try {
-      // Dynamically import SpotifyPlayer module (lazy-loaded)
-      const { SpotifyPlayer } = await import('../core/spotify-player.js');
-      this.spotifyPlayer = new SpotifyPlayer();
+      // Dynamically import SpotifySDKPlayer module (embedded playback)
+      const { SpotifySDKPlayer } = await import('../core/spotify-sdk-player.js');
+      this.spotifyPlayer = new SpotifySDKPlayer();
       await this.spotifyPlayer.initialize();
-      console.log('✅ Spotify player initialized');
+      console.log('✅ Spotify Web Playback SDK initialized - music will stream in browser');
       return this.spotifyPlayer;
     } catch (error) {
-      console.error('❌ Failed to initialize Spotify player:', error);
+      console.error('❌ Failed to initialize Spotify SDK player:', error);
       throw error;
     }
   }
