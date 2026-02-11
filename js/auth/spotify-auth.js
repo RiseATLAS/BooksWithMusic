@@ -197,32 +197,42 @@ export class SpotifyAuth {
    * Start OAuth flow with PKCE - redirect user to Spotify authorization page
    */
   async authorize() {
-    // Log redirect URI for debugging
-    console.log('🎵 Spotify OAuth: Using redirect URI:', this.redirectUri);
-    console.log('📝 Make sure this exact URI is registered in your Spotify Developer Dashboard:');
-    console.log('   https://developer.spotify.com/dashboard/applications/' + this.clientId);
-    
-    // Generate PKCE code verifier and challenge
-    const codeVerifier = this._generateCodeVerifier();
-    const codeChallenge = await this._generateCodeChallenge(codeVerifier);
-    
-    // Store code verifier for token exchange
-    localStorage.setItem(this.STORAGE_KEYS.CODE_VERIFIER, codeVerifier);
+    try {
+      // Log redirect URI for debugging
+      console.log('🎵 Spotify OAuth: Using redirect URI:', this.redirectUri);
+      console.log('📝 Make sure this exact URI is registered in your Spotify Developer Dashboard:');
+      console.log('   https://developer.spotify.com/dashboard/applications/' + this.clientId);
+      
+      // Generate PKCE code verifier and challenge
+      const codeVerifier = this._generateCodeVerifier();
+      console.log('✅ Generated code verifier');
+      
+      const codeChallenge = await this._generateCodeChallenge(codeVerifier);
+      console.log('✅ Generated code challenge');
+      
+      // Store code verifier for token exchange
+      localStorage.setItem(this.STORAGE_KEYS.CODE_VERIFIER, codeVerifier);
+      console.log('✅ Stored code verifier in localStorage');
 
-    // Build authorization URL with PKCE
-    const params = new URLSearchParams({
-      client_id: this.clientId,
-      response_type: 'code',
-      redirect_uri: this.redirectUri,
-      scope: this.scopes.join(' '),
-      code_challenge_method: 'S256',
-      code_challenge: codeChallenge,
-      show_dialog: 'false'  // Don't show dialog if already authorized
-    });
+      // Build authorization URL with PKCE
+      const params = new URLSearchParams({
+        client_id: this.clientId,
+        response_type: 'code',
+        redirect_uri: this.redirectUri,
+        scope: this.scopes.join(' '),
+        code_challenge_method: 'S256',
+        code_challenge: codeChallenge,
+        show_dialog: 'false'  // Don't show dialog if already authorized
+      });
 
-    const authUrl = `${this.authEndpoint}?${params.toString()}`;
-    
-    window.location.href = authUrl;
+      const authUrl = `${this.authEndpoint}?${params.toString()}`;
+      console.log('🚀 Redirecting to Spotify authorization page:', authUrl);
+      
+      window.location.href = authUrl;
+    } catch (error) {
+      console.error('❌ Error in authorize():', error);
+      throw error;
+    }
   }
 
   /**
