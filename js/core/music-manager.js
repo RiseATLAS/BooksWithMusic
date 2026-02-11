@@ -280,7 +280,9 @@ export class MusicManager {
   }
   
   async getAllAvailableTracks() {
-    if (this.availableTracks.length === 0) {
+    // Only load tracks for Freesound source
+    // Spotify uses on-demand fetching via spotify-music-manager.js
+    if (this.availableTracks.length === 0 && this.currentMusicSource === 'freesound') {
       await this.loadTracksFromAPI();
     }
     return this.availableTracks;
@@ -288,6 +290,13 @@ export class MusicManager {
   
   async loadTracksFromAPI(bookVibeKeywords = null) {
     try {
+      // This method is ONLY for Freesound
+      // Spotify uses on-demand fetching via spotify-music-manager.js
+      if (this.currentMusicSource !== 'freesound') {
+        console.log('⚠️ loadTracksFromAPI called for non-Freesound source. Skipping.');
+        return [];
+      }
+      
       // Check cache first (only for Freesound)
       if (this.currentMusicSource === 'freesound') {
         const cachedTracks = await this._loadFromCache();

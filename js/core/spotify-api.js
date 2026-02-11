@@ -235,6 +235,48 @@ export class SpotifyAPI {
   }
 
   /**
+   * Search by mood characteristics
+   * Maps book moods to Spotify audio features and genres
+   * 
+   * @param {string} mood - Chapter mood (e.g., 'tense', 'peaceful', 'epic')
+   * @param {number} energy - Energy level 1-5
+   * @param {Array<string>} keywords - Additional mood keywords
+   * @param {number} limit - Max tracks to return
+   * @returns {Promise<Array>} Array of track objects
+   */
+  async searchByMood(mood, energy, keywords = [], limit = 5) {
+    // Map mood and energy to Spotify search parameters
+    const moodMap = {
+      'tense': ['intense', 'dramatic', 'dark'],
+      'peaceful': ['calm', 'peaceful', 'ambient'],
+      'epic': ['epic', 'orchestral', 'cinematic'],
+      'joyful': ['happy', 'upbeat', 'cheerful'],
+      'sad': ['sad', 'melancholy', 'emotional'],
+      'mysterious': ['mysterious', 'ethereal', 'ambient'],
+      'romantic': ['romantic', 'gentle', 'emotional'],
+      'adventurous': ['adventure', 'uplifting', 'energetic']
+    };
+
+    // Get search terms for this mood
+    const moodTerms = moodMap[mood.toLowerCase()] || [mood];
+    
+    // Add keywords
+    const allTerms = [...moodTerms, ...keywords.slice(0, 2)];
+    
+    // Add genre based on energy level
+    if (energy >= 4) {
+      allTerms.push('genre:soundtrack');
+    } else if (energy <= 2) {
+      allTerms.push('genre:ambient');
+    } else {
+      allTerms.push('genre:instrumental');
+    }
+
+    // Use the existing searchByQuery method
+    return await this.searchByQuery(allTerms, limit);
+  }
+
+  /**
    * Get audio features for multiple tracks
    * Used for more precise track scoring
    * Max 100 track IDs per request

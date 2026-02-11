@@ -242,18 +242,31 @@ export class MusicPanelUI {
     try {
       
       if (!this.musicManager) {
-        console.warn(' No music manager available');
+        console.warn('⚠️ No music manager available');
         return;
       }
       
       // Update auto-detected keywords display whenever playlist loads
       this.updateAutoDetectedKeywordsDisplay();
       
-      // Get available tracks from music manager
-      const allTracks = await this.musicManager.getAllAvailableTracks();
+      // Check music source
+      const musicSource = localStorage.getItem('music_source') || 'freesound';
+      let allTracks = [];
+      
+      if (musicSource === 'spotify') {
+        // For Spotify, get tracks for this specific chapter (on-demand)
+        if (this.musicManager.getTracksForChapter) {
+          allTracks = await this.musicManager.getTracksForChapter(chapterIndex);
+        }
+      } else {
+        // For Freesound, get all available tracks
+        if (this.musicManager.getAllAvailableTracks) {
+          allTracks = await this.musicManager.getAllAvailableTracks();
+        }
+      }
       
       if (allTracks.length === 0) {
-        console.warn(' No tracks available - check if music is enabled and API key is set');
+        console.warn('⚠️ No tracks available - check if music is enabled and API key is set');
         this.playlist = [];
         this.renderPlaylist();
         return;

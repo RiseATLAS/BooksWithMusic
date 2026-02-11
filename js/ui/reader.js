@@ -1,5 +1,6 @@
 import { EPUBParser } from '../core/epub-parser.js';
 import { MusicManager } from '../core/music-manager.js';
+import { SpotifyMusicManager } from '../core/spotify-music-manager.js';
 import { MoodProcessor } from '../core/mood-processor.js';
 import { saveBookProgress } from '../storage/firestore-storage.js';
 import { auth } from '../config/firebase-config.js';
@@ -15,7 +16,17 @@ export class ReaderUI {
     this.db = db;
     this.parser = new EPUBParser();
     this.moodProcessor = new MoodProcessor();
-    this.musicManager = new MusicManager(db);
+    
+    // Initialize the appropriate music manager based on source
+    const musicSource = localStorage.getItem('music_source') || 'freesound';
+    if (musicSource === 'spotify') {
+      this.musicManager = new SpotifyMusicManager();
+      console.log('🎵 Using Spotify Music Manager');
+    } else {
+      this.musicManager = new MusicManager(db);
+      console.log('🎵 Using Freesound Music Manager');
+    }
+    
     this.currentBook = null;
     this.currentChapterIndex = 0;
     this.chapters = [];
