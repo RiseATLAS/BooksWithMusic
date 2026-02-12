@@ -155,31 +155,37 @@ export class SpotifySDKPlayer {
         // Setup event listeners BEFORE connecting
         this._setupSDKEventListeners();
 
-        // Connect to Spotify and wait for ready event
+        // Wait for the device to be ready BEFORE connecting
+        // Set up promise to wait for ready event
+        const readyPromise = new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error('Spotify device ready timeout - device did not become ready within 10 seconds'));
+          }, 10000); // 10 second timeout
+
+          // Set up one-time listener for ready event
+          const readyHandler = ({ deviceId }) => {
+            clearTimeout(timeout);
+            console.log('✅ Spotify device ready - initialization complete');
+            resolve(deviceId);
+          };
+
+          // Wait for ready event (will fire after connect())
+          this.once('ready', readyHandler);
+        });
+
+        // Connect to Spotify (this will trigger the ready event)
         const connected = await this.player.connect();
         
         if (!connected) {
           throw new Error('Failed to connect to Spotify');
         }
 
-        // Wait for the device to be ready before resolving
-        await new Promise((resolve, reject) => {
-          const timeout = setTimeout(() => {
-            reject(new Error('Spotify device ready timeout - device did not become ready within 10 seconds'));
-          }, 10000); // 10 second timeout
+        console.log('⏳ Waiting for Spotify device to be ready...');
+        
+        // Wait for device ID to be set via ready event
+        await readyPromise;
 
-          // Set up one-time listener for ready event
-          const readyHandler = () => {
-            clearTimeout(timeout);
-            console.log('✅ Spotify device ready - initialization complete');
-            resolve();
-          };
-
-          // Wait for ready event (must happen after connect())
-          this.once('ready', readyHandler);
-        });
-
-        console.log('✅ Spotify Web Playback SDK initialized');
+        console.log('✅ Spotify Web Playback SDK initialized with device:', this.deviceId);
         this.sdkReady = true;
         
         return true;

@@ -388,28 +388,51 @@ export async function logTrackUsage(userId, trackInfo) {
     return;
   }
   
+  // Determine source - check multiple properties for robustness
+  const isSpotify = trackInfo.source === 'spotify' || 
+                    trackInfo.uri?.startsWith('spotify:') ||
+                    trackInfo.spotifyUri?.startsWith('spotify:');
+  
   // Spotify tracks don't have license field (commercial service)
   // Only verify license for Freesound tracks
-  if (trackInfo.source !== 'spotify' && (!trackInfo.license || !trackInfo.license.type)) {
+  if (!isSpotify && (!trackInfo.license || !trackInfo.license.type)) {
     console.error(`❌ Attempted to log track without license: ${trackInfo.title}`);
     return;
   }
   
   try {
     const usageRef = doc(db, 'trackUsage', `${userId}_${trackInfo.freesoundId || trackInfo.id}_${Date.now()}`);
-    await setDoc(usageRef, {
+    
+    // Different log structure for Spotify vs Freesound
+    const logData = {
       userId: userId,
-      freesoundId: trackInfo.freesoundId,
       trackTitle: trackInfo.title,
       artist: trackInfo.artist,
-      license: trackInfo.license.type,
-      sourceUrl: trackInfo.license.sourceUrl,
-      fetchedAt: trackInfo.license.fetchedAt,
       playedAt: serverTimestamp(),
       duration: trackInfo.duration,
-      tags: trackInfo.tags || []
-    });
-    console.log(`Track usage logged: ${trackInfo.title} (License: ${trackInfo.license.type})`);
+      tags: trackInfo.tags || [],
+      source: isSpotify ? 'spotify' : 'freesound'
+    };
+    
+    // Add Freesound-specific fields only for Freesound tracks
+    if (!isSpotify) {
+      logData.freesoundId = trackInfo.freesoundId;
+      logData.license = trackInfo.license.type;
+      logData.sourceUrl = trackInfo.license.sourceUrl;
+      logData.fetchedAt = trackInfo.license.fetchedAt;
+    } else {
+      // Add Spotify-specific fields
+      logData.spotifyId = trackInfo.id;
+      logData.spotifyUri = trackInfo.uri || trackInfo.spotifyUri;
+    }
+    
+    await setDoc(usageRef, logData);
+    
+    if (isSpotify) {
+      console.log(`Track usage logged: ${trackInfo.title} (Spotify)`);
+    } else {
+      console.log(`Track usage logged: ${trackInfo.title} (License: ${trackInfo.license.type})`);
+    }
 
   } catch (error) {
     console.error('Failed to log track usage:', error);

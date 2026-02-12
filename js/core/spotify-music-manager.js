@@ -128,11 +128,12 @@ export class SpotifyMusicManager {
       console.log(`🎵 Fetching Spotify tracks for chapter ${chapterIndex}...`);
       
       // Use Spotify's recommendation API with chapter mood/energy
+      // Limit to 3 tracks per chapter for faster loading
       const tracks = await this.spotifyAPI.searchByMood(
         mapping.mood,
         mapping.energy,
         mapping.keywords,
-        5 // Get 5 tracks per chapter
+        3 // Get 3 tracks per chapter (reduce for faster loading)
       );
 
       mapping.tracks = tracks;
