@@ -109,17 +109,65 @@ export class SpotifyMusicManager {
     this.bookAnalysis.chapterAnalyses.forEach((analysis, index) => {
       const chapterIndex = index + 1;
       
+      // Generate shift points within the chapter
+      const shiftPoints = this._generateShiftPoints(analysis);
+      
       this.chapterMappings[chapterIndex] = {
         chapterIndex,
         mood: analysis.primaryMood || 'peaceful',
         energy: analysis.energy || 3,
         keywords: analysis.keywords || [],
+        shiftPoints: shiftPoints, // Mood shifts within chapter
         tracks: [], // Will be populated on-demand
         tracksFetched: false
       };
     });
 
     console.log(`📖 Created Spotify mappings for ${Object.keys(this.chapterMappings).length} chapters`);
+  }
+
+  /**
+   * Generate shift points within a chapter based on mood changes
+   * @private
+   */
+  _generateShiftPoints(chapterAnalysis) {
+    const shiftPoints = [];
+    
+    // If chapter has mood shifts, create shift points
+    if (chapterAnalysis.moodShifts && chapterAnalysis.moodShifts.length > 0) {
+      let previousMood = chapterAnalysis.primaryMood || 'peaceful';
+      
+      chapterAnalysis.moodShifts.forEach((shift, index) => {
+        shiftPoints.push({
+          page: shift.page || 1,
+          pageInChapter: shift.page || 1,
+          fromMood: previousMood,
+          toMood: shift.mood || chapterAnalysis.primaryMood,
+          mood: shift.mood || chapterAnalysis.primaryMood,
+          energy: shift.energy || chapterAnalysis.energy,
+          keywords: shift.keywords || chapterAnalysis.keywords,
+          description: shift.description || `Shift to ${shift.mood}`
+        });
+        previousMood = shift.mood || chapterAnalysis.primaryMood;
+      });
+    }
+    
+    // If no explicit shifts, create one shift point at the beginning
+    if (shiftPoints.length === 0) {
+      const primaryMood = chapterAnalysis.primaryMood || 'peaceful';
+      shiftPoints.push({
+        page: 1,
+        pageInChapter: 1,
+        fromMood: primaryMood,
+        toMood: primaryMood,
+        mood: primaryMood,
+        energy: chapterAnalysis.energy || 3,
+        keywords: chapterAnalysis.keywords || [],
+        description: 'Chapter opening'
+      });
+    }
+    
+    return shiftPoints.sort((a, b) => a.pageInChapter - b.pageInChapter);
   }
 
   /**
@@ -278,33 +326,101 @@ export class SpotifyMusicManager {
     console.log(`📖 Chapter changed to ${chapterIndex} (Spotify)`);
     
     // Reset track state when chapter changes
+    this.currentChapterIndex = chapterIndex;
+    this.currentPageInChapter = 1;
     this.currentTrackIndex = 0;
     this.lastMood = null;
     this.lastEnergy = null;
     this.lastKeywords = [];
     
     // Fetch tracks for current chapter only
-    // Don't pre-fetch next chapter to avoid rate limiting and API errors
     const tracks = await this.getTracksForChapter(chapterIndex);
 
     const mapping = this.chapterMappings[chapterIndex];
+    
+    // Get current mood based on page 1
+    const currentShift = this._getCurrentShiftPoint(chapterIndex, 1);
     
     // Emit event for UI in the format music-panel expects
     this.emit('chapterMusicChanged', { 
       chapterIndex,
       currentPageInChapter: 1,
-      chapterShiftPoints: { shiftPoints: [] }, // Spotify uses dynamic shift detection
+      chapterShiftPoints: { 
+        shiftPoints: mapping?.shiftPoints || [] 
+      },
       analysis: {
-        mood: mapping?.mood,
-        energy: mapping?.energy,
-        keywords: mapping?.keywords || []
+        mood: currentShift?.mood || mapping?.mood,
+        energy: currentShift?.energy || mapping?.energy,
+        keywords: currentShift?.keywords || mapping?.keywords || []
       },
       recommendedTracks: tracks.map((track, index) => ({
         trackId: track.id,
-        score: 100 - (index * 10), // Higher score for earlier tracks
-        reasoning: `Spotify track ${index + 1} for ${mapping?.mood} mood`
+        score: 100 - (index * 10),
+        reasoning: `Spotify track ${index + 1} for ${currentShift?.mood || mapping?.mood} mood`
       }))
     });
+  }
+
+  /**
+   * Handle page change within a chapter
+   * @param {number} chapterIndex - Current chapter index
+   * @param {number} pageInChapter - Current page within chapter
+   */
+  async onPageChange(chapterIndex, pageInChapter) {
+    // Update current position
+    this.currentChapterIndex = chapterIndex;
+    this.currentPageInChapter = pageInChapter;
+    
+    // Check if we crossed a shift point
+    const newShift = this._getCurrentShiftPoint(chapterIndex, pageInChapter);
+    const mapping = this.chapterMappings[chapterIndex];
+    
+    if (!newShift || !mapping) return;
+    
+    // Check if mood/energy changed significantly
+    const moodChanged = newShift.mood !== this.lastMood;
+    const energyChanged = Math.abs((newShift.energy || 3) - (this.lastEnergy || 3)) >= 2;
+    
+    if (moodChanged || energyChanged) {
+      console.log(`🎵 Mood shift detected at page ${pageInChapter}: ${this.lastMood || 'start'} → ${newShift.mood}`);
+      
+      // Fetch new tracks for the new mood if needed
+      // For now, we'll just emit the shift event
+      this.emit('moodShiftDetected', {
+        chapterIndex,
+        pageInChapter,
+        oldMood: this.lastMood,
+        newMood: newShift.mood,
+        oldEnergy: this.lastEnergy,
+        newEnergy: newShift.energy
+      });
+      
+      this.lastMood = newShift.mood;
+      this.lastEnergy = newShift.energy;
+      this.lastKeywords = newShift.keywords || [];
+    }
+  }
+
+  /**
+   * Get the current shift point for a given page in a chapter
+   * @private
+   */
+  _getCurrentShiftPoint(chapterIndex, pageInChapter) {
+    const mapping = this.chapterMappings[chapterIndex];
+    if (!mapping || !mapping.shiftPoints) return null;
+    
+    // Find the most recent shift point at or before this page
+    let currentShift = mapping.shiftPoints[0];
+    
+    for (const shift of mapping.shiftPoints) {
+      if (shift.pageInChapter <= pageInChapter) {
+        currentShift = shift;
+      } else {
+        break;
+      }
+    }
+    
+    return currentShift;
   }
 
   /**

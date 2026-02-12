@@ -864,6 +864,9 @@ export class ReaderUI {
           this.currentPage = this.calculateCurrentPageNumber();
           this.totalPages = this.calculateTotalPages();
           this.updatePageIndicator();
+          
+          // Don't notify music manager here - this is just restoring position after layout change
+          // Normal page navigation handles music updates through _notifyPageChange()
         }
       }
     });
@@ -964,6 +967,9 @@ export class ReaderUI {
             this.currentPage = this.calculateCurrentPageNumber();
             this.totalPages = this.calculateTotalPages();
             this.updatePageIndicator();
+            
+            // Don't notify music manager here - this is just restoring position after layout change
+            // Normal page navigation handles music updates through _notifyPageChange()
           }
         }
       }
