@@ -388,14 +388,15 @@ export async function logTrackUsage(userId, trackInfo) {
     return;
   }
   
-  // Verify track has a license
-  if (!trackInfo.license || !trackInfo.license.type) {
+  // Spotify tracks don't have license field (commercial service)
+  // Only verify license for Freesound tracks
+  if (trackInfo.source !== 'spotify' && (!trackInfo.license || !trackInfo.license.type)) {
     console.error(`❌ Attempted to log track without license: ${trackInfo.title}`);
     return;
   }
   
   try {
-    const usageRef = doc(db, 'trackUsage', `${userId}_${trackInfo.freesoundId}_${Date.now()}`);
+    const usageRef = doc(db, 'trackUsage', `${userId}_${trackInfo.freesoundId || trackInfo.id}_${Date.now()}`);
     await setDoc(usageRef, {
       userId: userId,
       freesoundId: trackInfo.freesoundId,

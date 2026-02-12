@@ -165,23 +165,18 @@ export class SpotifySDKPlayer {
         // Wait for the device to be ready before resolving
         await new Promise((resolve, reject) => {
           const timeout = setTimeout(() => {
-            reject(new Error('Spotify device ready timeout'));
+            reject(new Error('Spotify device ready timeout - device did not become ready within 10 seconds'));
           }, 10000); // 10 second timeout
 
-          // Listen for ready event
+          // Set up one-time listener for ready event
           const readyHandler = () => {
             clearTimeout(timeout);
+            console.log('✅ Spotify device ready - initialization complete');
             resolve();
           };
 
-          // If already ready (race condition), resolve immediately
-          if (this.deviceId) {
-            clearTimeout(timeout);
-            resolve();
-          } else {
-            // Wait for ready event
-            this.once('ready', readyHandler);
-          }
+          // Wait for ready event (must happen after connect())
+          this.once('ready', readyHandler);
         });
 
         console.log('✅ Spotify Web Playback SDK initialized');

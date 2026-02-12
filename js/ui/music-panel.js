@@ -1119,7 +1119,7 @@ export class MusicPanelUI {
       // Check if current source has an active/loaded track
       // (For Spotify: has active track in player, For Freesound: has loaded audio in AudioPlayer)
       const hasCurrentTrack = this.currentMusicSource === 'spotify' 
-        ? this.spotifyPlayer?.hasActiveTrack()
+        ? this.spotifyPlayer?.currentTrack
         : this.audioPlayer.state.currentTrack;
       
       console.log(`⏯️ Toggle play/pause | Playing:${isPlaying} | Source:${this.currentMusicSource} | Track:${hasCurrentTrack} | Playlist:${this.playlist.length} | Index:${this.currentTrackIndex}`);
