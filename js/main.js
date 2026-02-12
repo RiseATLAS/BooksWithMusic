@@ -68,7 +68,7 @@ class BooksWithMusicApp {
     // Note: MusicPanelUI needs reader's musicManager, initialized after reader
     this.musicPanel = null;
     this.currentUser = null;
-    this.latestDeployedVersion = null;
+    this.latestDeployedVersion = null; 
   }
 
   async initialize() {
