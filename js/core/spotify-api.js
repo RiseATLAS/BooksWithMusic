@@ -215,7 +215,18 @@ export class SpotifyAPI {
       searchQuery += ' genre:instrumental';
     }
 
+    // Ensure limit is a valid integer (additional safety check)
+    const validLimit = Math.floor(Number(limit)) || 20;
+    if (validLimit < 1 || validLimit > 50) {
+      console.warn(`⚠️ Invalid limit ${limit}, using default 20`);
+      limit = 20;
+    } else {
+      limit = validLimit;
+    }
+
     const endpoint = `/search?q=${encodeURIComponent(searchQuery)}&type=track&limit=${limit}`;
+    
+    console.log(`🔍 Spotify search: "${searchQuery}" (limit: ${limit})`);
 
     try {
       const data = await this._makeRequest(endpoint);

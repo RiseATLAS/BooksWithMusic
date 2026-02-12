@@ -209,6 +209,33 @@ export class SpotifyMusicManager {
   }
 
   /**
+   * Pre-fetch next chapter's tracks (called when near end of current chapter)
+   * @param {number} currentChapterIndex - Current chapter index
+   */
+  async preFetchNextChapter(currentChapterIndex) {
+    const nextChapterIndex = currentChapterIndex + 1;
+    
+    if (!this.chapterMappings[nextChapterIndex]) {
+      return; // No next chapter
+    }
+    
+    const mapping = this.chapterMappings[nextChapterIndex];
+    
+    // Only pre-fetch if not already fetched
+    if (mapping.tracksFetched && mapping.tracks.length > 0) {
+      return; // Already have tracks
+    }
+    
+    console.log(`⏩ Pre-fetching tracks for next chapter ${nextChapterIndex}...`);
+    
+    try {
+      await this.getTracksForChapter(nextChapterIndex);
+    } catch (error) {
+      console.warn(`Failed to pre-fetch chapter ${nextChapterIndex}:`, error);
+    }
+  }
+
+  /**
    * Check if there's a significant change in mood, energy, or keywords
    * @private
    */
@@ -256,14 +283,9 @@ export class SpotifyMusicManager {
     this.lastEnergy = null;
     this.lastKeywords = [];
     
-    // Pre-fetch tracks for current and next chapter
+    // Fetch tracks for current chapter only
+    // Don't pre-fetch next chapter to avoid rate limiting and API errors
     const tracks = await this.getTracksForChapter(chapterIndex);
-    
-    if (this.chapterMappings[chapterIndex + 1]) {
-      this.getTracksForChapter(chapterIndex + 1).catch(err => {
-        console.warn('Failed to pre-fetch next chapter tracks:', err);
-      });
-    }
 
     const mapping = this.chapterMappings[chapterIndex];
     

@@ -2006,6 +2006,14 @@ export class ReaderUI {
         return;
       }
       
+      // Pre-fetch next chapter's music when approaching end of current chapter
+      // (last 3 pages of chapter)
+      if (this.musicManager && 
+          this.musicManager.preFetchNextChapter && 
+          this.currentPageInChapter >= currentPagesInChapter - 3) {
+        this.musicManager.preFetchNextChapter(this.currentChapterIndex);
+      }
+      
       await this._flipToPage(this.currentPageInChapter + 1, 'next');
     } catch (error) {
       console.error(' Error navigating to next page:', error);
