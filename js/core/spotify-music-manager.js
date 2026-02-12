@@ -31,6 +31,12 @@ export class SpotifyMusicManager {
     this.currentBookId = null;
     this.chapters = [];
     this.eventHandlers = {};
+    
+    // Track current state to detect significant changes
+    this.lastMood = null;
+    this.lastEnergy = null;
+    this.lastKeywords = [];
+    this.currentTrackIndex = 0;
   }
 
   /**
@@ -128,12 +134,12 @@ export class SpotifyMusicManager {
       console.log(`🎵 Fetching Spotify tracks for chapter ${chapterIndex}...`);
       
       // Use Spotify's recommendation API with chapter mood/energy
-      // Limit to 3 tracks per chapter for faster loading
+      // Max 30 tracks per chapter - enough variety without overwhelming
       const tracks = await this.spotifyAPI.searchByMood(
         mapping.mood,
         mapping.energy,
         mapping.keywords,
-        3 // Get 3 tracks per chapter (reduce for faster loading)
+        30 // Max 30 tracks per chapter
       );
 
       mapping.tracks = tracks;
@@ -150,20 +156,75 @@ export class SpotifyMusicManager {
 
   /**
    * Get the current chapter's track to play
+   * Only switches tracks when mood/energy/keywords significantly change
    * @param {number} chapterIndex - Chapter number
    * @param {number} pageInChapter - Current page within chapter
+   * @param {Object} currentMood - Current mood analysis (optional)
    * @returns {Promise<Object|null>} Spotify track object or null
    */
-  async getCurrentTrack(chapterIndex, pageInChapter = 0) {
+  async getCurrentTrack(chapterIndex, pageInChapter = 0, currentMood = null) {
     const tracks = await this.getTracksForChapter(chapterIndex);
     
     if (!tracks || tracks.length === 0) {
       return null;
     }
 
-    // Simple rotation: use page number to select track
-    const trackIndex = pageInChapter % tracks.length;
-    return tracks[trackIndex];
+    // If no mood info provided, use chapter-level mapping
+    const mapping = this.chapterMappings[chapterIndex];
+    const mood = currentMood?.mood || mapping?.mood;
+    const energy = currentMood?.energy || mapping?.energy;
+    const keywords = currentMood?.keywords || mapping?.keywords || [];
+
+    // Check if there's a significant change
+    const shouldSwitchTrack = this._hasSignificantChange(mood, energy, keywords);
+
+    if (shouldSwitchTrack) {
+      // Significant change detected - advance to next track
+      this.currentTrackIndex = (this.currentTrackIndex + 1) % tracks.length;
+      console.log(`🔄 Mood/scenario changed - switching to track ${this.currentTrackIndex + 1}/${tracks.length}`);
+    }
+
+    // Update last known state
+    this.lastMood = mood;
+    this.lastEnergy = energy;
+    this.lastKeywords = keywords;
+
+    return tracks[this.currentTrackIndex];
+  }
+
+  /**
+   * Check if there's a significant change in mood, energy, or keywords
+   * @private
+   */
+  _hasSignificantChange(mood, energy, keywords) {
+    // First track - no previous state to compare
+    if (this.lastMood === null) {
+      return false;
+    }
+
+    // Mood changed (e.g., peaceful → tense)
+    if (mood !== this.lastMood) {
+      console.log(`📊 Mood changed: ${this.lastMood} → ${mood}`);
+      return true;
+    }
+
+    // Significant energy shift (2+ levels)
+    if (Math.abs(energy - this.lastEnergy) >= 2) {
+      console.log(`📊 Energy changed significantly: ${this.lastEnergy} → ${energy}`);
+      return true;
+    }
+
+    // Scenario/location change (different keywords)
+    const keywordChanged = keywords.some(kw => !this.lastKeywords.includes(kw)) ||
+                          this.lastKeywords.some(kw => !keywords.includes(kw));
+    
+    if (keywordChanged && keywords.length > 0) {
+      console.log(`📊 Scenario changed: [${this.lastKeywords.join(', ')}] → [${keywords.join(', ')}]`);
+      return true;
+    }
+
+    // No significant change
+    return false;
   }
 
   /**
@@ -172,6 +233,12 @@ export class SpotifyMusicManager {
    */
   async onChapterChange(chapterIndex) {
     console.log(`📖 Chapter changed to ${chapterIndex} (Spotify)`);
+    
+    // Reset track state when chapter changes
+    this.currentTrackIndex = 0;
+    this.lastMood = null;
+    this.lastEnergy = null;
+    this.lastKeywords = [];
     
     // Pre-fetch tracks for current and next chapter
     const tracks = await this.getTracksForChapter(chapterIndex);
@@ -188,7 +255,7 @@ export class SpotifyMusicManager {
     this.emit('chapterMusicChanged', { 
       chapterIndex,
       currentPageInChapter: 1,
-      chapterShiftPoints: { shiftPoints: [] }, // Spotify uses simple rotation, no shift points
+      chapterShiftPoints: { shiftPoints: [] }, // Spotify uses dynamic shift detection
       analysis: {
         mood: mapping?.mood,
         energy: mapping?.energy,

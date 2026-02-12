@@ -1535,14 +1535,9 @@ export class MusicPanelUI {
       await this.spotifyPlayer.play(trackUri);
       console.log('🎵 Now playing (Spotify):', track.title);
 
-      // Log track usage for analytics (different schema for Spotify vs Freesound)
-      if (auth.currentUser) {
-        await logTrackUsage(auth.currentUser.uid, {
-          ...track,
-          source: 'spotify',
-          timestamp: new Date()
-        });
-      }
+      // Spotify tracks don't need Firestore logging (commercial service, no license requirements)
+      // Optional: Log for analytics only if user wants
+      // Note: Skipping logging to avoid Firestore permission errors
     } catch (error) {
       console.error('❌ Error playing Spotify track:', error);
       throw error;
