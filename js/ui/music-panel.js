@@ -318,7 +318,10 @@ export class MusicPanelUI {
     }
     
     // Count how many shift points occur before this page
-    const shiftsBeforePage = this.currentShiftPoints.filter(sp => sp.page < pageNumber).length;
+    const shiftsBeforePage = this.currentShiftPoints
+      .map(sp => Number(sp.pageInChapter ?? sp.page ?? 0))
+      .filter(shiftPage => Number.isFinite(shiftPage) && shiftPage < pageNumber)
+      .length;
     
     // Track index is the number of shifts that have occurred (clamped to playlist length)
     const trackIndex = Math.min(shiftsBeforePage, this.playlist.length - 1);
@@ -329,6 +332,145 @@ export class MusicPanelUI {
     console.log(`📍 Page ${pageNumber}: Starting at track ${trackIndex} (${shiftsBeforePage} shifts before this page)`);
     
     return trackIndex;
+  }
+
+  /**
+   * Get the active shift context for a given chapter page.
+   * @private
+   */
+  _getCurrentShiftForPage(pageInChapter) {
+    const shiftPoints = this._normalizeShiftPoints(this.currentShiftPoints || []);
+    if (shiftPoints.length === 0) {
+      return null;
+    }
+
+    const openingMood = shiftPoints[0]?.fromMood || shiftPoints[0]?.mood || shiftPoints[0]?.toMood || null;
+    let currentShift = {
+      page: 1,
+      pageInChapter: 1,
+      fromMood: openingMood,
+      toMood: openingMood,
+      mood: openingMood,
+      energy: shiftPoints[0]?.energy
+    };
+
+    for (const shift of shiftPoints) {
+      const shiftPage = Number(shift?.pageInChapter ?? shift?.page ?? 0);
+      if (!Number.isFinite(shiftPage)) continue;
+      if (shiftPage <= pageInChapter) {
+        currentShift = {
+          ...currentShift,
+          ...shift,
+          mood: shift.toMood || shift.mood || currentShift.mood
+        };
+      } else {
+        break;
+      }
+    }
+
+    return currentShift;
+  }
+
+  /**
+   * Pick another track similar to the current mood context.
+   * Prefers same target mood and close target energy.
+   * @private
+   */
+  _findSimilarTrackIndex(pageInChapter, currentIndex) {
+    if (!Array.isArray(this.playlist) || this.playlist.length <= 1) {
+      return currentIndex;
+    }
+
+    const currentTrack = this.playlist[currentIndex];
+    const currentShift = this._getCurrentShiftForPage(pageInChapter);
+    const targetMood = String(
+      currentShift?.toMood || currentShift?.mood || currentTrack?.targetMood || ''
+    ).toLowerCase().trim();
+
+    const shiftEnergy = Number(currentShift?.energy);
+    const trackEnergy = Number(currentTrack?.targetEnergy);
+    const targetEnergy = Number.isFinite(shiftEnergy)
+      ? shiftEnergy
+      : (Number.isFinite(trackEnergy) ? trackEnergy : null);
+
+    const scoredCandidates = this.playlist
+      .map((track, index) => {
+        if (!track || index === currentIndex) return null;
+
+        let score = 0;
+        const mood = String(track.targetMood || '').toLowerCase().trim();
+        if (targetMood && mood === targetMood) {
+          score += 100;
+        }
+
+        const candidateEnergy = Number(track.targetEnergy);
+        if (targetEnergy !== null && Number.isFinite(candidateEnergy)) {
+          score += Math.max(0, 20 - (Math.abs(candidateEnergy - targetEnergy) * 10));
+        }
+
+        if (track.source && currentTrack?.source && track.source === currentTrack.source) {
+          score += 5;
+        }
+
+        if (score <= 0) return null;
+
+        const forwardDistance = index > currentIndex
+          ? index - currentIndex
+          : (this.playlist.length - currentIndex + index);
+
+        return { index, score, forwardDistance };
+      })
+      .filter(Boolean)
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return a.forwardDistance - b.forwardDistance;
+      });
+
+    if (scoredCandidates.length > 0) {
+      return scoredCandidates[0].index;
+    }
+
+    // Fallback: generic similarity using tags/energy/source when target mood metadata is unavailable.
+    const currentTags = new Set((currentTrack?.tags || []).map(tag => String(tag).toLowerCase()));
+    const currentEnergy = Number(currentTrack?.energy ?? currentTrack?.targetEnergy);
+    const genericCandidates = this.playlist
+      .map((track, index) => {
+        if (!track || index === currentIndex) return null;
+
+        let score = 0;
+        const trackTags = (track.tags || []).map(tag => String(tag).toLowerCase());
+        if (currentTags.size > 0 && trackTags.length > 0) {
+          const overlap = trackTags.filter(tag => currentTags.has(tag)).length;
+          score += overlap * 8;
+        }
+
+        const energy = Number(track.energy ?? track.targetEnergy);
+        if (Number.isFinite(currentEnergy) && Number.isFinite(energy)) {
+          score += Math.max(0, 10 - (Math.abs(currentEnergy - energy) * 5));
+        }
+
+        if (track.source && currentTrack?.source && track.source === currentTrack.source) {
+          score += 5;
+        }
+
+        const forwardDistance = index > currentIndex
+          ? index - currentIndex
+          : (this.playlist.length - currentIndex + index);
+
+        return { index, score, forwardDistance };
+      })
+      .filter(Boolean)
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return a.forwardDistance - b.forwardDistance;
+      });
+
+    if (genericCandidates.length > 0) {
+      return genericCandidates[0].index;
+    }
+
+    const nextIndex = (currentIndex + 1) % this.playlist.length;
+    return nextIndex;
   }
 
   setupEventListeners() {    // Toggle music panel (playlist/player only)
@@ -869,19 +1011,25 @@ export class MusicPanelUI {
   async handleTrackEnded() {
     console.log('🎵 Track ended naturally');
     
-    // Get reader reference to check current page
+    // Get reader reference to check current page within chapter
     const reader = window.app?.reader || this.reader;
-    if (!reader || typeof reader.currentPage !== 'number') {
+    if (
+      !reader ||
+      (typeof reader.currentPageInChapter !== 'number' &&
+        typeof reader.currentPage !== 'number')
+    ) {
       console.warn('Cannot determine current page - falling back to simple next track');
       this.nextTrack();
       return;
     }
     
-    const currentPage = reader.currentPage;
+    const currentPageInChapter = typeof reader.currentPageInChapter === 'number'
+      ? reader.currentPageInChapter
+      : reader.currentPage;
     
     // Find which track INDEX should be playing for this page
     // (based on shift points - each track corresponds to a mood shift range)
-    const targetTrackIndex = this.determineTrackIndexForPage(currentPage);
+    const targetTrackIndex = this.determineTrackIndexForPage(currentPageInChapter);
     
     if (targetTrackIndex === null || targetTrackIndex === undefined) {
       console.warn('Cannot determine track index for current page - no action taken');
@@ -891,15 +1039,17 @@ export class MusicPanelUI {
     // If we're still in the same mood/shift range, play another track from that same range
     // If we've moved to a different range (user turned pages while song was playing), switch to that range
     if (targetTrackIndex === this.currentTrackIndex) {
-      // User is still in the same mood range - select another variety track for this mood
-      console.log(`   🔁 Replaying (Page ${currentPage}, Track ${targetTrackIndex})`);
-      
-      // For now, replay the same track (or we could implement variety selection here)
-      // TODO: Consider selecting a different track with similar mood from the music manager
-      await this.playTrack(this.currentTrackIndex);
+      const similarTrackIndex = this._findSimilarTrackIndex(currentPageInChapter, this.currentTrackIndex);
+      if (similarTrackIndex !== this.currentTrackIndex) {
+        console.log(`   🔁 Similar (Page ${currentPageInChapter}, Track ${this.currentTrackIndex} → ${similarTrackIndex})`);
+        await this.playTrack(similarTrackIndex);
+      } else {
+        console.log(`   🔁 Replaying (Page ${currentPageInChapter}, Track ${targetTrackIndex})`);
+        await this.playTrack(this.currentTrackIndex);
+      }
     } else {
       // User has moved to a different page range while the song was playing
-      console.log(`   ⏭️ Switching (Page ${currentPage}, Track ${this.currentTrackIndex} → ${targetTrackIndex})`);
+      console.log(`   ⏭️ Switching (Page ${currentPageInChapter}, Track ${this.currentTrackIndex} → ${targetTrackIndex})`);
       await this.playTrack(targetTrackIndex);
     }
   }
@@ -1640,6 +1790,13 @@ export class MusicPanelUI {
     this.spotifyPlayer.on('error', () => {
       if (this.currentMusicSource !== 'spotify') return;
       this.updatePlayPauseButton(false);
+    });
+
+    this.spotifyPlayer.on('trackEnded', () => {
+      if (this.currentMusicSource !== 'spotify') return;
+      this.handleTrackEnded().catch((error) => {
+        console.error('Error handling Spotify track end:', error);
+      });
     });
 
     this.spotifyPlayerListenersBound = true;

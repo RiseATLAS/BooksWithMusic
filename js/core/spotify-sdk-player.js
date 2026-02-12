@@ -70,6 +70,7 @@ export class SpotifySDKPlayer {
     // Playback state
     this.currentTrack = null;
     this.isPlayingState = false;
+    this.lastPositionMs = 0;
     this.playlist = [];
     this.currentTrackIndex = 0;
     this.isPremium = false;
@@ -251,7 +252,11 @@ export class SpotifySDKPlayer {
     this.player.addListener('player_state_changed', (state) => {
       if (!state) return;
 
+      const wasPlaying = this.isPlayingState;
+      const previousTrackUri = this.currentTrack?.uri || null;
+
       this.isPlayingState = !state.paused;
+      this.lastPositionMs = state.position || 0;
       
       if (state.track_window.current_track) {
         const track = state.track_window.current_track;
@@ -264,6 +269,20 @@ export class SpotifySDKPlayer {
         };
         
         this.emit('trackChanged', this.currentTrack);
+      }
+
+      // Detect natural track completion (not manual pause):
+      // transition from playing -> paused at position 0 on the same track.
+      const currentTrackUri = state.track_window.current_track?.uri || null;
+      if (
+        wasPlaying &&
+        state.paused &&
+        state.position === 0 &&
+        previousTrackUri &&
+        currentTrackUri &&
+        previousTrackUri === currentTrackUri
+      ) {
+        this.emit('trackEnded', { uri: currentTrackUri });
       }
       
       this.emit('playStateChanged', this.isPlayingState);
