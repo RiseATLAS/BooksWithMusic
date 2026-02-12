@@ -178,8 +178,10 @@ export class SpotifyAPI {
       return [];
     }
 
-    // Validate and clamp limit to Spotify's allowed range (1-50 per documentation)
-    // However, using 20 as safe maximum to avoid edge case errors
+    // Validate and clamp limit to Spotify's allowed range
+    // Per official docs: https://developer.spotify.com/documentation/web-api/reference/search
+    // limit parameter: Default=20, Range: 0-50
+    // Using 20 as safe maximum based on testing (even though 50 is documented max)
     limit = Math.max(1, Math.min(20, Math.floor(limit) || 15));
 
     // Get settings
