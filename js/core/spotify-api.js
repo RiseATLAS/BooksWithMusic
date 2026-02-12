@@ -209,8 +209,9 @@ export class SpotifyAPI {
     // Spotify Search API does NOT support genre filters in query string
     let searchQuery = queryTerms.join(' ');
     
-    // Always add instrumental and classical/soundtrack bias to avoid vocals
-    searchQuery += ' instrumental OR soundtrack OR classical OR ambient';
+    // Always add instrumental bias to avoid vocals
+    // Add "english" to bias toward English-language music (though not guaranteed)
+    searchQuery += ' instrumental soundtrack OR classical OR ambient english';
     
     // NOTE: Do NOT add 'instrumental' here - it should be in queryTerms already
 
@@ -228,11 +229,11 @@ export class SpotifyAPI {
       }
 
       const allTracks = data.tracks.items.map(track => this._formatTrack(track));
-      const tracks = allTracks
-        .filter(track => this._isAcceptableLanguage(track))
-        .filter(track => this._isLikelyInstrumental(track));
       
-      console.log(`✅ Filtered ${allTracks.length} → ${tracks.length} tracks (removed non-English and vocals)`);
+      // Filter for instrumental tracks only (no language filter - Spotify doesn't provide language data)
+      const tracks = allTracks.filter(track => this._isLikelyInstrumental(track));
+      
+      console.log(`✅ Filtered ${allTracks.length} → ${tracks.length} tracks (removed vocals)`);
       
       // Note: Audio features API sometimes returns 403 errors even with correct scopes
       // We'll skip audio features enrichment for now to avoid errors
@@ -567,6 +568,10 @@ export class SpotifyAPI {
       tempo: spotifyTrack.tempo,
       instrumentalness: spotifyTrack.instrumentalness,
       
+      // Store available markets and popularity for filtering
+      availableMarkets: spotifyTrack.available_markets || [],
+      popularity: spotifyTrack.popularity,
+      
       // Tags (we can infer from genres)
       tags: this._inferTags(spotifyTrack)
     };
@@ -595,41 +600,9 @@ export class SpotifyAPI {
   }
 
   /**
-   * Check if track is acceptable language (English or instrumental)
-   * Filters out Norwegian and other non-English vocal tracks
-   * @private
-   */
-  _isAcceptableLanguage(track) {
-    const titleLower = track.title?.toLowerCase() || '';
-    const artistLower = track.artist?.toLowerCase() || '';
-    
-    // Only check for VERY specific Norwegian indicators to avoid false positives
-    // Use word boundaries (\b) to match whole words only
-    const norwegianPatterns = [
-      /\bnorsk\b/i,
-      /\bnorge\b/i,
-      /\bnorwegian\b/i,
-      /\bkjærlighet\b/i,
-      /\bjeg\s+(er|har|vil)\b/i, // Norwegian sentence patterns
-      /\bdet\s+(er|var)\b/i,
-      /\bså\s+\b/i // Norwegian "så" with space after
-    ];
-    
-    const combined = `${titleLower} ${artistLower}`;
-    
-    // Check for specific Norwegian patterns
-    const hasNorwegian = norwegianPatterns.some(pattern => pattern.test(combined));
-    
-    if (hasNorwegian) {
-      console.log(`🚫 Filtered Norwegian track: "${track.title}" by ${track.artist}`);
-      return false;
-    }
-    
-    return true;
-  }
-
-  /**
    * Check if track is likely instrumental (non-vocal)
+   * NOTE: Spotify doesn't provide language tags, so we can't filter by language.
+   * We rely on search query bias (adding "english") and instrumental indicators.
    * @private
    */
   _isLikelyInstrumental(track) {
