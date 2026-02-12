@@ -2,7 +2,17 @@
  * SpotifyMusicManager - Spotify-specific music management
  * 
  * RESPONSIBILITIES:
- * - Initialize Spotify player and manage track selection
+ * - Initialize Spotify player and manage tr    try {
+      console.log(`🎵 Fetching Spotify tracks for chapter ${chapterIndex}...`);
+      
+      // Use Spotify's recommendation API with chapter mood/energy
+      // Max 20 tracks per chapter (Spotify API safe limit)
+      const tracks = await this.spotifyAPI.searchByMood(
+        mapping.mood,
+        mapping.energy,
+        mapping.keywords,
+        20 // Max 20 tracks per chapter (safe Spotify API limit)
+      );on
  * - Use Spotify's recommendation API instead of search-based approach
  * - Handle chapter-to-track mapping for Spotify content
  * - Manage playback through Spotify SDK player

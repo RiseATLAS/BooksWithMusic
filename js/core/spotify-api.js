@@ -178,8 +178,9 @@ export class SpotifyAPI {
       return [];
     }
 
-    // Validate and clamp limit to Spotify's allowed range (1-50)
-    limit = Math.max(1, Math.min(50, Math.floor(limit) || 15));
+    // Validate and clamp limit to Spotify's allowed range (1-50 per documentation)
+    // However, using 20 as safe maximum to avoid edge case errors
+    limit = Math.max(1, Math.min(20, Math.floor(limit) || 15));
 
     // Get settings
     const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
