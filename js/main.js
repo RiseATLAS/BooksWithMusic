@@ -562,16 +562,20 @@ class BooksWithMusicApp {
     // Preserve existing GH Pages path convention used across the app.
     const swUrl = `/BooksWithMusic/service-worker.js?t=${Date.now()}`;
     const response = await fetch(swUrl, { cache: 'no-store' });
+    console.log(`📦 Version check request: ${swUrl}`);
+    console.log(`📦 Version check response: ${response.status} ${response.statusText}`);
     if (!response.ok) {
       throw new Error(`Failed to fetch deployed service worker (${response.status})`);
     }
 
     const swSource = await response.text();
+    console.log('📦 Version check response snippet:', swSource.slice(0, 220));
     const match = swSource.match(/const\\s+CACHE_VERSION\\s*=\\s*['"]([^'"]+)['"]/);
     if (!match || !match[1]) {
       throw new Error('Could not parse CACHE_VERSION from deployed service worker');
     }
 
+    console.log(`📦 Parsed deployed CACHE_VERSION: ${match[1]}`);
     return match[1];
   }
 }
