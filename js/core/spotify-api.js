@@ -164,12 +164,13 @@ export class SpotifyAPI {
   async _textSearch(keywords, limit, instrumentalOnly) {
     const query = keywords.join(' ');
     let searchQuery = `track:${query}`;
+    const safeLimit = Math.max(1, Math.min(20, Math.floor(limit) || 10));
     
     if (instrumentalOnly) {
       searchQuery += ' genre:instrumental OR genre:ambient OR genre:classical';
     }
 
-    const endpoint = `/search?q=${encodeURIComponent(searchQuery)}&type=track&limit=${limit}`;
+    const endpoint = `/search?q=${encodeURIComponent(searchQuery)}&type=track`;
 
     try {
       const data = await this._makeRequest(endpoint);
@@ -178,7 +179,9 @@ export class SpotifyAPI {
         return [];
       }
 
-      return data.tracks.items.map(track => this._formatTrack(track));
+      return data.tracks.items
+        .slice(0, safeLimit)
+        .map(track => this._formatTrack(track));
     } catch (error) {
       console.error('❌ Spotify search error:', error);
       return [];
@@ -212,7 +215,10 @@ export class SpotifyAPI {
     const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
     const preferTasteAnchored = settings.preferTasteAnchoredSpotifyResults !== false;
     const normalizedTerms = safeTerms.length > 0 ? safeTerms : ['ambient'];
-    const termsText = normalizedTerms.join(' ');
+    const termsWithoutInstrumental = normalizedTerms.filter(
+      term => term.toLowerCase() !== 'instrumental'
+    );
+    const termsText = (termsWithoutInstrumental.length > 0 ? termsWithoutInstrumental : ['ambient']).join(' ');
     const collectedTracks = new Map();
 
     const addTracks = (tracks) => {
@@ -283,21 +289,23 @@ export class SpotifyAPI {
    * @private
    */
   async _searchTracksByQueryString(searchQuery, limit, label = 'query') {
+    const safeLimit = Math.max(1, Math.min(20, Math.floor(limit) || 10));
     const params = new URLSearchParams({
       q: searchQuery,
-      type: 'track',
-      limit: String(Math.max(1, Math.min(20, Math.floor(limit) || 10)))
+      type: 'track'
     });
     const endpoint = `/search?${params.toString()}`;
 
-    console.log(`🔍 Spotify search (${label}): "${searchQuery}"`);
+    console.log(`🔍 Spotify search (${label}): "${searchQuery}" (api limit=default, client limit=${safeLimit})`);
 
     const data = await this._makeRequest(endpoint);
     if (!data?.tracks?.items) {
       return [];
     }
 
-    return data.tracks.items.map(track => this._formatTrack(track));
+    return data.tracks.items
+      .slice(0, safeLimit)
+      .map(track => this._formatTrack(track));
   }
 
   /**
