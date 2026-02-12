@@ -292,6 +292,9 @@ export class SpotifyAPI {
     mood = mood || 'peaceful';
     energy = energy || 3;
     
+    // Validate limit for Recommendations API (1-100)
+    limit = Math.max(1, Math.min(100, Math.floor(limit) || 20));
+    
     // Map mood and keywords to Spotify genres (max 5 seeds)
     const genreSeeds = this._moodToGenres(mood, energy, keywords);
     
@@ -301,7 +304,7 @@ export class SpotifyAPI {
     // Build recommendations query with audio features
     const params = new URLSearchParams({
       seed_genres: genreSeeds.slice(0, 5).join(','), // Max 5 genre seeds
-      limit: Math.min(100, Math.max(1, limit)), // 1-100 for Recommendations API
+      limit: limit.toString(),
       target_energy: targetEnergy.toFixed(2),
       target_instrumentalness: '0.7', // Prefer instrumental
       min_instrumentalness: '0.5', // Filter to instrumental only
@@ -323,8 +326,9 @@ export class SpotifyAPI {
       
       if (!data || !data.tracks || data.tracks.length === 0) {
         console.warn('⚠️ No tracks from Recommendations API, falling back to search');
-        // Fallback to text search if recommendations fail
-        return await this.searchByQuery([mood, 'instrumental', ...keywords.slice(0, 1)], limit);
+        // Fallback to text search - limit to 20 for Search API (max 50, but 20 is safer)
+        const searchLimit = Math.min(20, limit);
+        return await this.searchByQuery([mood, 'instrumental', ...keywords.slice(0, 1)], searchLimit);
       }
 
       const tracks = data.tracks.map(track => this._formatTrack(track));
@@ -333,8 +337,9 @@ export class SpotifyAPI {
       return tracks;
     } catch (error) {
       console.error('❌ Spotify Recommendations API error:', error);
-      // Fallback to search API
-      return await this.searchByQuery([mood, 'instrumental', ...keywords.slice(0, 1)], limit);
+      // Fallback to search API - limit to 20 for Search API (max 50, but 20 is safer)
+      const searchLimit = Math.min(20, limit);
+      return await this.searchByQuery([mood, 'instrumental', ...keywords.slice(0, 1)], searchLimit);
     }
   }
   
@@ -437,27 +442,27 @@ export class SpotifyAPI {
    * Map mood to Spotify genres
    * IMPORTANT: Only use VALID Spotify genre seeds!
    * Valid genres list: https://developer.spotify.com/documentation/web-api/reference/get-recommendation-genres
-   * Valid genres include: acoustic, ambient, classical, electronic, folk, indie, jazz, piano, soundtracks, etc.
-   * Invalid genres: orchestral, cinematic, epic, adventure, instrumental, suspense, etc.
+   * Common valid genres: acoustic, ambient, classical, electronic, folk, indie, jazz, piano, soundtrack, etc.
+   * Invalid genres: soundtracks (plural), orchestral, cinematic, epic, adventure, instrumental, suspense, etc.
    * @private
    */
   _moodToGenres(mood, energy, keywords) {
-    // Map to VALID Spotify genre seeds ONLY
+    // Map to VALID Spotify genre seeds ONLY (singular forms!)
     const moodGenreMap = {
-      'epic': ['soundtracks', 'classical', 'metal'],
+      'epic': ['soundtrack', 'classical', 'metal'],
       'tense': ['ambient', 'electronic', 'industrial'],
       'peaceful': ['ambient', 'chill', 'piano', 'new-age'],
       'mysterious': ['ambient', 'electronic', 'minimal-techno'],
       'joyful': ['indie', 'folk', 'happy', 'indie-pop'],
       'sad': ['piano', 'acoustic', 'indie', 'sad', 'rainy-day'],
-      'dramatic': ['soundtracks', 'classical', 'opera'],
+      'dramatic': ['soundtrack', 'classical', 'opera'],
       'calm': ['ambient', 'chill', 'acoustic', 'sleep'],
       'energetic': ['electronic', 'indie', 'dance', 'edm'],
       'dark': ['ambient', 'electronic', 'goth', 'industrial'],
       'romantic': ['acoustic', 'piano', 'indie', 'romance'],
-      'adventure': ['soundtracks', 'folk', 'classical', 'world-music'],
-      'action': ['electronic', 'soundtracks', 'metal'],
-      'fantasy': ['soundtracks', 'classical', 'folk', 'ambient']
+      'adventure': ['soundtrack', 'folk', 'classical', 'world'],
+      'action': ['electronic', 'soundtrack', 'metal'],
+      'fantasy': ['soundtrack', 'classical', 'folk', 'ambient']
     };
     
     // Start with mood-based genres
@@ -469,7 +474,7 @@ export class SpotifyAPI {
     } else if (energy <= 2) {
       genres.push('ambient'); // Low energy
     } else {
-      genres.push('soundtracks'); // Medium energy
+      genres.push('soundtrack'); // Medium energy
     }
     
     // Add keyword-based genres if they map

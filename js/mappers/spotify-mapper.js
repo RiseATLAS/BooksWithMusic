@@ -78,28 +78,28 @@ export class SpotifyMapper {
     // new-release, opera, pagode, party, philippines-opm, piano, pop, pop-film, post-dubstep, power-pop,
     // progressive-house, psych-rock, punk, punk-rock, r-n-b, rainy-day, reggae, reggaeton, road-trip, rock,
     // rock-n-roll, rockabilly, romance, sad, salsa, samba, sertanejo, show-tunes, singer-songwriter, ska,
-    // sleep, songwriter, soul, soundtracks, spanish, study, summer, swedish, synth-pop, tango, techno, trance,
-    // trip-hop, turkish, work-out, world-music
+    // sleep, songwriter, soul, soundtrack, spanish, study, summer, swedish, synth-pop, tango, techno, trance,
+    // trip-hop, turkish, work-out, world
     
     // Map cultural/historical themes to VALID Spotify genres
     this.themeToGenres = {
       // Cultural/Geographic
       'viking': ['folk', 'metal', 'ambient'],
-      'celtic': ['folk', 'world-music', 'acoustic'],
-      'eastern': ['world-music', 'ambient', 'indian'],
-      'middle-eastern': ['world-music', 'ambient', 'iranian'],
-      'pirate': ['folk', 'acoustic', 'world-music'],
+      'celtic': ['folk', 'world', 'acoustic'],
+      'eastern': ['world', 'ambient', 'indian'],
+      'middle-eastern': ['world', 'ambient', 'iranian'],
+      'pirate': ['folk', 'acoustic', 'world'],
       'western': ['country', 'folk', 'acoustic'],
-      'african': ['world-music', 'afrobeat', 'ambient'],
-      'latin': ['latin', 'latino', 'world-music'],
-      'native-american': ['world-music', 'folk', 'ambient'],
-      'indian': ['world-music', 'indian', 'ambient'],
-      'russian': ['classical', 'folk', 'world-music'],
-      'greek': ['classical', 'world-music', 'ambient'],
-      'aztec-mayan': ['world-music', 'ambient', 'latin'],
-      'polynesian': ['world-music', 'ambient', 'summer'],
-      'australian': ['world-music', 'folk', 'ambient'],
-      'arctic': ['ambient', 'new-age', 'world-music'],
+      'african': ['world', 'afrobeat', 'ambient'],
+      'latin': ['latin', 'latino', 'world'],
+      'native-american': ['world', 'folk', 'ambient'],
+      'indian': ['world', 'indian', 'ambient'],
+      'russian': ['classical', 'folk', 'world'],
+      'greek': ['classical', 'world', 'ambient'],
+      'aztec-mayan': ['world', 'ambient', 'latin'],
+      'polynesian': ['world', 'ambient', 'summer'],
+      'australian': ['world', 'folk', 'ambient'],
+      'arctic': ['ambient', 'new-age', 'world'],
       
       // Musical Eras
       'baroque': ['classical', 'opera'],
@@ -112,7 +112,7 @@ export class SpotifyMapper {
       'country': ['country', 'bluegrass', 'folk'],
       
       // Time Periods
-      'ancient': ['ambient', 'world-music', 'classical'],
+      'ancient': ['ambient', 'world', 'classical'],
       'medieval': ['folk', 'ambient', 'classical'],
       'victorian': ['classical', 'piano', 'opera'],
       'noir': ['jazz', 'blues', 'soul'],
@@ -130,23 +130,23 @@ export class SpotifyMapper {
       'cyberpunk': ['synth-pop', 'industrial', 'electronic'],
       
       // Music Styles
-      'orchestral': ['classical', 'soundtracks', 'opera'],
-      'cinematic': ['soundtracks', 'ambient', 'classical'],
+      'orchestral': ['classical', 'soundtrack', 'opera'],
+      'cinematic': ['soundtrack', 'ambient', 'classical'],
       'ambient': ['ambient', 'new-age', 'chill'],
       'folk': ['folk', 'acoustic', 'indie-folk'],
       'choral': ['classical', 'gospel', 'opera'],
       'electronic': ['electronic', 'ambient', 'edm'],
-      'tribal': ['world-music', 'afrobeat', 'ambient'],
+      'tribal': ['world', 'afrobeat', 'ambient'],
       
       // Genres
-      'fantasy': ['soundtracks', 'classical', 'ambient'],
+      'fantasy': ['soundtrack', 'classical', 'ambient'],
       'sci-fi': ['electronic', 'ambient', 'synth-pop'],
       'mystery': ['jazz', 'ambient', 'minimal-techno'],
       'romance': ['classical', 'piano', 'acoustic', 'indie'],
       'thriller': ['ambient', 'electronic', 'minimal-techno'],
       'horror': ['ambient', 'industrial', 'goth'],
-      'adventure': ['soundtracks', 'classical', 'world-music'],
-      'war': ['soundtracks', 'classical', 'metal'],
+      'adventure': ['soundtrack', 'classical', 'world'],
+      'war': ['soundtrack', 'classical', 'metal'],
       'espionage': ['jazz', 'electronic', 'minimal-techno']
     };
 
@@ -156,12 +156,12 @@ export class SpotifyMapper {
       mysterious: ['ambient', 'minimal-techno', 'electronic', 'trip-hop'],
       romantic: ['classical', 'piano', 'acoustic', 'indie', 'romance'],
       sad: ['piano', 'classical', 'acoustic', 'sad', 'rainy-day'],
-      epic: ['soundtracks', 'classical', 'metal'],
+      epic: ['soundtrack', 'classical', 'metal'],
       peaceful: ['ambient', 'new-age', 'chill', 'acoustic', 'sleep'],
       tense: ['ambient', 'electronic', 'minimal-techno', 'industrial'],
       joyful: ['happy', 'indie', 'folk', 'indie-pop', 'pop'],
-      adventure: ['soundtracks', 'world-music', 'classical'],
-      magical: ['ambient', 'new-age', 'soundtracks']
+      adventure: ['soundtrack', 'world', 'classical'],
+      magical: ['ambient', 'new-age', 'soundtrack']
     };
 
     // Map tempo descriptors to BPM ranges
