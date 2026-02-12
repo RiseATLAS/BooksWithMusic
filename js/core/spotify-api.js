@@ -209,6 +209,9 @@ export class SpotifyAPI {
     // Spotify Search API does NOT support genre filters in query string
     let searchQuery = queryTerms.join(' ');
     
+    // Always add instrumental and classical/soundtrack bias to avoid vocals
+    searchQuery += ' instrumental OR soundtrack OR classical OR ambient';
+    
     // NOTE: Do NOT add 'instrumental' here - it should be in queryTerms already
 
     // Try WITHOUT limit parameter - use Spotify's default (20)
@@ -224,7 +227,12 @@ export class SpotifyAPI {
         return [];
       }
 
-      const tracks = data.tracks.items.map(track => this._formatTrack(track));
+      const allTracks = data.tracks.items.map(track => this._formatTrack(track));
+      const tracks = allTracks
+        .filter(track => this._isAcceptableLanguage(track))
+        .filter(track => this._isLikelyInstrumental(track));
+      
+      console.log(`✅ Filtered ${allTracks.length} → ${tracks.length} tracks (removed non-English and vocals)`);
       
       // Note: Audio features API sometimes returns 403 errors even with correct scopes
       // We'll skip audio features enrichment for now to avoid errors
@@ -584,6 +592,89 @@ export class SpotifyAPI {
     if (nameLower.includes('orchestra')) tags.push('orchestral');
     
     return tags;
+  }
+
+  /**
+   * Check if track is acceptable language (English or instrumental)
+   * Filters out Norwegian and other non-English vocal tracks
+   * @private
+   */
+  _isAcceptableLanguage(track) {
+    const titleLower = track.title?.toLowerCase() || '';
+    const artistLower = track.artist?.toLowerCase() || '';
+    const combined = `${titleLower} ${artistLower}`;
+    
+    // Norwegian indicators (common Norwegian words/letters)
+    const norwegianIndicators = [
+      'norsk', 'norge', 'norwegian',
+      'æ', 'ø', 'å', // Norwegian letters
+      'jeg', 'det', 'en', 'et', 'som', 'på', 'med', 'av', 'til', 'så', // Common Norwegian words
+      'kjærlighet', 'dag', 'natt', 'liv', 'hjem'
+    ];
+    
+    // Check for Norwegian indicators
+    const hasNorwegianIndicators = norwegianIndicators.some(indicator => 
+      combined.includes(indicator)
+    );
+    
+    if (hasNorwegianIndicators) {
+      console.log(`🚫 Filtered Norwegian track: "${track.title}" by ${track.artist}`);
+      return false;
+    }
+    
+    return true;
+  }
+
+  /**
+   * Check if track is likely instrumental (non-vocal)
+   * @private
+   */
+  _isLikelyInstrumental(track) {
+    const titleLower = track.title?.toLowerCase() || '';
+    const artistLower = track.artist?.toLowerCase() || '';
+    
+    // Strong instrumental indicators
+    const instrumentalKeywords = [
+      'instrumental', 'karaoke', 'no vocals', 'without vocals',
+      'piano version', 'guitar version', 'orchestral', 'symphony',
+      'soundtrack', 'ost', 'original score', 'film score',
+      'ambient', 'piano solo', 'guitar solo',
+      'classical', 'concerto', 'sonata', 'prelude'
+    ];
+    
+    // Check if explicitly instrumental
+    const hasInstrumentalKeyword = instrumentalKeywords.some(keyword => 
+      titleLower.includes(keyword) || artistLower.includes(keyword)
+    );
+    
+    if (hasInstrumentalKeyword) {
+      return true;
+    }
+    
+    // If we have instrumentalness score from Spotify, use it
+    // instrumentalness > 0.5 means likely no vocals
+    if (track.instrumentalness !== undefined && track.instrumentalness > 0.5) {
+      return true;
+    }
+    
+    // Check for common instrumental genres/artists
+    const instrumentalGenres = [
+      'classical', 'jazz', 'ambient', 'electronic', 'piano',
+      'orchestral', 'soundtrack', 'post-rock', 'downtempo'
+    ];
+    
+    const tags = track.tags || [];
+    const hasInstrumentalGenre = tags.some(tag => 
+      instrumentalGenres.some(genre => tag.toLowerCase().includes(genre))
+    );
+    
+    if (hasInstrumentalGenre) {
+      return true;
+    }
+    
+    // If no strong indicators, reject (prefer false positives over including vocals)
+    console.log(`🚫 Filtered likely vocal track: "${track.title}" by ${track.artist}`);
+    return false;
   }
 
   /**

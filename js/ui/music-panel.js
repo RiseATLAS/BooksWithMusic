@@ -789,7 +789,7 @@ export class MusicPanelUI {
     
     // Store shift points for display
     this.currentShiftPoints = allShiftPoints;
-    console.log(`🔄 Page change: ${oldPage} → ${newPage}, Shift points:`, allShiftPoints);
+    console.log(`🔄 Page change: ${oldPage} → ${newPage}, Shift points:`, JSON.stringify(allShiftPoints, null, 2));
     this.updateNextShiftDisplay(newPage);
     
     // Determine direction
@@ -1456,7 +1456,9 @@ export class MusicPanelUI {
     
     // Find the next shift point after current page
     const nextShift = this.currentShiftPoints.find(sp => sp.page > currentPage);
-    console.log(`📍 Current page: ${currentPage}, Next shift:`, nextShift);
+    console.log(`📍 Current page: ${currentPage}, Looking for shift > ${currentPage}`);
+    console.log(`📍 Shift points:`, this.currentShiftPoints.map(sp => `page ${sp.page}: ${sp.fromMood}→${sp.toMood}`));
+    console.log(`📍 Next shift found:`, nextShift);
     
     if (nextShift) {
       const pagesUntil = nextShift.page - currentPage;
