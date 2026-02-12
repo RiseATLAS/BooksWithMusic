@@ -1654,18 +1654,16 @@ export class ReaderUI {
     
     // Emit page change event that music panel can listen to
     if (this.musicManager) {
-      const eventDetail = {
-        chapterIndex: this.currentChapterIndex,
-        oldPage,
-        newPage,
-        totalPagesInChapter: this.pagesPerChapter[this.currentChapterIndex] || 1,
-        shiftInfo, // Information about mood shift at this page
-        allShiftPoints: this.currentChapterShiftPoints?.shiftPoints || [],
-        direction: newPage > oldPage ? 'forward' : 'backward'
-      };
-      console.log(`📖 Reader dispatching pageChanged event:`, eventDetail);
       const event = new CustomEvent('reader:pageChanged', {
-        detail: eventDetail
+        detail: {
+          chapterIndex: this.currentChapterIndex,
+          oldPage,
+          newPage,
+          totalPagesInChapter: this.pagesPerChapter[this.currentChapterIndex] || 1,
+          shiftInfo, // Information about mood shift at this page
+          allShiftPoints: this.currentChapterShiftPoints?.shiftPoints || [],
+          direction: newPage > oldPage ? 'forward' : 'backward'
+        }
       });
       window.dispatchEvent(event);
     }

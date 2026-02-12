@@ -602,22 +602,25 @@ export class SpotifyAPI {
   _isAcceptableLanguage(track) {
     const titleLower = track.title?.toLowerCase() || '';
     const artistLower = track.artist?.toLowerCase() || '';
-    const combined = `${titleLower} ${artistLower}`;
     
-    // Norwegian indicators (common Norwegian words/letters)
-    const norwegianIndicators = [
-      'norsk', 'norge', 'norwegian',
-      'æ', 'ø', 'å', // Norwegian letters
-      'jeg', 'det', 'en', 'et', 'som', 'på', 'med', 'av', 'til', 'så', // Common Norwegian words
-      'kjærlighet', 'dag', 'natt', 'liv', 'hjem'
+    // Only check for VERY specific Norwegian indicators to avoid false positives
+    // Use word boundaries (\b) to match whole words only
+    const norwegianPatterns = [
+      /\bnorsk\b/i,
+      /\bnorge\b/i,
+      /\bnorwegian\b/i,
+      /\bkjærlighet\b/i,
+      /\bjeg\s+(er|har|vil)\b/i, // Norwegian sentence patterns
+      /\bdet\s+(er|var)\b/i,
+      /\bså\s+\b/i // Norwegian "så" with space after
     ];
     
-    // Check for Norwegian indicators
-    const hasNorwegianIndicators = norwegianIndicators.some(indicator => 
-      combined.includes(indicator)
-    );
+    const combined = `${titleLower} ${artistLower}`;
     
-    if (hasNorwegianIndicators) {
+    // Check for specific Norwegian patterns
+    const hasNorwegian = norwegianPatterns.some(pattern => pattern.test(combined));
+    
+    if (hasNorwegian) {
       console.log(`🚫 Filtered Norwegian track: "${track.title}" by ${track.artist}`);
       return false;
     }
@@ -632,19 +635,24 @@ export class SpotifyAPI {
   _isLikelyInstrumental(track) {
     const titleLower = track.title?.toLowerCase() || '';
     const artistLower = track.artist?.toLowerCase() || '';
+    const combined = `${titleLower} ${artistLower}`;
     
     // Strong instrumental indicators
     const instrumentalKeywords = [
       'instrumental', 'karaoke', 'no vocals', 'without vocals',
-      'piano version', 'guitar version', 'orchestral', 'symphony',
-      'soundtrack', 'ost', 'original score', 'film score',
+      'piano version', 'guitar version', 'orchestral', 'orchestra', 'symphony',
+      'soundtrack', 'ost', 'original score', 'film score', 'movie score',
       'ambient', 'piano solo', 'guitar solo',
-      'classical', 'concerto', 'sonata', 'prelude'
+      'classical', 'concerto', 'sonata', 'prelude',
+      'trailer', 'cinematic', 'epic music', 'dramatic music',
+      'video game', 'game music', 'bgm', 'background music',
+      'meditation', 'relaxing', 'study music', 'sleep music',
+      'lofi', 'lo-fi', 'chillhop', 'beats'
     ];
     
     // Check if explicitly instrumental
     const hasInstrumentalKeyword = instrumentalKeywords.some(keyword => 
-      titleLower.includes(keyword) || artistLower.includes(keyword)
+      combined.includes(keyword)
     );
     
     if (hasInstrumentalKeyword) {
@@ -660,7 +668,8 @@ export class SpotifyAPI {
     // Check for common instrumental genres/artists
     const instrumentalGenres = [
       'classical', 'jazz', 'ambient', 'electronic', 'piano',
-      'orchestral', 'soundtrack', 'post-rock', 'downtempo'
+      'orchestral', 'soundtrack', 'post-rock', 'downtempo',
+      'cinematic', 'trailer', 'epic'
     ];
     
     const tags = track.tags || [];
@@ -669,6 +678,20 @@ export class SpotifyAPI {
     );
     
     if (hasInstrumentalGenre) {
+      return true;
+    }
+    
+    // Check artist names for instrumental music indicators
+    const instrumentalArtists = [
+      'music', 'audio', 'sound', 'library', 'production',
+      'studios', 'orchestra', 'ensemble', 'philharmonic'
+    ];
+    
+    const hasInstrumentalArtist = instrumentalArtists.some(keyword =>
+      artistLower.includes(keyword)
+    );
+    
+    if (hasInstrumentalArtist) {
       return true;
     }
     
