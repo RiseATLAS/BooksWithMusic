@@ -221,6 +221,9 @@ export class SpotifyAPI {
    * Search for tracks using query terms (compatibility with Freesound API interface)
    * This method provides the same interface as Freesound's searchByQuery
    * 
+   * IMPORTANT: Spotify's Search API does NOT support genre: filters
+   * Use plain text search only, avoid "genre:" prefixes
+   * 
    * @param {Array<string>} queryTerms - Terms to search for (e.g., ['epic', 'orchestral'])
    * @param {number} limit - Number of results (1-50, default 15)
    * @returns {Array} Array of track objects
@@ -234,54 +237,19 @@ export class SpotifyAPI {
     // Validate and clamp limit to Spotify's allowed range
     // Per official docs: https://developer.spotify.com/documentation/web-api/reference/search
     // limit parameter: Default=20, Range: 0-50
-    // Using 20 as safe maximum based on testing (even though 50 is documented max)
-    limit = Math.max(1, Math.min(20, Math.floor(limit) || 15));
+    limit = Math.max(1, Math.min(50, Math.floor(limit) || 15));
 
     // Get settings
     const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
     const instrumentalOnly = settings.instrumentalOnly !== false;
 
-    // For Spotify, we'll use text search with genre hints
-    // Convert query terms to Spotify-friendly search with enhanced genre mapping
-    const searchTerms = queryTerms.map(term => {
-      // Map common music terms to Spotify genres
-      const genreMap = {
-        'epic': 'genre:epic genre:orchestral',
-        'orchestral': 'genre:orchestral genre:classical',
-        'ambient': 'genre:ambient',
-        'cinematic': 'genre:cinematic genre:soundtrack',
-        'piano': 'genre:piano genre:classical',
-        'jazz': 'genre:jazz',
-        'classical': 'genre:classical',
-        'electronic': 'genre:electronic',
-        'folk': 'genre:folk',
-        'world': 'genre:world-music',
-        'dramatic': 'genre:soundtrack genre:orchestral',
-        'intense': 'genre:epic genre:dramatic',
-        'calm': 'genre:ambient genre:chill',
-        'peaceful': 'genre:ambient genre:meditation',
-        'tense': 'genre:soundtrack genre:suspense',
-        'dark': 'genre:dark-ambient genre:soundtrack',
-        'adventure': 'genre:orchestral genre:adventure'
-      };
-      
-      return genreMap[term.toLowerCase()] || term;
-    });
-
-    // Build search query - use up to 5 terms for more specificity
-    let searchQuery = searchTerms.slice(0, 5).join(' ');
+    // Build search query using PLAIN TEXT ONLY (no genre: filters!)
+    // Spotify Search API does NOT support genre filters in query string
+    let searchQuery = queryTerms.join(' ');
     
+    // Add instrumental-related terms if needed (plain text, not genre filters)
     if (instrumentalOnly) {
-      searchQuery += ' genre:instrumental';
-    }
-
-    // Ensure limit is a valid integer (additional safety check)
-    const validLimit = Math.floor(Number(limit)) || 20;
-    if (validLimit < 1 || validLimit > 50) {
-      console.warn(`⚠️ Invalid limit ${limit}, using default 20`);
-      limit = 20;
-    } else {
-      limit = validLimit;
+      searchQuery += ' instrumental';
     }
 
     const endpoint = `/search?q=${encodeURIComponent(searchQuery)}&type=track&limit=${limit}`;
@@ -467,32 +435,41 @@ export class SpotifyAPI {
 
   /**
    * Map mood to Spotify genres
+   * IMPORTANT: Only use VALID Spotify genre seeds!
+   * Valid genres list: https://developer.spotify.com/documentation/web-api/reference/get-recommendation-genres
+   * Valid genres include: acoustic, ambient, classical, electronic, folk, indie, jazz, piano, soundtracks, etc.
+   * Invalid genres: orchestral, cinematic, epic, adventure, instrumental, suspense, etc.
    * @private
    */
   _moodToGenres(mood, energy, keywords) {
+    // Map to VALID Spotify genre seeds ONLY
     const moodGenreMap = {
-      'epic': ['orchestral', 'cinematic', 'soundtrack'],
-      'tense': ['suspense', 'dark-ambient', 'soundtrack'],
-      'peaceful': ['ambient', 'meditation', 'chill'],
-      'mysterious': ['ambient', 'dark-ambient', 'ethereal'],
-      'joyful': ['happy', 'upbeat', 'indie'],
-      'sad': ['melancholy', 'sad', 'piano'],
-      'dramatic': ['soundtrack', 'orchestral', 'cinematic'],
-      'calm': ['ambient', 'chill', 'new-age'],
-      'energetic': ['energetic', 'upbeat', 'electronic'],
-      'dark': ['dark-ambient', 'industrial', 'gothic'],
-      'romantic': ['romance', 'acoustic', 'piano'],
-      'adventure': ['adventure', 'orchestral', 'world-music']
+      'epic': ['soundtracks', 'classical', 'metal'],
+      'tense': ['ambient', 'electronic', 'industrial'],
+      'peaceful': ['ambient', 'chill', 'piano', 'new-age'],
+      'mysterious': ['ambient', 'electronic', 'minimal-techno'],
+      'joyful': ['indie', 'folk', 'happy', 'indie-pop'],
+      'sad': ['piano', 'acoustic', 'indie', 'sad', 'rainy-day'],
+      'dramatic': ['soundtracks', 'classical', 'opera'],
+      'calm': ['ambient', 'chill', 'acoustic', 'sleep'],
+      'energetic': ['electronic', 'indie', 'dance', 'edm'],
+      'dark': ['ambient', 'electronic', 'goth', 'industrial'],
+      'romantic': ['acoustic', 'piano', 'indie', 'romance'],
+      'adventure': ['soundtracks', 'folk', 'classical', 'world-music'],
+      'action': ['electronic', 'soundtracks', 'metal'],
+      'fantasy': ['soundtracks', 'classical', 'folk', 'ambient']
     };
     
     // Start with mood-based genres
-    let genres = moodGenreMap[mood.toLowerCase()] || ['ambient', 'instrumental'];
+    let genres = moodGenreMap[mood.toLowerCase()] || ['ambient', 'chill'];
     
     // Add energy-based genre
     if (energy >= 4) {
-      genres.push('epic');
+      genres.push('electronic'); // High energy
     } else if (energy <= 2) {
-      genres.push('ambient');
+      genres.push('ambient'); // Low energy
+    } else {
+      genres.push('soundtracks'); // Medium energy
     }
     
     // Add keyword-based genres if they map
@@ -502,8 +479,13 @@ export class SpotifyAPI {
       }
     });
     
-    // Return unique genres, max 5
-    return [...new Set(genres)];
+    // Return unique genres, max 5 (Spotify limit)
+    const uniqueGenres = [...new Set(genres)].slice(0, 5);
+    
+    // Log for debugging
+    console.log(`🎼 Genre seeds: [${uniqueGenres.join(', ')}] (from mood="${mood}", energy=${energy})`);
+    
+    return uniqueGenres;
   }
   
   /**

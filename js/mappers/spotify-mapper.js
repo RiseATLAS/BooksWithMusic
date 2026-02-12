@@ -66,87 +66,102 @@ export class SpotifyMapper {
       magical: 0.5       // Ethereal (neutral)
     };
 
-    // Map cultural/historical themes to Spotify genres
+    // IMPORTANT: Only use VALID Spotify genre seeds!
+    // Valid genres from Spotify API (as of 2024):
+    // acoustic, afrobeat, alt-rock, alternative, ambient, anime, black-metal, bluegrass, blues, bossanova, brazil,
+    // breakbeat, british, cantopop, chicago-house, children, chill, classical, club, comedy, country, dance,
+    // dancehall, death-metal, deep-house, detroit-techno, disco, disney, drum-and-bass, dub, dubstep, edm,
+    // electro, electronic, emo, folk, forro, french, funk, garage, german, gospel, goth, grindcore, groove,
+    // grunge, guitar, happy, hard-rock, hardcore, hardstyle, heavy-metal, hip-hop, holidays, honky-tonk, house,
+    // idm, indian, indie, indie-pop, industrial, iranian, j-dance, j-idol, j-pop, j-rock, jazz, k-pop, kids,
+    // latin, latino, malay, mandopop, metal, metal-misc, metalcore, minimal-techno, movies, mpb, new-age,
+    // new-release, opera, pagode, party, philippines-opm, piano, pop, pop-film, post-dubstep, power-pop,
+    // progressive-house, psych-rock, punk, punk-rock, r-n-b, rainy-day, reggae, reggaeton, road-trip, rock,
+    // rock-n-roll, rockabilly, romance, sad, salsa, samba, sertanejo, show-tunes, singer-songwriter, ska,
+    // sleep, songwriter, soul, soundtracks, spanish, study, summer, swedish, synth-pop, tango, techno, trance,
+    // trip-hop, turkish, work-out, world-music
+    
+    // Map cultural/historical themes to VALID Spotify genres
     this.themeToGenres = {
       // Cultural/Geographic
-      'viking': ['nordic', 'epic', 'cinematic', 'folk'],
-      'celtic': ['celtic', 'irish-folk', 'scottish', 'folk'],
-      'eastern': ['world-music', 'asian', 'ambient'],
-      'middle-eastern': ['world-music', 'middle-eastern', 'ambient'],
-      'pirate': ['folk', 'sea-shanty', 'adventure', 'acoustic'],
-      'western': ['americana', 'country', 'folk'],
+      'viking': ['folk', 'metal', 'ambient'],
+      'celtic': ['folk', 'world-music', 'acoustic'],
+      'eastern': ['world-music', 'ambient', 'indian'],
+      'middle-eastern': ['world-music', 'ambient', 'iranian'],
+      'pirate': ['folk', 'acoustic', 'world-music'],
+      'western': ['country', 'folk', 'acoustic'],
       'african': ['world-music', 'afrobeat', 'ambient'],
-      'latin': ['latin', 'spanish', 'world-music'],
+      'latin': ['latin', 'latino', 'world-music'],
       'native-american': ['world-music', 'folk', 'ambient'],
       'indian': ['world-music', 'indian', 'ambient'],
       'russian': ['classical', 'folk', 'world-music'],
       'greek': ['classical', 'world-music', 'ambient'],
-      'aztec-mayan': ['world-music', 'ambient', 'ethnic'],
-      'polynesian': ['world-music', 'tropical', 'ambient'],
+      'aztec-mayan': ['world-music', 'ambient', 'latin'],
+      'polynesian': ['world-music', 'ambient', 'summer'],
       'australian': ['world-music', 'folk', 'ambient'],
-      'arctic': ['ambient', 'atmospheric', 'world-music'],
+      'arctic': ['ambient', 'new-age', 'world-music'],
       
       // Musical Eras
-      'baroque': ['baroque', 'classical', 'early-music'],
-      'classical': ['classical', 'orchestral', 'chamber-music'],
-      'romantic': ['classical', 'piano', 'romantic-era'],
-      'jazz': ['jazz', 'swing', 'blues'],
-      'renaissance': ['renaissance', 'early-music', 'medieval'],
-      'rock': ['rock', 'alternative', 'indie'],
+      'baroque': ['classical', 'opera'],
+      'classical': ['classical', 'piano', 'opera'],
+      'romantic': ['classical', 'piano', 'romance'],
+      'jazz': ['jazz', 'blues', 'soul'],
+      'renaissance': ['classical', 'opera', 'ambient'],
+      'rock': ['rock', 'alt-rock', 'indie'],
       'soul': ['soul', 'r-n-b', 'funk'],
-      'country': ['country', 'bluegrass', 'americana'],
+      'country': ['country', 'bluegrass', 'folk'],
       
       // Time Periods
-      'ancient': ['epic', 'world-music', 'atmospheric'],
-      'medieval': ['medieval', 'folk', 'renaissance'],
-      'victorian': ['classical', 'chamber-music', 'piano'],
-      'noir': ['jazz', 'blues', 'film-noir'],
-      'steampunk': ['industrial', 'alternative', 'cinematic'],
-      '1920s': ['jazz', 'swing', 'vintage'],
-      '1930s': ['jazz', 'big-band', 'swing'],
-      '1940s': ['jazz', 'swing', 'blues'],
+      'ancient': ['ambient', 'world-music', 'classical'],
+      'medieval': ['folk', 'ambient', 'classical'],
+      'victorian': ['classical', 'piano', 'opera'],
+      'noir': ['jazz', 'blues', 'soul'],
+      'steampunk': ['industrial', 'alternative', 'electronic'],
+      '1920s': ['jazz', 'blues', 'soul'],
+      '1930s': ['jazz', 'blues', 'soul'],
+      '1940s': ['jazz', 'blues', 'soul'],
       '1950s': ['jazz', 'blues', 'rock-n-roll'],
-      '1960s': ['rock', 'soul', 'psychedelic'],
+      '1960s': ['rock', 'soul', 'psychedelic', 'psych-rock'],
       '1970s': ['rock', 'funk', 'disco'],
-      '1980s': ['synthwave', 'new-wave', 'pop'],
+      '1980s': ['synth-pop', 'new-wave', 'pop'],
       '1990s': ['grunge', 'alternative', 'electronic'],
       '2000s': ['indie', 'electronic', 'alternative'],
-      'future': ['electronic', 'synthwave', 'ambient'],
-      'cyberpunk': ['synthwave', 'industrial', 'electronic'],
+      'future': ['electronic', 'synth-pop', 'ambient'],
+      'cyberpunk': ['synth-pop', 'industrial', 'electronic'],
       
       // Music Styles
-      'orchestral': ['orchestral', 'classical', 'cinematic'],
-      'cinematic': ['cinematic', 'soundtrack', 'epic'],
-      'ambient': ['ambient', 'atmospheric', 'meditation'],
+      'orchestral': ['classical', 'soundtracks', 'opera'],
+      'cinematic': ['soundtracks', 'ambient', 'classical'],
+      'ambient': ['ambient', 'new-age', 'chill'],
       'folk': ['folk', 'acoustic', 'indie-folk'],
-      'choral': ['choral', 'classical', 'vocal'],
-      'electronic': ['electronic', 'ambient', 'downtempo'],
-      'tribal': ['world-music', 'ethnic', 'tribal'],
+      'choral': ['classical', 'gospel', 'opera'],
+      'electronic': ['electronic', 'ambient', 'edm'],
+      'tribal': ['world-music', 'afrobeat', 'ambient'],
       
       // Genres
-      'fantasy': ['epic', 'orchestral', 'cinematic', 'fantasy'],
-      'sci-fi': ['electronic', 'ambient', 'synthwave', 'cinematic'],
-      'mystery': ['jazz', 'ambient', 'cinematic', 'minimal'],
+      'fantasy': ['soundtracks', 'classical', 'ambient'],
+      'sci-fi': ['electronic', 'ambient', 'synth-pop'],
+      'mystery': ['jazz', 'ambient', 'minimal-techno'],
       'romance': ['classical', 'piano', 'acoustic', 'indie'],
-      'thriller': ['cinematic', 'electronic', 'suspense'],
-      'horror': ['dark-ambient', 'cinematic', 'horror'],
-      'adventure': ['orchestral', 'cinematic', 'epic', 'world-music'],
-      'war': ['epic', 'orchestral', 'cinematic', 'military'],
-      'espionage': ['jazz', 'electronic', 'minimal', 'cinematic']
+      'thriller': ['ambient', 'electronic', 'minimal-techno'],
+      'horror': ['ambient', 'industrial', 'goth'],
+      'adventure': ['soundtracks', 'classical', 'world-music'],
+      'war': ['soundtracks', 'classical', 'metal'],
+      'espionage': ['jazz', 'electronic', 'minimal-techno']
     };
 
-    // Map moods to Spotify genres
+    // Map moods to VALID Spotify genres
     this.moodToGenres = {
-      dark: ['dark-ambient', 'cinematic', 'atmospheric', 'post-rock'],
-      mysterious: ['ambient', 'minimal', 'cinematic', 'downtempo'],
-      romantic: ['classical', 'piano', 'acoustic', 'indie'],
-      sad: ['piano', 'classical', 'acoustic', 'melancholic'],
-      epic: ['epic', 'orchestral', 'cinematic', 'soundtrack'],
-      peaceful: ['ambient', 'meditation', 'chill', 'acoustic'],
-      tense: ['cinematic', 'electronic', 'minimal', 'suspense'],
-      joyful: ['happy', 'indie', 'folk', 'uplifting'],
-      adventure: ['orchestral', 'cinematic', 'world-music', 'epic'],
-      magical: ['ambient', 'ethereal', 'fantasy', 'orchestral']
+      dark: ['ambient', 'goth', 'industrial', 'post-dubstep'],
+      mysterious: ['ambient', 'minimal-techno', 'electronic', 'trip-hop'],
+      romantic: ['classical', 'piano', 'acoustic', 'indie', 'romance'],
+      sad: ['piano', 'classical', 'acoustic', 'sad', 'rainy-day'],
+      epic: ['soundtracks', 'classical', 'metal'],
+      peaceful: ['ambient', 'new-age', 'chill', 'acoustic', 'sleep'],
+      tense: ['ambient', 'electronic', 'minimal-techno', 'industrial'],
+      joyful: ['happy', 'indie', 'folk', 'indie-pop', 'pop'],
+      adventure: ['soundtracks', 'world-music', 'classical'],
+      magical: ['ambient', 'new-age', 'soundtracks']
     };
 
     // Map tempo descriptors to BPM ranges
