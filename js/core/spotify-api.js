@@ -121,6 +121,10 @@ export class SpotifyAPI {
     
     // Cache for search results
     this.cache = new Map();
+    
+    // Cache for valid genre seeds (fetched once from API)
+    this.validGenres = null;
+    this.genresFetchPromise = null;
   }
 
   /**
@@ -128,6 +132,80 @@ export class SpotifyAPI {
    */
   async isConfigured() {
     return await this.auth.isAuthenticated();
+  }
+  
+  /**
+   * Get available genre seeds from Spotify API
+   * Results are cached to avoid repeated API calls
+   * @returns {Promise<Array<string>>} Array of valid genre seed strings
+   */
+  async getAvailableGenres() {
+    // Return cached genres if available
+    if (this.validGenres) {
+      return this.validGenres;
+    }
+    
+    // If already fetching, return the existing promise
+    if (this.genresFetchPromise) {
+      return this.genresFetchPromise;
+    }
+    
+    // Fetch genres from API
+    this.genresFetchPromise = (async () => {
+      try {
+        if (!await this.isConfigured()) {
+          console.warn('⚠️ Spotify not authenticated, cannot fetch genres');
+          return [];
+        }
+        
+        const endpoint = '/recommendations/available-genre-seeds';
+        console.log('🎼 Fetching available genre seeds from Spotify API...');
+        
+        const data = await this._makeRequest(endpoint);
+        
+        if (data && data.genres && Array.isArray(data.genres)) {
+          this.validGenres = data.genres;
+          console.log(`✅ Loaded ${this.validGenres.length} valid Spotify genres`);
+          return this.validGenres;
+        }
+        
+        console.warn('⚠️ No genres in API response');
+        return [];
+      } catch (error) {
+        console.error('❌ Failed to fetch Spotify genres:', error);
+        // Fallback to empty array if API fails
+        return [];
+      } finally {
+        this.genresFetchPromise = null;
+      }
+    })();
+    
+    return this.genresFetchPromise;
+  }
+  
+  /**
+   * Validate and filter genre seeds against Spotify's valid list
+   * @param {Array<string>} genres - Genre seeds to validate
+   * @returns {Promise<Array<string>>} Valid genre seeds only
+   */
+  async validateGenres(genres) {
+    const validGenreList = await this.getAvailableGenres();
+    
+    if (validGenreList.length === 0) {
+      // If we couldn't fetch the valid list, return genres as-is
+      return genres;
+    }
+    
+    const validSet = new Set(validGenreList);
+    const validated = genres.filter(genre => validSet.has(genre));
+    
+    // Log any invalid genres
+    const invalid = genres.filter(genre => !validSet.has(genre));
+    if (invalid.length > 0) {
+      console.warn(`⚠️ Invalid Spotify genres filtered out: [${invalid.join(', ')}]`);
+    }
+    
+    return validated;
   }
 
   /**
@@ -295,8 +373,15 @@ export class SpotifyAPI {
     // Validate limit for Recommendations API (1-100)
     limit = Math.max(1, Math.min(100, Math.floor(limit) || 20));
     
-    // Map mood and keywords to Spotify genres (max 5 seeds)
-    const genreSeeds = this._moodToGenres(mood, energy, keywords);
+    // Map mood and keywords to Spotify genres (max 5 seeds) and validate them
+    const genreSeeds = await this._moodToGenres(mood, energy, keywords);
+    
+    // If no valid genres after validation, fall back to search
+    if (genreSeeds.length === 0) {
+      console.warn('⚠️ No valid genres available, falling back to search');
+      const searchLimit = Math.min(20, limit);
+      return await this.searchByQuery([mood, 'instrumental', ...keywords.slice(0, 1)], searchLimit);
+    }
     
     // Convert energy (1-5) to Spotify scale (0-1)
     const targetEnergy = energy / 5;
@@ -439,15 +524,12 @@ export class SpotifyAPI {
   }
 
   /**
-   * Map mood to Spotify genres
-   * IMPORTANT: Only use VALID Spotify genre seeds!
-   * Valid genres list: https://developer.spotify.com/documentation/web-api/reference/get-recommendation-genres
-   * Common valid genres: acoustic, ambient, classical, electronic, folk, indie, jazz, piano, soundtrack, etc.
-   * Invalid genres: soundtracks (plural), orchestral, cinematic, epic, adventure, instrumental, suspense, etc.
+   * Map mood to Spotify genres and validate them against API
+   * IMPORTANT: Validates genres against Spotify's official list
    * @private
    */
-  _moodToGenres(mood, energy, keywords) {
-    // Map to VALID Spotify genre seeds ONLY (singular forms!)
+  async _moodToGenres(mood, energy, keywords) {
+    // Map to Spotify genre seeds (will be validated)
     const moodGenreMap = {
       'epic': ['soundtrack', 'classical', 'metal'],
       'tense': ['ambient', 'electronic', 'industrial'],
@@ -484,13 +566,19 @@ export class SpotifyAPI {
       }
     });
     
-    // Return unique genres, max 5 (Spotify limit)
-    const uniqueGenres = [...new Set(genres)].slice(0, 5);
+    // Get unique genres first
+    const uniqueGenres = [...new Set(genres)];
+    
+    // Validate genres against Spotify's API
+    const validatedGenres = await this.validateGenres(uniqueGenres);
+    
+    // Limit to 5 (Spotify's max for seed_genres)
+    const finalGenres = validatedGenres.slice(0, 5);
     
     // Log for debugging
-    console.log(`🎼 Genre seeds: [${uniqueGenres.join(', ')}] (from mood="${mood}", energy=${energy})`);
+    console.log(`🎼 Genre seeds: [${finalGenres.join(', ')}] (from mood="${mood}", energy=${energy})`);
     
-    return uniqueGenres;
+    return finalGenres;
   }
   
   /**
