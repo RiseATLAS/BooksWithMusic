@@ -23,17 +23,16 @@
  * - Handles sign-in/sign-out UI updates
  * 
  * VERSION UPDATE SYSTEM:
- * - Checks GitHub for new versions on startup
+ * - Checks deployed app version (from live service-worker.js) on startup
  * - Re-checks every 5 minutes while app is running
- * - Compares local version.json with GitHub version
+ * - Compares local acknowledged version with deployed CACHE_VERSION
  * - Shows persistent notification until user reloads or dismisses
- * - GitHub URL: https://raw.githubusercontent.com/RiseATLAS/BooksWithMusic/main/version.json
- * - Uses cache: 'no-cache' to ensure fresh version from GitHub
+ * - Uses cache: 'no-store' + timestamp to bypass browser/proxy cache
  * 
  * VERSION RELEASE PROCESS:
- * 1. Update version.json with new version, build date, and notes
+ * 1. Run generate-version.js (updates CACHE_VERSION in service-worker.js)
  * 2. Commit and push to GitHub
- * 3. Users automatically notified within 5 minutes or on next app load
+ * 3. Users are notified only after GitHub Pages serves the new build
  * 
  * VERSION NUMBERING (Semantic Versioning):
  * - X.0.0 → X.0.1: Bug fixes
@@ -69,6 +68,7 @@ class BooksWithMusicApp {
     // Note: MusicPanelUI needs reader's musicManager, initialized after reader
     this.musicPanel = null;
     this.currentUser = null;
+    this.latestDeployedVersion = null;
   }
 
   async initialize() {
@@ -432,6 +432,7 @@ class BooksWithMusicApp {
     // Register service worker for offline support
     if ("serviceWorker" in navigator) {
       try {
+        const hadController = Boolean(navigator.serviceWorker.controller);
         // Use correct path for GitHub Pages (with repo name in URL)
         const swPath = "/BooksWithMusic/service-worker.js";
         const registration = await navigator.serviceWorker.register(swPath);
@@ -452,8 +453,10 @@ class BooksWithMusicApp {
         // Listen for messages from the service worker
         navigator.serviceWorker.addEventListener('message', (event) => {
           if (event.data && event.data.type === 'SW_UPDATED') {
-
-            this.showUpdateNotification();
+            // Ignore first install; only show when replacing an existing controller.
+            if (hadController) {
+              this.showUpdateNotification(event.data.version);
+            }
           }
         });
         
@@ -495,6 +498,11 @@ class BooksWithMusicApp {
     const dismissBtn = notification.querySelector('.update-dismiss-btn');
     
     reloadBtn.addEventListener('click', () => {
+      if (newVersion) {
+        localStorage.setItem('booksWithMusic-currentVersion', newVersion);
+      } else if (this.latestDeployedVersion) {
+        localStorage.setItem('booksWithMusic-currentVersion', this.latestDeployedVersion);
+      }
       // Save current timestamp as "last reload" so we know user has latest version
       localStorage.setItem('booksWithMusic-lastReload', Date.now().toString());
       // Hard reload to bypass cache and get fresh files
@@ -512,24 +520,29 @@ class BooksWithMusicApp {
 
   async checkForUpdates() {
     try {
-      // Check GitHub's last commit date
-      const response = await fetch('https://api.github.com/repos/RiseATLAS/BooksWithMusic/commits/main', {
-        cache: 'no-cache'
-      });
-      const data = await response.json();
-      const githubLastUpdate = new Date(data.commit.committer.date).getTime();
-      
-      // Get the last update time when user actually reloaded the app
-      const localLastReload = localStorage.getItem('booksWithMusic-lastReload');
-      const localReloadTime = localLastReload ? parseInt(localLastReload) : 0;
-      
-      console.log(`📦 GitHub last commit: ${data.commit.committer.date}`);
-      console.log(`📦 Local last reload: ${localLastReload ? new Date(localReloadTime).toISOString() : 'Never'}`);
-      
-      // If GitHub has newer commits than our last reload, keep showing notification
-      if (githubLastUpdate > localReloadTime) {
-        console.log('🎉 New version available on GitHub!');
-        this.showUpdateNotification();
+      // IMPORTANT: Query the deployed site (not GitHub commits) so we notify only
+      // after GitHub Pages has finished building and serving the new bundle.
+      const deployedVersion = await this.fetchDeployedCacheVersion();
+      if (!deployedVersion) {
+        return false;
+      }
+
+      this.latestDeployedVersion = deployedVersion;
+      const currentVersion = localStorage.getItem('booksWithMusic-currentVersion');
+
+      // First run baseline: don't notify, just store currently deployed version.
+      if (!currentVersion) {
+        localStorage.setItem('booksWithMusic-currentVersion', deployedVersion);
+        console.log(`📦 Initialized local version baseline: ${deployedVersion}`);
+        return false;
+      }
+
+      console.log(`📦 Deployed version: ${deployedVersion}`);
+      console.log(`📦 Local version: ${currentVersion}`);
+
+      if (deployedVersion !== currentVersion) {
+        console.log('🎉 New deployed version available');
+        this.showUpdateNotification(deployedVersion);
         return true;
       } else {
         console.log('✅ App is up to date');
@@ -539,6 +552,27 @@ class BooksWithMusicApp {
       console.warn('Could not check for updates:', error);
       return false;
     }
+  }
+
+  /**
+   * Get currently deployed cache version by reading the live service-worker.js.
+   * This reflects what GitHub Pages is actually serving (post-build).
+   */
+  async fetchDeployedCacheVersion() {
+    // Preserve existing GH Pages path convention used across the app.
+    const swUrl = `/BooksWithMusic/service-worker.js?t=${Date.now()}`;
+    const response = await fetch(swUrl, { cache: 'no-store' });
+    if (!response.ok) {
+      throw new Error(`Failed to fetch deployed service worker (${response.status})`);
+    }
+
+    const swSource = await response.text();
+    const match = swSource.match(/const\\s+CACHE_VERSION\\s*=\\s*['"]([^'"]+)['"]/);
+    if (!match || !match[1]) {
+      throw new Error('Could not parse CACHE_VERSION from deployed service worker');
+    }
+
+    return match[1];
   }
 }
 
