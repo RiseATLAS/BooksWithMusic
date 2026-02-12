@@ -211,9 +211,10 @@ export class SpotifyAPI {
     
     // NOTE: Do NOT add 'instrumental' here - it should be in queryTerms already
 
-    const endpoint = `/search?q=${encodeURIComponent(searchQuery)}&type=track&limit=${limit}`;
+    // Try WITHOUT limit parameter - use Spotify's default (20)
+    const endpoint = `/search?q=${encodeURIComponent(searchQuery)}&type=track`;
     
-    console.log(`🔍 Spotify search: "${searchQuery}" (limit: ${limit})`);
+    console.log(`🔍 Spotify search: "${searchQuery}" (using default limit)`);
 
     try {
       const data = await this._makeRequest(endpoint);
