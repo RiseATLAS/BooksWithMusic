@@ -24,6 +24,8 @@ export class MusicPanelUI {
     
     // Playback controls
     this.isToggling = false; // Prevent multiple simultaneous toggles
+    this.lastKnownPlayState = false; // Source-agnostic UI play state cache
+    this.spotifyPlayerListenersBound = false;
   }
 
   /**
@@ -210,7 +212,7 @@ export class MusicPanelUI {
       this.pageTrackHistory.clear();
       
       // Store shift points for this chapter
-      this.currentShiftPoints = data.chapterShiftPoints?.shiftPoints || [];
+      this.currentShiftPoints = this._normalizeShiftPoints(data.chapterShiftPoints?.shiftPoints || []);
       
       // Load playlist with recommended tracks (1-5 tracks in order)
       await this.loadPlaylistForChapter(data.chapterIndex, data.recommendedTracks, data.currentPageInChapter || 1);
@@ -788,7 +790,7 @@ export class MusicPanelUI {
     }
     
     // Store shift points for display
-    this.currentShiftPoints = allShiftPoints;
+    this.currentShiftPoints = this._normalizeShiftPoints(allShiftPoints || []);
     this.updateNextShiftDisplay(newPage);
     
     // Determine direction
@@ -813,7 +815,7 @@ export class MusicPanelUI {
       this.pageTrackHistory.set(oldPage, this.currentTrackIndex);
       
       // Advance to next track (will switch track or just update UI if not playing)
-      const wasPlaying = this.audioPlayer.state.playing;
+      const wasPlaying = this.isCurrentlyPlaying();
       this.nextTrack(wasPlaying);
       
       // Record new page with new track
@@ -834,7 +836,7 @@ export class MusicPanelUI {
       // If different from current track, switch back (update UI and play if music was playing)
       if (historicalTrackIndex !== this.currentTrackIndex && this.playlist.length > 0) {
         console.log(`⏮️ Restore | Page ${newPage} | Track ${this.currentTrackIndex} → ${historicalTrackIndex}`);
-        const wasPlaying = this.audioPlayer.state.playing;
+        const wasPlaying = this.isCurrentlyPlaying();
         
         // Update track index and UI
         this.currentTrackIndex = historicalTrackIndex;
@@ -853,7 +855,7 @@ export class MusicPanelUI {
       
       if (crossedShiftPoint && this.currentTrackIndex > 0) {
         console.log(`⏮️ Backward shift | Page ${newPage} | Shift at ${crossedShiftPoint.page} | ${crossedShiftPoint.toMood} → ${crossedShiftPoint.fromMood}`);
-        const wasPlaying = this.audioPlayer.state.playing;
+        const wasPlaying = this.isCurrentlyPlaying();
         await this.previousTrack(wasPlaying);
       }
     }
@@ -976,7 +978,7 @@ export class MusicPanelUI {
       const isShiftTrack = index < shiftPoints.length && shiftPoints[index]?.page;
       const isCurrent = index === this.currentTrackIndex;
       const playState = isCurrent ? (isPlaying ? 'playing' : 'paused') : 'queued';
-      const playIcon = isCurrent ? (isPlaying ? '▶' : '⏸') : '•';
+      const playIcon = isCurrent ? (isPlaying ? '⏸' : '▶') : '•';
       
       // Concise shift info
       let shiftInfo = '';
@@ -1264,6 +1266,7 @@ export class MusicPanelUI {
   }
 
   updatePlayPauseButton(isPlaying) {
+    this.lastKnownPlayState = Boolean(isPlaying);
     const btn = document.getElementById('play-pause');
     if (btn) {
       const iconSpan = btn.querySelector('.icon');
@@ -1275,13 +1278,17 @@ export class MusicPanelUI {
     this.renderPlaylist();
   }
 
-  previousTrack() {
+  previousTrack(shouldPlay = true) {
     if (!this.playlist || this.playlist.length === 0) {
       return;
     }
     const newIndex = this.currentTrackIndex - 1;
     if (newIndex >= 0) {
-      this.playTrack(newIndex);
+      if (shouldPlay) {
+        return this.playTrack(newIndex);
+      }
+      this.currentTrackIndex = newIndex;
+      this.renderPlaylist();
     }
   }
 
@@ -1459,17 +1466,22 @@ export class MusicPanelUI {
       return;
     }
     
-    // Find the next shift point after current page
-    const nextShift = this.currentShiftPoints.find(sp => sp.page > currentPage);
+    // Find the nearest next shift point after current page.
+    const nextShift = this.currentShiftPoints
+      .map((sp) => ({ ...sp, _page: Number(sp.pageInChapter ?? sp.page ?? 0) }))
+      .filter((sp) => Number.isFinite(sp._page) && sp._page > currentPage)
+      .sort((a, b) => a._page - b._page)[0];
     
     if (nextShift) {
-      const pagesUntil = nextShift.page - currentPage;
+      const pagesUntil = nextShift._page - currentPage;
+      const fromMood = nextShift.fromMood || nextShift.mood || 'unknown';
+      const toMood = nextShift.toMood || nextShift.mood || 'unknown';
       nextShiftInfo.innerHTML = `
         <div class="shift-indicator">
           <span class="shift-icon">🎵</span>
           <div class="shift-text">
             <strong>Next music shift in ${pagesUntil} page${pagesUntil > 1 ? 's' : ''}</strong>
-            <small>${nextShift.fromMood} → ${nextShift.toMood}</small>
+            <small>${fromMood} → ${toMood}</small>
           </div>
         </div>
       `;
@@ -1477,6 +1489,20 @@ export class MusicPanelUI {
     } else {
       nextShiftInfo.style.display = 'none';
     }
+  }
+
+  /**
+   * Keep shift points in deterministic page order.
+   * @private
+   */
+  _normalizeShiftPoints(shiftPoints) {
+    return (Array.isArray(shiftPoints) ? shiftPoints : [])
+      .slice()
+      .sort((a, b) => {
+        const pageA = Number(a?.pageInChapter ?? a?.page ?? Number.MAX_SAFE_INTEGER);
+        const pageB = Number(b?.pageInChapter ?? b?.page ?? Number.MAX_SAFE_INTEGER);
+        return pageA - pageB;
+      });
   }
 
   formatDuration(seconds) {
@@ -1543,6 +1569,7 @@ export class MusicPanelUI {
    */
   async initializeSpotifyPlayer() {
     if (this.spotifyPlayer) {
+      this._bindSpotifyPlayerListeners();
       return this.spotifyPlayer; // Return cached instance
     }
 
@@ -1551,6 +1578,7 @@ export class MusicPanelUI {
       const { SpotifySDKPlayer } = await import('../core/spotify-sdk-player.js');
       this.spotifyPlayer = new SpotifySDKPlayer();
       await this.spotifyPlayer.initialize();
+      this._bindSpotifyPlayerListeners();
       console.log('✅ Spotify Web Playback SDK initialized - music will stream in browser');
       return this.spotifyPlayer;
     } catch (error) {
@@ -1580,6 +1608,41 @@ export class MusicPanelUI {
     // Update UI to show paused state
     this.updatePlayPauseButton(false);
     console.log(`🔄 Switched music source to: ${source}`);
+  }
+
+  /**
+   * Keep UI controls synchronized with Spotify SDK state changes.
+   * @private
+   */
+  _bindSpotifyPlayerListeners() {
+    if (!this.spotifyPlayer || this.spotifyPlayerListenersBound) {
+      return;
+    }
+
+    this.spotifyPlayer.on('playStateChanged', (isPlaying) => {
+      if (this.currentMusicSource !== 'spotify') return;
+      this.updatePlayPauseButton(Boolean(isPlaying));
+    });
+
+    this.spotifyPlayer.on('trackChanged', (spotifyTrack) => {
+      if (this.currentMusicSource !== 'spotify') return;
+
+      const uri = spotifyTrack?.uri;
+      if (uri && Array.isArray(this.playlist) && this.playlist.length > 0) {
+        const matchedIndex = this.playlist.findIndex(track => (track.spotifyUri || track.uri) === uri);
+        if (matchedIndex >= 0) {
+          this.currentTrackIndex = matchedIndex;
+        }
+      }
+      this.renderPlaylist();
+    });
+
+    this.spotifyPlayer.on('error', () => {
+      if (this.currentMusicSource !== 'spotify') return;
+      this.updatePlayPauseButton(false);
+    });
+
+    this.spotifyPlayerListenersBound = true;
   }
 
   /**
@@ -1630,6 +1693,7 @@ export class MusicPanelUI {
       // Play the track using Spotify Connect API
       const trackUri = track.spotifyUri || track.uri;
       await this.spotifyPlayer.play(trackUri);
+      this.updatePlayPauseButton(true);
       console.log('🎵 Now playing (Spotify):', track.title);
 
       // Spotify tracks don't need Firestore logging (commercial service, no license requirements)
@@ -1647,7 +1711,7 @@ export class MusicPanelUI {
    */
   isCurrentlyPlaying() {
     if (this.currentMusicSource === 'spotify') {
-      return this.spotifyPlayer?.isPlaying() || false;
+      return this.lastKnownPlayState;
     } else {
       return this.audioPlayer?.isPlaying() || false;
     }

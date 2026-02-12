@@ -1378,6 +1378,15 @@ export class MoodProcessor {
       
       // Sort selected shifts by page number for easy lookup
       selectedShifts.sort((a, b) => a.page - b.page);
+
+      // Rebuild from/to mood chain in page order so labels stay coherent
+      // (e.g. epic -> romantic -> mysterious, not epic -> romantic then epic -> mysterious).
+      let chainMood = chapterMood;
+      selectedShifts.forEach((shift) => {
+        shift.fromMood = chainMood;
+        shift.toMood = shift.toMood || chainMood;
+        chainMood = shift.toMood;
+      });
     }
 
     // PASS 3: Build sections with selected shifts
