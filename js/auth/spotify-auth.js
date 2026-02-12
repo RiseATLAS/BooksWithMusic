@@ -360,6 +360,13 @@ export class SpotifyAuth {
   }
 
   /**
+   * Backward-compatible alias for older call sites.
+   */
+  async clearTokens() {
+    await this.logout();
+  }
+
+  /**
    * Store tokens in IndexedDB (more secure than localStorage)
    * @private
    */

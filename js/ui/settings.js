@@ -764,7 +764,7 @@ export class SettingsUI {
       const spotifyAuth = new SpotifyAuth();
 
       // Clear all Spotify authentication tokens from localStorage
-      spotifyAuth.clearTokens();
+      await spotifyAuth.logout();
 
       // Update UI to reflect disconnected state
       this.updateSpotifyAuthUI();
