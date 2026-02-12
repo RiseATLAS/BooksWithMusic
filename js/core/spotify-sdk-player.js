@@ -216,6 +216,7 @@ export class SpotifySDKPlayer {
     this.player.addListener('not_ready', ({ device_id }) => {
       console.warn('⚠️ Spotify device disconnected:', device_id);
       this.deviceId = null;
+      this.emit('notReady', { deviceId: device_id });
     });
 
     // Initialization Error

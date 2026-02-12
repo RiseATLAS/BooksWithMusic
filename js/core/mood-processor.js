@@ -762,17 +762,17 @@ export class MoodProcessor {
 
     // Get settings from localStorage
     const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
-    const songsPerChapter = settings.songsPerChapter || 5;
-    const minSongsPerPages = settings.minSongsPerPages || 1;
+    const songsPerChapter = Math.max(1, Math.min(20, Math.floor(Number(settings.songsPerChapter) || 5)));
+    const minSongsPerPages = Math.max(1, Math.min(10, Math.floor(Number(settings.minSongsPerPages) || 1)));
 
     // Estimate chapter length in pages (rough estimate: 300 words per page)
     const wordCount = chapter.content?.split(/\s+/).length || 1000;
     const estimatedPages = Math.max(1, Math.ceil(wordCount / 300));
     
-    // Calculate track count based on settings
-    // Use the max of: songsPerChapter setting OR minimum based on page count
+    // Calculate track count based on settings (capped to UI-supported max).
+    // Use the max of: songsPerChapter setting OR minimum based on page count.
     const minTracksForPages = Math.ceil(estimatedPages / minSongsPerPages);
-    const trackCount = Math.max(songsPerChapter, minTracksForPages);
+    const trackCount = Math.min(20, Math.max(songsPerChapter, minTracksForPages));
 
     // Get book vibe keywords if available
     const bookVibeKeywords = bookProfile?.bookVibeKeywords || [];

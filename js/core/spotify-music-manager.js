@@ -192,10 +192,11 @@ export class SpotifyMusicManager {
 
     try {
       console.log(`🎵 Fetching Spotify tracks for chapter ${chapterIndex}...`);
+      const desiredTrackCount = this._getDesiredTrackCount(mapping);
 
       // Build one search profile per shift so early playlist tracks align with mood transitions.
       const shiftProfiles = this._buildShiftSearchProfiles(mapping);
-      const perProfileLimit = Math.max(4, Math.ceil(20 / shiftProfiles.length));
+      const perProfileLimit = Math.max(4, Math.ceil(desiredTrackCount / shiftProfiles.length));
       const searchedTracksByProfile = [];
 
       for (const profile of shiftProfiles) {
@@ -235,7 +236,7 @@ export class SpotifyMusicManager {
           mapping.mood,
           mapping.energy,
           mapping.keywords,
-          20
+          Math.max(10, desiredTrackCount)
         );
         for (const track of fallbackTracks) {
           addTrack(track, {
@@ -247,7 +248,7 @@ export class SpotifyMusicManager {
         }
       }
 
-      const tracksWithReasoning = orderedTracks.slice(0, 20);
+      const tracksWithReasoning = orderedTracks.slice(0, desiredTrackCount);
 
       mapping.tracks = tracksWithReasoning;
       mapping.tracksFetched = true;
@@ -259,6 +260,20 @@ export class SpotifyMusicManager {
       console.error(`❌ Failed to fetch Spotify tracks for chapter ${chapterIndex}:`, error);
       return [];
     }
+  }
+
+  /**
+   * Resolve desired tracks per chapter from UI settings.
+   * Mirrors Freesound logic and enforces Spotify's practical max of 20.
+   * @private
+   */
+  _getDesiredTrackCount(mapping) {
+    const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
+    const songsPerChapter = Math.max(1, Math.min(20, Math.floor(Number(settings.songsPerChapter) || 5)));
+    const minSongsPerPages = Math.max(1, Math.min(10, Math.floor(Number(settings.minSongsPerPages) || 1)));
+    const estimatedPages = Math.max(1, Math.floor(Number(mapping?.estimatedPages) || 1));
+    const minTracksForPages = Math.ceil(estimatedPages / minSongsPerPages);
+    return Math.min(20, Math.max(songsPerChapter, minTracksForPages));
   }
 
   /**

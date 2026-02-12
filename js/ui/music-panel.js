@@ -26,6 +26,7 @@ export class MusicPanelUI {
     this.isToggling = false; // Prevent multiple simultaneous toggles
     this.lastKnownPlayState = false; // Source-agnostic UI play state cache
     this.spotifyPlayerListenersBound = false;
+    this.currentVolume = 0.7;
   }
 
   /**
@@ -47,6 +48,7 @@ export class MusicPanelUI {
     this.setupMediaSessionHandlers();
     this.renderPlaylist();
     this.checkApiKeyOnLoad();
+    this.updatePlaybackSourceStatus();
   }
 
   /**
@@ -184,6 +186,8 @@ export class MusicPanelUI {
     this.musicManager.on('musicSourceChanged', async (data) => {
       console.log(`🔄 Music source changed to: ${data.source}`);
       this.currentMusicSource = data.source;
+      this._syncSourceDependentControls();
+      this.updatePlaybackSourceStatus();
       
       // Stop current playback when switching sources
       if (this.audioPlayer?.isPlaying()) {
@@ -192,6 +196,7 @@ export class MusicPanelUI {
       if (this.spotifyPlayer) {
         await this.spotifyPlayer.pause?.();
       }
+      await this._applyCurrentVolume();
       
       // Update UI
       this.updatePlayPauseButton(false);
@@ -543,10 +548,29 @@ export class MusicPanelUI {
     // Volume control
     const volumeSlider = document.getElementById('volume-slider');
     const volumeValue = document.getElementById('volume-value');
+
+    if (volumeSlider) {
+      const initialVolume = Math.max(0, Math.min(100, parseInt(volumeSlider.value, 10) || 70));
+      this.currentVolume = initialVolume / 100;
+      this.audioPlayer.setVolume(this.currentVolume);
+      if (volumeValue) {
+        volumeValue.textContent = `${initialVolume}%`;
+      }
+    }
     
-    volumeSlider?.addEventListener('input', (e) => {
-      const volume = parseInt(e.target.value);
-      this.audioPlayer.setVolume(volume / 100);
+    volumeSlider?.addEventListener('input', async (e) => {
+      const volume = Math.max(0, Math.min(100, parseInt(e.target.value, 10) || 0));
+      this.currentVolume = volume / 100;
+      this.audioPlayer.setVolume(this.currentVolume);
+
+      if (this.currentMusicSource === 'spotify' && this.spotifyPlayer?.setVolume) {
+        try {
+          await this.spotifyPlayer.setVolume(this.currentVolume);
+        } catch (error) {
+          console.warn('⚠️ Failed to apply volume to Spotify player:', error);
+        }
+      }
+
       if (volumeValue) {
         volumeValue.textContent = `${volume}%`;
       }
@@ -623,7 +647,7 @@ export class MusicPanelUI {
 
     // Music enabled checkbox
     const musicEnabledCheckbox = document.getElementById('music-enabled-panel');
-    musicEnabledCheckbox?.addEventListener('change', (e) => {
+    musicEnabledCheckbox?.addEventListener('change', async (e) => {
       const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
       settings.musicEnabled = e.target.checked;
       localStorage.setItem('booksWithMusic-settings', JSON.stringify(settings));
@@ -634,10 +658,22 @@ export class MusicPanelUI {
           this.audioPlayer.stop();
           this.updatePlayPauseButton(false);
         }
+
+        if (this.spotifyPlayer) {
+          try {
+            await this.spotifyPlayer.pause();
+          } catch (error) {
+            console.warn('⚠️ Failed to pause Spotify player while disabling music:', error);
+          }
+          this.updatePlayPauseButton(false);
+        }
+
         this.showToast('Music disabled - will not load for new chapters', 'info');
       } else {
         this.showToast('Music enabled - reload page to load tracks', 'success');
       }
+
+      this.updatePlaybackSourceStatus();
     });
 
     // Load music enabled setting on startup
@@ -735,13 +771,11 @@ export class MusicPanelUI {
     // Load crossfade setting on startup
     if (crossfadeInput && settings.crossfadeDuration !== undefined) {
       crossfadeInput.value = settings.crossfadeDuration;
-      if (crossfadeValue) {
-        crossfadeValue.textContent = `${settings.crossfadeDuration}s`;
-      }
       if (this.audioPlayer) {
         this.audioPlayer.crossfadeDuration = settings.crossfadeDuration;
       }
     }
+    this._syncSourceDependentControls();
 
     // Max energy level (music panel)
     const maxEnergyInput = document.getElementById('max-energy-level');
@@ -1426,6 +1460,7 @@ export class MusicPanelUI {
       btn.title = isPlaying ? 'Pause' : 'Play';
     }
     this.renderPlaylist();
+    this.updatePlaybackSourceStatus();
   }
 
   previousTrack(shouldPlay = true) {
@@ -1718,8 +1753,12 @@ export class MusicPanelUI {
    * @returns {Promise<SpotifySDKPlayer>} The initialized Spotify SDK player instance
    */
   async initializeSpotifyPlayer() {
+    this.updatePlaybackSourceStatus('Spotify selected - initializing...', 'info');
+
     if (this.spotifyPlayer) {
       this._bindSpotifyPlayerListeners();
+      await this._applyCurrentVolume();
+      this.updatePlaybackSourceStatus();
       return this.spotifyPlayer; // Return cached instance
     }
 
@@ -1729,9 +1768,12 @@ export class MusicPanelUI {
       this.spotifyPlayer = new SpotifySDKPlayer();
       await this.spotifyPlayer.initialize();
       this._bindSpotifyPlayerListeners();
+      await this._applyCurrentVolume();
+      this.updatePlaybackSourceStatus();
       console.log('✅ Spotify Web Playback SDK initialized - music will stream in browser');
       return this.spotifyPlayer;
     } catch (error) {
+      this.updatePlaybackSourceStatus('Spotify selected - failed to initialize', 'error');
       console.error('❌ Failed to initialize Spotify SDK player:', error);
       throw error;
     }
@@ -1745,6 +1787,8 @@ export class MusicPanelUI {
   async switchMusicSource(source) {
     this.currentMusicSource = source;
     localStorage.setItem('music_source', source);
+    this._syncSourceDependentControls();
+    this.updatePlaybackSourceStatus();
 
     // Stop any currently playing music before switching sources
     if (this.audioPlayer.isPlaying()) {
@@ -1755,9 +1799,119 @@ export class MusicPanelUI {
       await this.spotifyPlayer.pause();
     }
 
+    await this._applyCurrentVolume();
+
     // Update UI to show paused state
     this.updatePlayPauseButton(false);
     console.log(`🔄 Switched music source to: ${source}`);
+  }
+
+  /**
+   * Update playback source/readiness indicator in the music header.
+   * Shows selected source even when provider is not ready yet.
+   * @param {string|null} forcedText
+   * @param {'ready'|'info'|'warning'|'error'} forcedTone
+   */
+  updatePlaybackSourceStatus(forcedText = null, forcedTone = null) {
+    const statusEl = document.getElementById('playback-source-status');
+    if (!statusEl) return;
+
+    const setStatus = (text, tone = 'info') => {
+      statusEl.textContent = text;
+      statusEl.classList.remove('status-ready', 'status-info', 'status-warning', 'status-error');
+      statusEl.classList.add(`status-${tone}`);
+    };
+
+    if (forcedText) {
+      setStatus(forcedText, forcedTone || 'info');
+      return;
+    }
+
+    let settings = {};
+    try {
+      settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
+    } catch (_) {
+      settings = {};
+    }
+
+    if (settings.musicEnabled === false) {
+      const selected = this.currentMusicSource === 'spotify' ? 'Spotify' : 'Freesound';
+      setStatus(`Music disabled - ${selected} selected`, 'warning');
+      return;
+    }
+
+    if (this.currentMusicSource === 'spotify') {
+      const hasToken = Boolean(localStorage.getItem('spotify_access_token'));
+      if (!hasToken) {
+        setStatus('Spotify selected - not connected', 'warning');
+        return;
+      }
+
+      if (!this.spotifyPlayer) {
+        setStatus('Spotify selected - not ready yet (press Play)', 'info');
+        return;
+      }
+
+      if (this.spotifyPlayer.deviceId) {
+        setStatus(this.lastKnownPlayState ? 'Spotify selected - ready and playing' : 'Spotify selected - ready', 'ready');
+        return;
+      }
+
+      if (this.spotifyPlayer.initPromise) {
+        setStatus('Spotify selected - initializing...', 'info');
+        return;
+      }
+
+      setStatus('Spotify selected - not ready yet', 'warning');
+      return;
+    }
+
+    setStatus(this.lastKnownPlayState ? 'Freesound selected - playing' : 'Freesound selected - ready', 'ready');
+  }
+
+  /**
+   * Keep source-specific controls aligned with the active provider.
+   * Crossfade currently applies to Freesound only.
+   * @private
+   */
+  _syncSourceDependentControls() {
+    const crossfadeInput = document.getElementById('crossfade-duration-panel');
+    const crossfadeValue = document.getElementById('crossfade-value-panel');
+    if (!crossfadeInput) return;
+
+    const isSpotify = this.currentMusicSource === 'spotify';
+    crossfadeInput.disabled = isSpotify;
+    crossfadeInput.title = isSpotify ? 'Crossfade is currently available only for Freesound playback.' : '';
+
+    const group = crossfadeInput.closest('.setting-group');
+    if (group) {
+      group.style.opacity = isSpotify ? '0.65' : '';
+    }
+
+    if (crossfadeValue) {
+      const baseValue = `${Math.max(1, Math.min(10, parseInt(crossfadeInput.value, 10) || 3))}s`;
+      crossfadeValue.textContent = isSpotify ? `${baseValue} (Freesound only)` : baseValue;
+    }
+  }
+
+  /**
+   * Apply current UI volume to active player and keep Freesound volume in sync.
+   * @private
+   */
+  async _applyCurrentVolume() {
+    const volume = Number.isFinite(this.currentVolume)
+      ? Math.max(0, Math.min(1, this.currentVolume))
+      : 0.7;
+
+    this.audioPlayer.setVolume(volume);
+
+    if (this.currentMusicSource === 'spotify' && this.spotifyPlayer?.setVolume) {
+      try {
+        await this.spotifyPlayer.setVolume(volume);
+      } catch (error) {
+        console.warn('⚠️ Failed to sync volume to Spotify player:', error);
+      }
+    }
   }
 
   /**
@@ -1768,6 +1922,16 @@ export class MusicPanelUI {
     if (!this.spotifyPlayer || this.spotifyPlayerListenersBound) {
       return;
     }
+
+    this.spotifyPlayer.on('ready', () => {
+      if (this.currentMusicSource !== 'spotify') return;
+      this.updatePlaybackSourceStatus();
+    });
+
+    this.spotifyPlayer.on('notReady', () => {
+      if (this.currentMusicSource !== 'spotify') return;
+      this.updatePlaybackSourceStatus('Spotify selected - device disconnected', 'warning');
+    });
 
     this.spotifyPlayer.on('playStateChanged', (isPlaying) => {
       if (this.currentMusicSource !== 'spotify') return;
@@ -1787,9 +1951,11 @@ export class MusicPanelUI {
       this.renderPlaylist();
     });
 
-    this.spotifyPlayer.on('error', () => {
+    this.spotifyPlayer.on('error', (error) => {
       if (this.currentMusicSource !== 'spotify') return;
       this.updatePlayPauseButton(false);
+      const message = error?.message || 'playback issue';
+      this.updatePlaybackSourceStatus(`Spotify selected - ${message}`, 'error');
     });
 
     this.spotifyPlayer.on('trackEnded', () => {

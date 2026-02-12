@@ -1164,6 +1164,11 @@ body.reader-page::-webkit-scrollbar {
   background: var(--bg-secondary);
 }
 
+.music-header {
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
 .settings-header {
   position: sticky;
   top: 0;
@@ -1171,6 +1176,42 @@ body.reader-page::-webkit-scrollbar {
   z-index: 1;
 }
 .music-header h3, .settings-header h3 { font-size: 1rem; font-weight: 600; margin: 0; }
+
+.playback-source-status {
+  max-width: 100%;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 0.72rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-secondary);
+  background: rgba(127, 127, 127, 0.12);
+}
+
+.playback-source-status.status-ready {
+  color: #176437;
+  border-color: rgba(34, 156, 85, 0.45);
+  background: rgba(34, 156, 85, 0.12);
+}
+
+.playback-source-status.status-info {
+  color: var(--text-secondary);
+}
+
+.playback-source-status.status-warning {
+  color: #8a5a00;
+  border-color: rgba(193, 126, 0, 0.45);
+  background: rgba(193, 126, 0, 0.14);
+}
+
+.playback-source-status.status-error {
+  color: #9b1c1c;
+  border-color: rgba(181, 45, 45, 0.5);
+  background: rgba(181, 45, 45, 0.14);
+}
 
 .btn-close {
   background: none;
@@ -2110,6 +2151,11 @@ html:-ms-fullscreen .page-indicator,
 
   .music-header h3 {
     font-size: 1.2rem;
+  }
+
+  .playback-source-status {
+    font-size: 0.68rem;
+    max-width: 94%;
   }
 
   /* Make close buttons larger and better positioned on mobile */

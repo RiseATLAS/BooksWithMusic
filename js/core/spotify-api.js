@@ -82,6 +82,47 @@ export class SpotifyAPI {
   }
 
   /**
+   * Read persisted music settings safely.
+   * @private
+   */
+  _getSettings() {
+    try {
+      return JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
+    } catch (_) {
+      return {};
+    }
+  }
+
+  /**
+   * Check if verbose logging is enabled in UI settings.
+   * @private
+   */
+  _isVerboseLoggingEnabled() {
+    const settings = this._getSettings();
+    return settings.verboseLogging !== false;
+  }
+
+  /**
+   * Verbose-only log helper.
+   * @private
+   */
+  _debugLog(...args) {
+    if (this._isVerboseLoggingEnabled()) {
+      console.log(...args);
+    }
+  }
+
+  /**
+   * Verbose-only warning helper.
+   * @private
+   */
+  _debugWarn(...args) {
+    if (this._isVerboseLoggingEnabled()) {
+      console.warn(...args);
+    }
+  }
+
+  /**
    * Check if API is configured and user is authenticated
    */
   async isConfigured() {
@@ -100,7 +141,7 @@ export class SpotifyAPI {
     // Log any invalid genres
     const invalid = genres.filter(genre => !validSet.has(genre));
     if (invalid.length > 0) {
-      console.warn(`⚠️ Invalid Spotify genres filtered out: [${invalid.join(', ')}]`);
+      this._debugWarn(`⚠️ Invalid Spotify genres filtered out: [${invalid.join(', ')}]`);
     }
     
     return validated;
@@ -117,12 +158,12 @@ export class SpotifyAPI {
    */
   async searchTracks(keywords, limit = 20, chapterAnalysis = null, bookProfile = null) {
     if (!await this.isConfigured()) {
-      console.warn('⚠️ Spotify not authenticated');
+      this._debugWarn('⚠️ Spotify not authenticated');
       return [];
     }
 
     // Get settings
-    const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
+    const settings = this._getSettings();
     const instrumentalOnly = settings.instrumentalOnly !== false;
 
     // Build search terms from chapter analysis and keywords
@@ -196,13 +237,18 @@ export class SpotifyAPI {
    */
   async searchByQuery(queryTerms, limit = 15, options = {}) {
     if (!await this.isConfigured()) {
-      console.warn('⚠️ Spotify not authenticated');
+      this._debugWarn('⚠️ Spotify not authenticated');
       return [];
     }
 
     // Clamp to a conservative per-request window to keep response size predictable.
     // We fan out across multiple focused queries below for diversity.
     limit = Math.max(1, Math.min(20, Math.floor(limit) || 15));
+
+    const settings = this._getSettings();
+    const instrumentalOnly = options?.instrumentalOnly !== undefined
+      ? options.instrumentalOnly !== false
+      : settings.instrumentalOnly !== false;
 
     const safeTerms = (Array.isArray(queryTerms) ? queryTerms : [])
       .map(term => (term || '').trim())
@@ -246,11 +292,15 @@ export class SpotifyAPI {
     try {
       const baseQueries = candidateGenres.slice(0, 3).map((genre, index) => {
         const core = index === 0 ? strictQueryCore : relaxedQueryCore;
-        return `${core} instrumental genre:${genre}`.trim();
+        return [core, instrumentalOnly ? 'instrumental' : null, `genre:${genre}`]
+          .filter(Boolean)
+          .join(' ');
       });
 
       if (baseQueries.length === 0) {
-        baseQueries.push(`${strictQueryCore} instrumental soundtrack`.trim());
+        baseQueries.push([strictQueryCore, instrumentalOnly ? 'instrumental' : null, 'soundtrack']
+          .filter(Boolean)
+          .join(' '));
       }
 
       for (let i = 0; i < baseQueries.length; i++) {
@@ -262,7 +312,7 @@ export class SpotifyAPI {
         );
         addTracks(tracks);
 
-        const provisional = this._filterAndSortTracks(Array.from(collectedTracks.values()), limit);
+        const provisional = this._filterAndSortTracks(Array.from(collectedTracks.values()), limit, { instrumentalOnly });
         if (provisional.length >= limit) {
           break;
         }
@@ -270,11 +320,17 @@ export class SpotifyAPI {
 
       // If strict field-filtered queries fail, fall back to broader plain-text searches.
       if (collectedTracks.size === 0) {
-        const fallbackQueries = [
-          `${relaxedQueryCore} instrumental soundtrack OR ambient OR classical`,
-          `${effectiveMood} instrumental soundtrack`,
-          `instrumental soundtrack ambient`
-        ].filter(Boolean);
+        const fallbackQueries = instrumentalOnly
+          ? [
+              `${relaxedQueryCore} instrumental soundtrack OR ambient OR classical`,
+              `${effectiveMood} instrumental soundtrack`,
+              `instrumental soundtrack ambient`
+            ]
+          : [
+              `${relaxedQueryCore} soundtrack OR ambient OR classical`,
+              `${effectiveMood} soundtrack`,
+              `cinematic soundtrack ambient`
+            ];
 
         for (let i = 0; i < fallbackQueries.length; i++) {
           const query = fallbackQueries[i];
@@ -292,10 +348,11 @@ export class SpotifyAPI {
       }
 
       const allTracks = Array.from(collectedTracks.values());
-      const filteredTracks = this._filterAndSortTracks(allTracks, limit);
+      const filteredTracks = this._filterAndSortTracks(allTracks, limit, { instrumentalOnly });
+      const selectionLabel = instrumentalOnly ? 'instrumental tracks' : 'tracks';
 
-      console.log(
-        `✅ Spotify candidate pool: ${allTracks.length} tracks, returning ${filteredTracks.length} instrumental tracks (mood=${effectiveMood}, energy=${effectiveEnergy})`
+      this._debugLog(
+        `✅ Spotify candidate pool: ${allTracks.length} tracks, returning ${filteredTracks.length} ${selectionLabel} (mood=${effectiveMood}, energy=${effectiveEnergy})`
       );
 
       return filteredTracks;
@@ -317,15 +374,15 @@ export class SpotifyAPI {
     });
     const endpoint = `/search?${params.toString()}`;
 
-    console.log(`🔍 Spotify search (${label}): "${searchQuery}" (api limit=default, client limit=${safeLimit})`);
+    this._debugLog(`🔍 Spotify search (${label}): "${searchQuery}" (api limit=default, client limit=${safeLimit})`);
 
     const data = await this._makeRequest(endpoint);
     if (!data?.tracks?.items) {
-      console.log(`📦 Spotify search (${label}) returned 0 tracks`);
+      this._debugLog(`📦 Spotify search (${label}) returned 0 tracks`);
       return [];
     }
 
-    console.log(`📦 Spotify search (${label}) returned ${data.tracks.items.length} tracks`);
+    this._debugLog(`📦 Spotify search (${label}) returned ${data.tracks.items.length} tracks`);
 
     return data.tracks.items
       .slice(0, safeLimit)
@@ -372,12 +429,15 @@ export class SpotifyAPI {
    * Post-filter and rank candidates.
    * @private
    */
-  _filterAndSortTracks(tracks, limit) {
-    let candidateTracks = tracks.filter(track => this._isLikelyInstrumental(track));
+  _filterAndSortTracks(tracks, limit, options = {}) {
+    const instrumentalOnly = options.instrumentalOnly !== false;
+    let candidateTracks = instrumentalOnly
+      ? tracks.filter(track => this._isLikelyInstrumental(track))
+      : tracks.slice();
 
     // Safety fallback: if heuristics are too strict, prefer returning playable music over silence.
-    if (candidateTracks.length === 0 && tracks.length > 0) {
-      console.warn('⚠️ Strict instrumental filter removed all Spotify candidates, using relaxed fallback.');
+    if (instrumentalOnly && candidateTracks.length === 0 && tracks.length > 0) {
+      this._debugWarn('⚠️ Strict instrumental filter removed all Spotify candidates, using relaxed fallback.');
       candidateTracks = tracks.slice();
     }
 
@@ -406,7 +466,7 @@ export class SpotifyAPI {
     const queryTerms = [mood];
     
     // Get settings
-    const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
+    const settings = this._getSettings();
     const instrumentalOnly = settings.instrumentalOnly !== false;
     const configuredMaxEnergy = settings.maxEnergyLevel;
     const maxEnergyLevel = configuredMaxEnergy !== undefined
@@ -414,23 +474,20 @@ export class SpotifyAPI {
       : 5;
     const effectiveEnergy = Math.min(energy, maxEnergyLevel);
     
-    if (instrumentalOnly) {
-      queryTerms.push('instrumental');
-    }
-    
     // Add keywords for variety
     if (keywords && keywords.length > 0) {
       queryTerms.push(...keywords.slice(0, 2));
     }
     
-    console.log(
+    this._debugLog(
       `🔍 Spotify Search: mood="${mood}", energy=${effectiveEnergy}${effectiveEnergy !== energy ? ` (capped from ${energy})` : ''}, keywords=[${keywords.slice(0, 2).join(', ')}]`
     );
     
     return await this.searchByQuery(queryTerms, limit, {
       mood,
       energy: effectiveEnergy,
-      keywords
+      keywords,
+      instrumentalOnly
     });
   }
   
@@ -581,7 +638,7 @@ export class SpotifyAPI {
     const finalGenres = validatedGenres.slice(0, 5);
     
     // Log for debugging
-    console.log(`🎼 Genre seeds: [${finalGenres.join(', ')}] (from mood="${mood}", energy=${energy})`);
+    this._debugLog(`🎼 Genre seeds: [${finalGenres.join(', ')}] (from mood="${mood}", energy=${energy})`);
     
     return finalGenres;
   }
@@ -818,7 +875,7 @@ export class SpotifyAPI {
     }
     
     // If no strong indicators, reject (prefer false positives over including vocals)
-    console.log(`🚫 Filtered likely vocal track: "${track.title}" by ${track.artist}`);
+    this._debugLog(`🚫 Filtered likely vocal track: "${track.title}" by ${track.artist}`);
     return false;
   }
 
@@ -889,7 +946,7 @@ export class SpotifyAPI {
         const errorMessage = error.error?.message || error.error || response.statusText || 'Unknown Spotify API error';
 
         if (suppressStatusErrors.includes(response.status)) {
-          console.warn(`⚠️ Spotify optional endpoint unavailable (${response.status}): ${errorMessage}`);
+          this._debugWarn(`⚠️ Spotify optional endpoint unavailable (${response.status}): ${errorMessage}`);
           return null;
         }
 
