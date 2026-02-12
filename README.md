@@ -136,9 +136,9 @@ BooksWithMusic/
 - 🎯 **Multi-Layer Scoring System** - Tracks scored on book vibe (88 pts), tag matching, energy (5 pts), tempo (3 pts)
 - 📊 **Exponential Weighting** - 90% top tracks, 10% variety for professional curation
 - 🌍 **Cultural Context Detection** - 65+ themes: Viking, Celtic, Eastern, Victorian, Noir, Medieval, etc.
-- 🔄 **Page-Level Mood Shifts** - Dynamic music changes within chapters (like scene transitions)
+- 🔄 **Page-Level Mood Shifts** - Dynamic switching for Freesound; Spotify uses shift-aware chapter playlists
 - 🎵 **Dual Music Sources** - Freesound (free, CC0) or Spotify Premium (100M+ tracks)
-- 🎧 **Seamless Playback** - Smooth crossfading (Freesound) or smart controls (Spotify)
+- 🎧 **Seamless Playback** - Smooth crossfading (Freesound) or embedded browser playback (Spotify Web Playback SDK)
 - 📊 **Music Panel** - View and manage track queue with scoring transparency
 - ⚙️ **Customizable Filters** - Toggle instrumental-only mode and set max energy level
 - ⚖️ **CC0 Compliance** - Only CC0-licensed music from Freesound, fully logged for legal compliance
@@ -217,7 +217,7 @@ git push origin main
 3. **Set source:** Branch `main`, Folder `/ (root)`
 4. **Save** and wait 1-2 minutes
 5. **Access at:** `https://YOUR-USERNAME.github.io/BooksWithMusic/`
-6. **Configure Firebase** with your own project (see FIREBASE_SETUP.md)
+6. **Configure Firebase** with your own project in `js/config/firebase-config.js`
 
 ### Other Hosting Options
 
@@ -252,43 +252,34 @@ CC0-licensed music, embedded playback, works offline
 - ✅ CC0 license (legally free to use)
 
 #### 🎶 Spotify (Optional - Premium Required)
-Professional catalog with 100M+ tracks, external playback
+Professional catalog with 100M+ tracks, embedded playback in the reader.
 
-**⚠️ IMPORTANT: Spotify Developer Dashboard Status**
-> **As of January 2025, Spotify has temporarily disabled new app creation in their Developer Dashboard.**  
-> This is required for Spotify integration to work. You can check the current status at [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard).  
-> Once Spotify re-enables app creation, you'll be able to complete the setup below.
+**Setup (current implementation):**
+1. **Have Spotify Premium** subscription
+2. **In the app**: Settings → Music Provider → Spotify
+3. **Click Connect Spotify** and authorize
+4. **Start reading** - playback is controlled directly in the reader UI
 
-**⚠️ SETUP REQUIRED (One-time):**
-1. **Create Spotify App** at [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) (currently disabled, see note above)
-2. **Get credentials**: Client ID and Client Secret
-3. **Set redirect URI**: `http://localhost:8080/callback.html` (or your domain)
-4. **Configure in app**: Settings → Spotify API → Enter credentials
-
-**Once configured:**
-1. **Have Spotify Premium** subscription ($10.99/month)
-2. **In the app**: Settings → Connect Spotify → Authorize
-3. **Open Spotify app** on your device (desktop, mobile, or web)
-4. **Read your book** - music plays in Spotify, controlled by the app
+**If you self-host / fork:**
+1. Create your own Spotify app at [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard)
+2. Register your callback URL (`/callback.html`) for your host
+3. Set your app client ID in `js/auth/spotify-auth.js`
 
 **Advantages:**
 - ✅ Massive catalog (100M+ tracks)
 - ✅ Professional quality recordings
-- ✅ Better mood matching (advanced audio features)
-- ✅ Familiar Spotify interface
+- ✅ Chapter-aware search using mood, keywords, and energy-biased query terms
+- ✅ Embedded browser playback (no external player required)
 
 **Requirements:**
 - ⚠️ Spotify Premium subscription required
-- ⚠️ Spotify app must be running on a device
 - ⚠️ Internet connection required (no offline mode)
-- ⚠️ Music plays in Spotify app (external to reader)
-
-**See `SPOTIFY-INTEGRATION.md` for detailed architecture documentation.**
+- ⚠️ Browser autoplay policies may require an initial user interaction (click/tap Play)
 
 ### Legal Compliance
 - ✅ Freesound: Only CC0 (Creative Commons Zero) tracks are used
 - ✅ All Freesound track usage is logged to Firebase (ID, license, source URL, timestamp)
-- ✅ Spotify: User's own Premium account, app controls their playback
+- ✅ Spotify: User's own Premium account, app controls playback via Spotify APIs
 - ✅ No attribution required for CC0, but full documentation maintained
 - ✅ 20 user cap for friends & family use (names stored for verification)
 
@@ -405,7 +396,7 @@ Tracks are evaluated on multiple dimensions:
 
 **5. Page-Level Mood Shifts** (Like Scene Transitions)
 - Detects emotional changes within chapters
-- Smooth transitions between tracks at mood shift points
+- Smooth transitions between tracks at mood shift points (Freesound full support, Spotify chapter playlist + shift-aware indexing)
 - Maintains narrative flow like a film score
 
 ## ⚙️ Settings & Customization
@@ -426,8 +417,8 @@ Tracks are evaluated on multiple dimensions:
 ### Music Settings
 - **Enable/Disable Background Music**: Toggle music on/off
 - **Auto-play Music**: Start playing automatically when opening a chapter
-- **Dynamic Page-Based Music Switching**: Automatically change tracks as you read based on mood shifts (can be disabled for chapter-only changes)
-- **Maximum Energy Level**: Limit music intensity (1=Very Calm to 5=All tracks)
+- **Dynamic Page-Based Music Switching**: Fully supported for Freesound; Spotify uses chapter-level playlists with shift-aware track progression
+- **Maximum Energy Level**: Limit music intensity (strong filter for Freesound; query bias for Spotify)
 - **Volume Control**: 0% - 100%
 - **Crossfade Duration**: Smooth transitions between tracks (1-10 seconds)
 - **API Configuration**: Add Freesound API key
@@ -455,7 +446,7 @@ Check console for:
 
 ## 🔧 Development
 
-See [DEVELOPMENT.md](DEVELOPMENT.md) for architecture details and development setup.
+Architecture details are documented directly in code comments across `js/core/*`.
 
 ## 📄 License
 
@@ -522,10 +513,7 @@ This project is open source. All music tracks are CC0-licensed (Creative Commons
 
 ### 6. Documentation ✅ COMPLETE
 - [x] README.md up to date
-- [x] FIREBASE_SETUP.md complete
-- [x] SECURITY.md documented
-- [x] DEVELOPMENT.md has architecture
-- [x] QUICK_REFERENCE.md has shortcuts
+- [x] Core architecture documented inline in source comments
 
 ### 🔍 Testing Recommendations
 

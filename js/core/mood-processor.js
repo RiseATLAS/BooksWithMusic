@@ -11,7 +11,6 @@
  * 
  * INTEGRATION NOTES:
  * - API-agnostic: Works with both Freesound and Spotify
- * - See SPOTIFY-INTEGRATION.md for mood → Spotify feature mapping
  * - Energy levels (1-5) map to Spotify energy (0.0-1.0)
  * - Tempo maps to Spotify BPM ranges
  * - Keywords map to Spotify genres via spotify-mapper.js

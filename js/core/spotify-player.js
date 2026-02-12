@@ -13,7 +13,6 @@
  * - Used when settings.musicSource === "spotify"
  * - Requires Spotify Premium and active device
  * - Music plays in Spotify app (not embedded)
- * - See SPOTIFY-INTEGRATION.md for architecture
  * - Implements same interface as audio-player.js for consistency
  * 
  * PLAYBACK CONTROL:

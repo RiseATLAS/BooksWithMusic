@@ -197,9 +197,10 @@ export class SpotifyAPI {
    * 
    * @param {Array<string>} queryTerms - Terms to search for (e.g., ['epic', 'orchestral'])
    * @param {number} limit - Number of results (1-50, default 15)
+   * @param {Object} options - Additional context (mood, energy, keywords)
    * @returns {Array} Array of track objects
    */
-  async searchByQuery(queryTerms, limit = 15) {
+  async searchByQuery(queryTerms, limit = 15, options = {}) {
     if (!await this.isConfigured()) {
       console.warn('⚠️ Spotify not authenticated');
       return [];
@@ -212,13 +213,32 @@ export class SpotifyAPI {
     const safeTerms = (Array.isArray(queryTerms) ? queryTerms : [])
       .map(term => (term || '').trim())
       .filter(Boolean);
+    const contextKeywords = (Array.isArray(options?.keywords) ? options.keywords : [])
+      .map(term => (term || '').trim())
+      .filter(Boolean);
     const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
     const preferTasteAnchored = settings.preferTasteAnchoredSpotifyResults !== false;
     const normalizedTerms = safeTerms.length > 0 ? safeTerms : ['ambient'];
-    const termsWithoutInstrumental = normalizedTerms.filter(
-      term => term.toLowerCase() !== 'instrumental'
+    const combinedTerms = [...normalizedTerms, ...contextKeywords];
+    const termsWithoutInstrumental = combinedTerms.filter(term => term.toLowerCase() !== 'instrumental');
+    const uniqueTerms = [...new Map(termsWithoutInstrumental.map(term => [term.toLowerCase(), term])).values()];
+    const termsText = (uniqueTerms.length > 0 ? uniqueTerms : ['ambient']).join(' ');
+    const effectiveMood = String(options?.mood || normalizedTerms[0] || 'peaceful').toLowerCase();
+    const effectiveEnergy = this._normalizeEnergyLevel(options?.energy);
+    const energyProfile = this._getEnergySearchProfile(effectiveEnergy);
+    const mappedGenres = this.validateGenres(
+      this.mapper.mapKeywordsToGenres(uniqueTerms, effectiveMood).map(genre => String(genre).toLowerCase())
     );
-    const termsText = (termsWithoutInstrumental.length > 0 ? termsWithoutInstrumental : ['ambient']).join(' ');
+    const candidateGenres = [
+      ...new Set([
+        ...energyProfile.genres,
+        ...mappedGenres,
+        'soundtrack',
+        'ambient',
+        'classical'
+      ])
+    ].slice(0, 5);
+    const queryCore = [termsText, ...energyProfile.queryTerms].filter(Boolean).join(' ');
     const collectedTracks = new Map();
 
     const addTracks = (tracks) => {
@@ -230,11 +250,13 @@ export class SpotifyAPI {
     };
 
     try {
-      const baseQueries = [
-        `${termsText} instrumental genre:soundtrack`,
-        `${termsText} instrumental genre:ambient`,
-        `${termsText} instrumental genre:classical`
-      ];
+      const baseQueries = candidateGenres.slice(0, 3).map(
+        genre => `${queryCore} instrumental genre:${genre}`
+      );
+
+      if (baseQueries.length === 0) {
+        baseQueries.push(`${queryCore} instrumental soundtrack`);
+      }
 
       for (let i = 0; i < baseQueries.length; i++) {
         const query = baseQueries[i];
@@ -255,7 +277,7 @@ export class SpotifyAPI {
       if (preferTasteAnchored) {
         const topArtists = await this.getUserTopArtists(3);
         for (const artist of topArtists) {
-          const artistQuery = `${termsText} instrumental artist:"${this._escapeSpotifyQueryValue(artist.name)}"`;
+          const artistQuery = `${queryCore} instrumental artist:"${this._escapeSpotifyQueryValue(artist.name)}"`;
           const artistTracks = await this._searchTracksByQueryString(
             artistQuery,
             Math.max(6, Math.min(10, limit)),
@@ -274,7 +296,7 @@ export class SpotifyAPI {
       const filteredTracks = this._filterAndSortTracks(allTracks, limit);
 
       console.log(
-        `✅ Spotify candidate pool: ${allTracks.length} tracks, returning ${filteredTracks.length} instrumental tracks`
+        `✅ Spotify candidate pool: ${allTracks.length} tracks, returning ${filteredTracks.length} instrumental tracks (mood=${effectiveMood}, energy=${effectiveEnergy})`
       );
 
       return filteredTracks;
@@ -359,6 +381,42 @@ export class SpotifyAPI {
   }
 
   /**
+   * Normalize energy level to integer range 1-5.
+   * @private
+   */
+  _normalizeEnergyLevel(energy) {
+    const parsed = Number(energy);
+    if (!Number.isFinite(parsed)) return 3;
+    return Math.max(1, Math.min(5, Math.round(parsed)));
+  }
+
+  /**
+   * Convert energy level to search-friendly text/genre bias.
+   * Spotify Search doesn't support target_energy, so we bias terms instead.
+   * @private
+   */
+  _getEnergySearchProfile(energyLevel) {
+    if (energyLevel <= 2) {
+      return {
+        queryTerms: ['calm', 'atmospheric', 'slow'],
+        genres: ['ambient', 'new-age', 'piano']
+      };
+    }
+
+    if (energyLevel >= 4) {
+      return {
+        queryTerms: ['epic', 'driving', 'intense'],
+        genres: ['soundtrack', 'electronic', 'metal']
+      };
+    }
+
+    return {
+      queryTerms: ['cinematic', 'steady'],
+      genres: ['soundtrack', 'classical', 'ambient']
+    };
+  }
+
+  /**
    * Post-filter and rank candidates.
    * @private
    */
@@ -369,19 +427,18 @@ export class SpotifyAPI {
   }
 
   /**
-   * Search by mood characteristics using Spotify Recommendations API
-   * This is MORE EFFICIENT than text search and respects rate limits better
+   * Search by mood/energy characteristics using Spotify Search API.
    * 
    * @param {string} mood - Chapter mood (e.g., 'tense', 'peaceful', 'epic')
    * @param {number} energy - Energy level 1-5
    * @param {Array<string>} keywords - Additional mood keywords
-   * @param {number} limit - Max tracks to return (1-100 for Recommendations API)
+   * @param {number} limit - Max tracks to return
    * @returns {Promise<Array>} Array of track objects
    */
   async searchByMood(mood, energy, keywords = [], limit = 20) {
     // Default values for safety
     mood = mood || 'peaceful';
-    energy = energy || 3;
+    energy = this._normalizeEnergyLevel(energy || 3);
     
     // Search API supports max 20 results (reduced from 50 as of Feb 2026)
     limit = Math.max(1, Math.min(20, Math.floor(limit) || 20));
@@ -392,6 +449,11 @@ export class SpotifyAPI {
     // Get settings
     const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
     const instrumentalOnly = settings.instrumentalOnly !== false;
+    const configuredMaxEnergy = settings.maxEnergyLevel;
+    const maxEnergyLevel = configuredMaxEnergy !== undefined
+      ? Math.max(1, Math.min(5, Math.round(configuredMaxEnergy)))
+      : 5;
+    const effectiveEnergy = Math.min(energy, maxEnergyLevel);
     
     if (instrumentalOnly) {
       queryTerms.push('instrumental');
@@ -402,9 +464,15 @@ export class SpotifyAPI {
       queryTerms.push(...keywords.slice(0, 2));
     }
     
-    console.log(`🔍 Spotify Search: mood="${mood}", energy=${energy}, keywords=[${keywords.slice(0, 2).join(', ')}]`);
+    console.log(
+      `🔍 Spotify Search: mood="${mood}", energy=${effectiveEnergy}${effectiveEnergy !== energy ? ` (capped from ${energy})` : ''}, keywords=[${keywords.slice(0, 2).join(', ')}]`
+    );
     
-    return await this.searchByQuery(queryTerms, limit);
+    return await this.searchByQuery(queryTerms, limit, {
+      mood,
+      energy: effectiveEnergy,
+      keywords
+    });
   }
   
   /**

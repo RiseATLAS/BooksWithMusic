@@ -12,7 +12,6 @@
  * 
  * INTEGRATION NOTES:
  * - Uses music-api-factory.js for dual-source support (Freesound/Spotify)
- * - See SPOTIFY-INTEGRATION.md for architecture
  * - Handles both Freesound (direct playback) and Spotify (API control)
  * - Caching only works for Freesound (Spotify streams directly)
  * 

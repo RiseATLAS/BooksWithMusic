@@ -9,7 +9,7 @@
  * - Provide direct audio URLs for playback
  * 
  * INTEGRATION NOTES:
- * - This is ONE of TWO music sources (see SPOTIFY-INTEGRATION.md)
+ * - This is ONE of TWO music sources (alternative to Spotify)
  * - Used when settings.musicSource === "freesound" (default)
  * - Returns track objects with direct audio URLs
  * - Tracks can be cached in IndexedDB for offline use
