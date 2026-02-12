@@ -326,7 +326,7 @@ export class SpotifyAPI {
 
     try {
       const endpoint = `/me/top/artists?time_range=medium_term&limit=${clampedLimit}`;
-      const data = await this._makeRequest(endpoint);
+      const data = await this._makeRequest(endpoint, 'GET', null, { suppressStatusErrors: [403] });
       const artists = (data?.items || []).map(artist => ({
         id: artist.id,
         name: artist.name,
@@ -799,7 +799,11 @@ export class SpotifyAPI {
    * Make authenticated request to Spotify API
    * @private
    */
-  async _makeRequest(endpoint, method = 'GET', body = null) {
+  async _makeRequest(endpoint, method = 'GET', body = null, requestOptions = {}) {
+    const suppressStatusErrors = Array.isArray(requestOptions?.suppressStatusErrors)
+      ? requestOptions.suppressStatusErrors
+      : [];
+
     // Check rate limit
     const now = Date.now();
     if (now < this.rateLimitedUntil) {
@@ -820,7 +824,7 @@ export class SpotifyAPI {
     }
 
     const url = `${this.baseURL}${endpoint}`;
-    const options = {
+    const fetchOptions = {
       method,
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -829,13 +833,13 @@ export class SpotifyAPI {
     };
 
     if (body) {
-      options.body = JSON.stringify(body);
+      fetchOptions.body = JSON.stringify(body);
     }
 
     this.lastRequestTime = Date.now();
 
     try {
-      const response = await fetch(url, options);
+      const response = await fetch(url, fetchOptions);
 
       // Handle rate limiting
       if (response.status === 429) {
@@ -855,13 +859,20 @@ export class SpotifyAPI {
 
       if (!response.ok) {
         const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+        const errorMessage = error.error?.message || error.error || response.statusText || 'Unknown Spotify API error';
+
+        if (suppressStatusErrors.includes(response.status)) {
+          console.warn(`⚠️ Spotify optional endpoint unavailable (${response.status}): ${errorMessage}`);
+          return null;
+        }
+
         console.error('❌ Spotify API Error Response:', {
           status: response.status,
           statusText: response.statusText,
           error: error,
           url: url
         });
-        throw new Error(`Spotify API error: ${error.error?.message || error.error || response.statusText}`);
+        throw new Error(`Spotify API error: ${errorMessage}`);
       }
 
       // Handle empty responses (e.g., from DELETE requests)
