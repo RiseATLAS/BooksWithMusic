@@ -222,7 +222,8 @@ export class SpotifyAPI {
     const combinedTerms = [...normalizedTerms, ...contextKeywords];
     const termsWithoutInstrumental = combinedTerms.filter(term => term.toLowerCase() !== 'instrumental');
     const uniqueTerms = [...new Map(termsWithoutInstrumental.map(term => [term.toLowerCase(), term])).values()];
-    const termsText = (uniqueTerms.length > 0 ? uniqueTerms : ['ambient']).join(' ');
+    const primaryTerms = (uniqueTerms.length > 0 ? uniqueTerms : ['ambient']).slice(0, 2);
+    const termsText = primaryTerms.join(' ');
     const effectiveMood = String(options?.mood || normalizedTerms[0] || 'peaceful').toLowerCase();
     const effectiveEnergy = this._normalizeEnergyLevel(options?.energy);
     const energyProfile = this._getEnergySearchProfile(effectiveEnergy);
@@ -231,14 +232,15 @@ export class SpotifyAPI {
     );
     const candidateGenres = [
       ...new Set([
-        ...energyProfile.genres,
         ...mappedGenres,
         'soundtrack',
+        'classical',
         'ambient',
-        'classical'
+        ...energyProfile.genres
       ])
     ].slice(0, 5);
-    const queryCore = [termsText, ...energyProfile.queryTerms].filter(Boolean).join(' ');
+    const strictQueryCore = [termsText, energyProfile.queryHint].filter(Boolean).join(' ');
+    const relaxedQueryCore = termsText;
     const collectedTracks = new Map();
 
     const addTracks = (tracks) => {
@@ -250,12 +252,13 @@ export class SpotifyAPI {
     };
 
     try {
-      const baseQueries = candidateGenres.slice(0, 3).map(
-        genre => `${queryCore} instrumental genre:${genre}`
-      );
+      const baseQueries = candidateGenres.slice(0, 3).map((genre, index) => {
+        const core = index === 0 ? strictQueryCore : relaxedQueryCore;
+        return `${core} instrumental genre:${genre}`.trim();
+      });
 
       if (baseQueries.length === 0) {
-        baseQueries.push(`${queryCore} instrumental soundtrack`);
+        baseQueries.push(`${strictQueryCore} instrumental soundtrack`.trim());
       }
 
       for (let i = 0; i < baseQueries.length; i++) {
@@ -273,11 +276,34 @@ export class SpotifyAPI {
         }
       }
 
+      // If strict field-filtered queries fail, fall back to broader plain-text searches.
+      if (collectedTracks.size === 0) {
+        const fallbackQueries = [
+          `${relaxedQueryCore} instrumental soundtrack OR ambient OR classical`,
+          `${effectiveMood} instrumental soundtrack`,
+          `instrumental soundtrack ambient`
+        ].filter(Boolean);
+
+        for (let i = 0; i < fallbackQueries.length; i++) {
+          const query = fallbackQueries[i];
+          const tracks = await this._searchTracksByQueryString(
+            query,
+            i === 0 ? Math.max(limit, 10) : Math.max(6, Math.min(10, limit)),
+            `fallback-${i + 1}`
+          );
+          addTracks(tracks);
+
+          if (collectedTracks.size >= limit) {
+            break;
+          }
+        }
+      }
+
       // If base mood+genre queries don't produce enough variety, anchor on user taste.
       if (preferTasteAnchored) {
         const topArtists = await this.getUserTopArtists(3);
         for (const artist of topArtists) {
-          const artistQuery = `${queryCore} instrumental artist:"${this._escapeSpotifyQueryValue(artist.name)}"`;
+          const artistQuery = `${effectiveMood} instrumental soundtrack artist:"${this._escapeSpotifyQueryValue(artist.name)}"`;
           const artistTracks = await this._searchTracksByQueryString(
             artistQuery,
             Math.max(6, Math.min(10, limit)),
@@ -322,8 +348,11 @@ export class SpotifyAPI {
 
     const data = await this._makeRequest(endpoint);
     if (!data?.tracks?.items) {
+      console.log(`📦 Spotify search (${label}) returned 0 tracks`);
       return [];
     }
+
+    console.log(`📦 Spotify search (${label}) returned ${data.tracks.items.length} tracks`);
 
     return data.tracks.items
       .slice(0, safeLimit)
@@ -398,20 +427,20 @@ export class SpotifyAPI {
   _getEnergySearchProfile(energyLevel) {
     if (energyLevel <= 2) {
       return {
-        queryTerms: ['calm', 'atmospheric', 'slow'],
+        queryHint: 'calm',
         genres: ['ambient', 'new-age', 'piano']
       };
     }
 
     if (energyLevel >= 4) {
       return {
-        queryTerms: ['epic', 'driving', 'intense'],
+        queryHint: 'epic',
         genres: ['soundtrack', 'electronic', 'metal']
       };
     }
 
     return {
-      queryTerms: ['cinematic', 'steady'],
+      queryHint: 'cinematic',
       genres: ['soundtrack', 'classical', 'ambient']
     };
   }
@@ -421,9 +450,16 @@ export class SpotifyAPI {
    * @private
    */
   _filterAndSortTracks(tracks, limit) {
-    const instrumentalTracks = tracks.filter(track => this._isLikelyInstrumental(track));
-    instrumentalTracks.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
-    return instrumentalTracks.slice(0, limit);
+    let candidateTracks = tracks.filter(track => this._isLikelyInstrumental(track));
+
+    // Safety fallback: if heuristics are too strict, prefer returning playable music over silence.
+    if (candidateTracks.length === 0 && tracks.length > 0) {
+      console.warn('⚠️ Strict instrumental filter removed all Spotify candidates, using relaxed fallback.');
+      candidateTracks = tracks.slice();
+    }
+
+    candidateTracks.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
+    return candidateTracks.slice(0, limit);
   }
 
   /**
