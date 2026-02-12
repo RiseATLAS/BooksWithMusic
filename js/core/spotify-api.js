@@ -6,60 +6,6 @@
  * - Get track audio features (energy, valence, tempo, etc.)
  * - Create playlists in user's Spotify account
  * - Control playback via Spotify Connect API
- * - Handle rate     try {
-      const data = await this._makeRequest(endpoint);
-      
-      if (!data || !data.tracks || data.tracks.length === 0) {
-        console.warn('⚠️ No tracks from Recommendations API, falling back to search');
-        // Fallback to text search if recommendations fail
-        return await this.searchByQuery([mood, 'instrumental', ...keywords.slice(0, 1)], limit);
-      }
-
-      // Format tracks with full metadata
-      let tracks = data.tracks.map(track => this._formatTrack(track));
-      
-      // Fetch audio features for better scoring (if not already present)
-      const trackIds = tracks.map(t => t.id);
-      const audioFeatures = await this.getAudioFeatures(trackIds);
-      
-      // Merge audio features into tracks
-      tracks = tracks.map((track, index) => {
-        if (audioFeatures[index]) {
-          return {
-            ...track,
-            energy: audioFeatures[index].energy,
-            valence: audioFeatures[index].valence,
-            tempo: audioFeatures[index].tempo,
-            instrumentalness: audioFeatures[index].instrumentalness,
-            speechiness: audioFeatures[index].speechiness,
-            danceability: audioFeatures[index].danceability,
-            acousticness: audioFeatures[index].acousticness
-          };
-        }
-        return track;
-      });
-      
-      // QUALITY CHECK: Score and filter tracks based on how well they match
-      tracks = this._scoreAndFilterTracks(tracks, {
-        mood,
-        targetEnergy,
-        targetValence: valence,
-        instrumentalnessThreshold: 0.5
-      });
-      
-      console.log(`✅ Found ${tracks.length} Spotify tracks via Recommendations API (${data.tracks.length} before filtering)`);
-      
-      // If too few tracks passed quality check, try fallback
-      if (tracks.length < 3) {
-        console.warn(`⚠️ Only ${tracks.length} tracks passed quality check, trying fallback search`);
-        const fallbackTracks = await this.searchByQuery([mood, 'instrumental', ...keywords.slice(0, 1)], limit);
-        // Merge and dedupe
-        tracks = [...tracks, ...fallbackTracks].filter((track, index, self) => 
-          index === self.findIndex(t => t.id === track.id)
-        );
-      }
-      
-      return tracks;errors
  * - Convert MoodProcessor output to Spotify parameters
  * 
  * INTEGRATION NOTES:
@@ -122,9 +68,20 @@ export class SpotifyAPI {
     // Cache for search results
     this.cache = new Map();
     
-    // Cache for valid genre seeds (fetched once from API)
-    this.validGenres = null;
-    this.genresFetchPromise = null;
+    // Hardcoded list of KNOWN VALID Spotify genre seeds
+    // NOTE: Spotify removed the /available-genre-seeds endpoint in Dec 2024
+    // This list contains commonly used, tested valid genres
+    this.validGenres = [
+      'acoustic', 'ambient', 'blues', 'classical', 'country', 'dance',
+      'electronic', 'folk', 'hip-hop', 'indie', 'jazz', 'metal',
+      'pop', 'rock', 'soul', 'world', 
+      // Additional useful genres for book music
+      'chill', 'piano', 'indie-pop', 'sad', 'happy', 'sleep',
+      'new-age', 'opera', 'soundtrack', 'romance', 'rainy-day',
+      'edm', 'house', 'techno', 'industrial', 'goth',
+      'minimal-techno', 'trip-hop', 'post-dubstep',
+      'indie-folk', 'singer-songwriter', 'acoustic'
+    ];
   }
 
   /**
@@ -135,68 +92,12 @@ export class SpotifyAPI {
   }
   
   /**
-   * Get available genre seeds from Spotify API
-   * Results are cached to avoid repeated API calls
-   * @returns {Promise<Array<string>>} Array of valid genre seed strings
-   */
-  async getAvailableGenres() {
-    // Return cached genres if available
-    if (this.validGenres) {
-      return this.validGenres;
-    }
-    
-    // If already fetching, return the existing promise
-    if (this.genresFetchPromise) {
-      return this.genresFetchPromise;
-    }
-    
-    // Fetch genres from API
-    this.genresFetchPromise = (async () => {
-      try {
-        if (!await this.isConfigured()) {
-          console.warn('⚠️ Spotify not authenticated, cannot fetch genres');
-          return [];
-        }
-        
-        const endpoint = '/recommendations/available-genre-seeds';
-        console.log('🎼 Fetching available genre seeds from Spotify API...');
-        
-        const data = await this._makeRequest(endpoint);
-        
-        if (data && data.genres && Array.isArray(data.genres)) {
-          this.validGenres = data.genres;
-          console.log(`✅ Loaded ${this.validGenres.length} valid Spotify genres`);
-          return this.validGenres;
-        }
-        
-        console.warn('⚠️ No genres in API response');
-        return [];
-      } catch (error) {
-        console.error('❌ Failed to fetch Spotify genres:', error);
-        // Fallback to empty array if API fails
-        return [];
-      } finally {
-        this.genresFetchPromise = null;
-      }
-    })();
-    
-    return this.genresFetchPromise;
-  }
-  
-  /**
-   * Validate and filter genre seeds against Spotify's valid list
+   * Validate and filter genre seeds against Spotify's known valid list
    * @param {Array<string>} genres - Genre seeds to validate
-   * @returns {Promise<Array<string>>} Valid genre seeds only
+   * @returns {Array<string>} Valid genre seeds only
    */
-  async validateGenres(genres) {
-    const validGenreList = await this.getAvailableGenres();
-    
-    if (validGenreList.length === 0) {
-      // If we couldn't fetch the valid list, return genres as-is
-      return genres;
-    }
-    
-    const validSet = new Set(validGenreList);
+  validateGenres(genres) {
+    const validSet = new Set(this.validGenres);
     const validated = genres.filter(genre => validSet.has(genre));
     
     // Log any invalid genres
@@ -374,7 +275,7 @@ export class SpotifyAPI {
     limit = Math.max(1, Math.min(100, Math.floor(limit) || 20));
     
     // Map mood and keywords to Spotify genres (max 5 seeds) and validate them
-    const genreSeeds = await this._moodToGenres(mood, energy, keywords);
+    const genreSeeds = this._moodToGenres(mood, energy, keywords);
     
     // If no valid genres after validation, fall back to search
     if (genreSeeds.length === 0) {
@@ -524,12 +425,11 @@ export class SpotifyAPI {
   }
 
   /**
-   * Map mood to Spotify genres and validate them against API
-   * IMPORTANT: Validates genres against Spotify's official list
+   * Map mood to Spotify genres and validate them
    * @private
    */
-  async _moodToGenres(mood, energy, keywords) {
-    // Map to Spotify genre seeds (will be validated)
+  _moodToGenres(mood, energy, keywords) {
+    // Map to Spotify genre seeds
     const moodGenreMap = {
       'epic': ['soundtrack', 'classical', 'metal'],
       'tense': ['ambient', 'electronic', 'industrial'],
@@ -569,8 +469,8 @@ export class SpotifyAPI {
     // Get unique genres first
     const uniqueGenres = [...new Set(genres)];
     
-    // Validate genres against Spotify's API
-    const validatedGenres = await this.validateGenres(uniqueGenres);
+    // Validate genres against known valid list
+    const validatedGenres = this.validateGenres(uniqueGenres);
     
     // Limit to 5 (Spotify's max for seed_genres)
     const finalGenres = validatedGenres.slice(0, 5);
