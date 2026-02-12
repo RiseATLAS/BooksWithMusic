@@ -142,12 +142,18 @@ export class SpotifyMusicManager {
         30 // Max 30 tracks per chapter
       );
 
-      mapping.tracks = tracks;
+      // Add reasoning to each track for display in UI
+      const tracksWithReasoning = tracks.map((track, index) => ({
+        ...track,
+        reasoning: `Selected for ${mapping.mood} mood${mapping.keywords.length > 0 ? ` with ${mapping.keywords.slice(0, 2).join(', ')} themes` : ''}`
+      }));
+
+      mapping.tracks = tracksWithReasoning;
       mapping.tracksFetched = true;
 
-      console.log(`✅ Loaded ${tracks.length} Spotify tracks for chapter ${chapterIndex}`);
+      console.log(`✅ Loaded ${tracksWithReasoning.length} Spotify tracks for chapter ${chapterIndex}`);
       
-      return tracks;
+      return tracksWithReasoning;
     } catch (error) {
       console.error(`❌ Failed to fetch Spotify tracks for chapter ${chapterIndex}:`, error);
       return [];

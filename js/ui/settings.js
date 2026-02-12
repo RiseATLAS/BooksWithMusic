@@ -55,7 +55,8 @@ export class SettingsUI {
       crossfadeDuration: 3,
       pageBasedMusicSwitch: true,  // Intelligent content-based music switching
       instrumentalOnly: true,  // Filter to background/instrumental/ambient music only
-      maxEnergyLevel: 3  // Default to moderate energy level (3 out of 5)
+      maxEnergyLevel: 3,  // Default to moderate energy level (3 out of 5)
+      showTrackInfo: false  // Show detailed track information (genre, energy, reasoning)
     };
 
     this._layoutChangeTimer = null;
@@ -293,6 +294,16 @@ export class SettingsUI {
     document.getElementById('music-enabled')?.addEventListener('change', (e) => {
       this.settings.musicEnabled = e.target.checked;
       this.saveSettings();
+    });
+
+    // Show track info
+    document.getElementById('show-track-info')?.addEventListener('change', (e) => {
+      this.settings.showTrackInfo = e.target.checked;
+      this.saveSettings();
+      // Trigger playlist re-render to show/hide track info
+      if (window.musicPanelUI) {
+        window.musicPanelUI.renderPlaylist();
+      }
     });
 
     // Note: Auto-play is handled by music-panel.js (uses auto-play-panel checkbox)
@@ -682,6 +693,9 @@ export class SettingsUI {
 
     const musicEnabledCheckbox = document.getElementById('music-enabled');
     if (musicEnabledCheckbox) musicEnabledCheckbox.checked = this.settings.musicEnabled;
+
+    const showTrackInfoCheckbox = document.getElementById('show-track-info');
+    if (showTrackInfoCheckbox) showTrackInfoCheckbox.checked = this.settings.showTrackInfo;
 
     const autoPlayCheckbox = document.getElementById('auto-play-panel');
     if (autoPlayCheckbox) autoPlayCheckbox.checked = this.settings.autoPlay;

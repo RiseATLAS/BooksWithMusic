@@ -967,6 +967,10 @@ export class MusicPanelUI {
     // Get shift points to mark which tracks play at mood changes
     const shiftPoints = this.currentShiftPoints || [];
     
+    // Check if track info display is enabled
+    const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
+    const showTrackInfo = settings.showTrackInfo || false;
+    
     const isPlaying = this.isCurrentlyPlaying();
     playlistEl.innerHTML = this.playlist.map((track, index) => {
       const isShiftTrack = index < shiftPoints.length && shiftPoints[index]?.page;
@@ -992,6 +996,62 @@ export class MusicPanelUI {
       
       const categories = [energy, tempo, tags].filter(c => c).join(' • ');
       
+      // Build detailed track info (only shown if setting is enabled)
+      let detailedInfo = '';
+      if (showTrackInfo) {
+        const infoItems = [];
+        
+        // Genre/Tags
+        if (track.tags && track.tags.length > 0) {
+          infoItems.push(`🎵 Genre: ${track.tags.slice(0, 3).join(', ')}`);
+        }
+        
+        // Energy level
+        if (track.energy) {
+          const energyLevel = track.energy >= 4 ? 'High' : track.energy >= 3 ? 'Medium' : 'Low';
+          infoItems.push(`⚡ Energy: ${energyLevel} (${track.energy}/5)`);
+        }
+        
+        // Valence (mood positivity)
+        if (track.valence !== undefined) {
+          const moodType = track.valence >= 0.6 ? 'Uplifting' : track.valence >= 0.4 ? 'Neutral' : 'Melancholic';
+          infoItems.push(`😊 Mood: ${moodType}`);
+        }
+        
+        // Tempo
+        if (track.tempo) {
+          const tempoType = track.tempo >= 140 ? 'Fast' : track.tempo >= 90 ? 'Moderate' : 'Slow';
+          infoItems.push(`🎼 Tempo: ${tempoType} (${Math.round(track.tempo)} BPM)`);
+        }
+        
+        // Instrumentalness
+        if (track.instrumentalness !== undefined && track.instrumentalness >= 0.5) {
+          infoItems.push(`🎹 Instrumental`);
+        }
+        
+        // Why it was chosen (reasoning)
+        if (track.reasoning) {
+          infoItems.push(`💡 ${track.reasoning}`);
+        } else if (shiftInfo) {
+          infoItems.push(`💡 Selected for: ${shiftInfo}`);
+        } else if (index === 0) {
+          infoItems.push(`💡 Chapter opening track`);
+        }
+        
+        // Source
+        const sourceIcon = track.source === 'spotify' ? '🎶' : '🆓';
+        const sourceName = track.source === 'spotify' ? 'Spotify' : 'Freesound';
+        infoItems.push(`${sourceIcon} Source: ${sourceName}`);
+        
+        if (infoItems.length > 0) {
+          detailedInfo = `
+            <div class="track-detailed-info" style="font-size: 0.7rem; opacity: 0.7; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid rgba(255,255,255,0.1); line-height: 1.5;">
+              ${infoItems.map(item => `<div>${this.escapeHtml(item)}</div>`).join('')}
+            </div>
+          `;
+        }
+      }
+      
       return `
         <div class="playlist-item ${isCurrent ? 'active' : ''} ${isShiftTrack ? 'shift-point' : ''} ${isCurrent ? 'is-current' : ''} ${isPlaying && isCurrent ? 'is-playing' : ''}" 
              data-track-index="${index}"
@@ -1008,17 +1068,18 @@ export class MusicPanelUI {
               <div class="track-artist" style="font-size: 0.7rem; opacity: 0.65; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 0.1rem;">
                 ${this.escapeHtml(track.artist || 'Unknown')}
               </div>
-              ${categories ? `
+              ${!showTrackInfo && categories ? `
                 <div class="track-categories" style="font-size: 0.65rem; opacity: 0.5; margin-top: 0.25rem; line-height: 1.3;">
                   ${this.escapeHtml(categories)}
                 </div>
               ` : ''}
+              ${detailedInfo}
             </div>
             <div class="track-duration" style="font-size: 0.7rem; opacity: 0.6; white-space: nowrap; flex-shrink: 0;">
               ${this.formatDuration(track.duration)}
             </div>
           </div>
-          ${shiftInfo ? `<div class="track-play-info">${shiftInfo}</div>` : ''}
+          ${!showTrackInfo && shiftInfo ? `<div class="track-play-info">${shiftInfo}</div>` : ''}
         </div>
       `;
     }).join('');
