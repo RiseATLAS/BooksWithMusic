@@ -67,6 +67,8 @@ export class SpotifyAPI {
     
     // Cache for search results
     this.cache = new Map();
+    this.cachedTopArtists = [];
+    this.cachedTopArtistsFetchedAt = 0;
     
     // Hardcoded list of KNOWN VALID Spotify genre seeds
     // NOTE: Spotify removed the /available-genre-seeds endpoint in Dec 2024
@@ -187,8 +189,8 @@ export class SpotifyAPI {
    * Search for tracks using query terms (compatibility with Freesound API interface)
    * This method provides the same interface as Freesound's searchByQuery
    * 
-   * IMPORTANT: Spotify's Search API does NOT support genre: filters
-   * Use plain text search only, avoid "genre:" prefixes
+   * Uses Spotify-supported query fields (genre:, artist:) and optional
+   * user top-artist anchoring for stronger personalization.
    * 
    * @param {Array<string>} queryTerms - Terms to search for (e.g., ['epic', 'orchestral'])
    * @param {number} limit - Number of results (1-50, default 15)
@@ -200,50 +202,162 @@ export class SpotifyAPI {
       return [];
     }
 
-    // Validate and clamp limit to Spotify's allowed range
-    // NOTE: Docs say 0-50, but API rejects values > 20 as of Feb 2026
-    // Safe range: 1-20
+    // Clamp to a conservative per-request window to keep response size predictable.
+    // We fan out across multiple focused queries below for diversity.
     limit = Math.max(1, Math.min(20, Math.floor(limit) || 15));
 
-    // Build search query using PLAIN TEXT ONLY (no genre: filters!)
-    // Spotify Search API does NOT support genre filters in query string
-    let searchQuery = queryTerms.join(' ');
-    
-    // Always add instrumental bias to avoid vocals
-    // Add "english" to bias toward English-language music (though not guaranteed)
-    searchQuery += ' instrumental soundtrack OR classical OR ambient english';
-    
-    // NOTE: Do NOT add 'instrumental' here - it should be in queryTerms already
+    const safeTerms = (Array.isArray(queryTerms) ? queryTerms : [])
+      .map(term => (term || '').trim())
+      .filter(Boolean);
+    const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
+    const preferTasteAnchored = settings.preferTasteAnchoredSpotifyResults !== false;
+    const normalizedTerms = safeTerms.length > 0 ? safeTerms : ['ambient'];
+    const termsText = normalizedTerms.join(' ');
+    const collectedTracks = new Map();
 
-    // Try WITHOUT limit parameter - use Spotify's default (20)
-    const endpoint = `/search?q=${encodeURIComponent(searchQuery)}&type=track`;
-    
-    console.log(`🔍 Spotify search: "${searchQuery}" (using default limit)`);
+    const addTracks = (tracks) => {
+      for (const track of tracks) {
+        if (track?.id && !collectedTracks.has(track.id)) {
+          collectedTracks.set(track.id, track);
+        }
+      }
+    };
 
     try {
-      const data = await this._makeRequest(endpoint);
-      
-      if (!data || !data.tracks || !data.tracks.items) {
-        console.warn('⚠️ No tracks in response or invalid response structure');
-        return [];
+      const baseQueries = [
+        `${termsText} instrumental genre:soundtrack`,
+        `${termsText} instrumental genre:ambient`,
+        `${termsText} instrumental genre:classical`
+      ];
+
+      for (let i = 0; i < baseQueries.length; i++) {
+        const query = baseQueries[i];
+        const tracks = await this._searchTracksByQueryString(
+          query,
+          i === 0 ? Math.max(limit, 10) : Math.max(6, Math.min(10, limit)),
+          `base-${i + 1}`
+        );
+        addTracks(tracks);
+
+        const provisional = this._filterAndSortTracks(Array.from(collectedTracks.values()), limit);
+        if (provisional.length >= limit) {
+          break;
+        }
       }
 
-      const allTracks = data.tracks.items.map(track => this._formatTrack(track));
-      
-      // Filter for instrumental tracks only (no language filter - Spotify doesn't provide language data)
-      const tracks = allTracks.filter(track => this._isLikelyInstrumental(track));
-      
-      console.log(`✅ Filtered ${allTracks.length} → ${tracks.length} tracks (removed vocals)`);
-      
-      // Note: Audio features API sometimes returns 403 errors even with correct scopes
-      // We'll skip audio features enrichment for now to avoid errors
-      // The tracks will still work fine without energy/valence/tempo metadata
-      
-      return tracks;
+      // If base mood+genre queries don't produce enough variety, anchor on user taste.
+      if (preferTasteAnchored) {
+        const topArtists = await this.getUserTopArtists(3);
+        for (const artist of topArtists) {
+          const artistQuery = `${termsText} instrumental artist:"${this._escapeSpotifyQueryValue(artist.name)}"`;
+          const artistTracks = await this._searchTracksByQueryString(
+            artistQuery,
+            Math.max(6, Math.min(10, limit)),
+            `artist:${artist.name}`
+          );
+          addTracks(artistTracks);
+
+          const provisional = this._filterAndSortTracks(Array.from(collectedTracks.values()), limit);
+          if (provisional.length >= limit) {
+            break;
+          }
+        }
+      }
+
+      const allTracks = Array.from(collectedTracks.values());
+      const filteredTracks = this._filterAndSortTracks(allTracks, limit);
+
+      console.log(
+        `✅ Spotify candidate pool: ${allTracks.length} tracks, returning ${filteredTracks.length} instrumental tracks`
+      );
+
+      return filteredTracks;
     } catch (error) {
       console.error('❌ Spotify searchByQuery error:', error);
       return [];
     }
+  }
+
+  /**
+   * Execute one Spotify query-string search request.
+   * @private
+   */
+  async _searchTracksByQueryString(searchQuery, limit, label = 'query') {
+    const params = new URLSearchParams({
+      q: searchQuery,
+      type: 'track',
+      limit: String(Math.max(1, Math.min(20, Math.floor(limit) || 10)))
+    });
+    const endpoint = `/search?${params.toString()}`;
+
+    console.log(`🔍 Spotify search (${label}): "${searchQuery}"`);
+
+    const data = await this._makeRequest(endpoint);
+    if (!data?.tracks?.items) {
+      return [];
+    }
+
+    return data.tracks.items.map(track => this._formatTrack(track));
+  }
+
+  /**
+   * Get user's top artists (requires user-top-read scope).
+   * Used to anchor search results to real listening taste.
+   */
+  async getUserTopArtists(limit = 5) {
+    const now = Date.now();
+    const cacheTTL = 6 * 60 * 60 * 1000; // 6 hours
+    const clampedLimit = Math.max(1, Math.min(10, Math.floor(limit) || 5));
+
+    if (
+      this.cachedTopArtistsFetchedAt &&
+      (now - this.cachedTopArtistsFetchedAt) < cacheTTL
+    ) {
+      return this.cachedTopArtists.slice(0, clampedLimit);
+    }
+
+    try {
+      const endpoint = `/me/top/artists?time_range=medium_term&limit=${clampedLimit}`;
+      const data = await this._makeRequest(endpoint);
+      const artists = (data?.items || []).map(artist => ({
+        id: artist.id,
+        name: artist.name,
+        genres: artist.genres || [],
+        popularity: artist.popularity || 0
+      }));
+
+      this.cachedTopArtists = artists;
+      this.cachedTopArtistsFetchedAt = now;
+      return artists;
+    } catch (error) {
+      this.cachedTopArtists = [];
+      this.cachedTopArtistsFetchedAt = now;
+      const msg = (error?.message || '').toLowerCase();
+      if (msg.includes('scope') || msg.includes('insufficient')) {
+        console.warn('⚠️ Spotify top artists unavailable (missing user-top-read scope). Reconnect Spotify to enable taste anchoring.');
+      } else {
+        console.warn('⚠️ Could not fetch Spotify top artists, using generic mood search only.');
+      }
+      return [];
+    }
+  }
+
+  /**
+   * Escape query values used inside quoted Spotify field filters.
+   * @private
+   */
+  _escapeSpotifyQueryValue(value) {
+    return String(value || '').replace(/"/g, '').trim();
+  }
+
+  /**
+   * Post-filter and rank candidates.
+   * @private
+   */
+  _filterAndSortTracks(tracks, limit) {
+    const instrumentalTracks = tracks.filter(track => this._isLikelyInstrumental(track));
+    instrumentalTracks.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
+    return instrumentalTracks.slice(0, limit);
   }
 
   /**
@@ -602,7 +716,7 @@ export class SpotifyAPI {
   /**
    * Check if track is likely instrumental (non-vocal)
    * NOTE: Spotify doesn't provide language tags, so we can't filter by language.
-   * We rely on search query bias (adding "english") and instrumental indicators.
+   * We rely on instrumental indicators and metadata heuristics.
    * @private
    */
   _isLikelyInstrumental(track) {
