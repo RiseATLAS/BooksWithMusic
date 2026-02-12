@@ -8,7 +8,7 @@
  * - Handle page routing (library vs reader)
  * - Manage global app state and user session
  * - Expose global instances (reader, settingsManager) for cross-component access
- * - Check for app updates and notify users
+ * - Register service worker for offline support
  * 
  * COMPONENT INITIALIZATION ORDER:
  * 1. DatabaseManager (IndexedDB) - Local storage
@@ -21,23 +21,6 @@
  * - Listens to Firebase auth state changes
  * - Syncs settings from Firestore when user signs in
  * - Handles sign-in/sign-out UI updates
- * 
- * VERSION UPDATE SYSTEM:
- * - Checks deployed app version (from live service-worker.js) on startup
- * - Re-checks every 5 minutes while app is running
- * - Compares local acknowledged version with deployed CACHE_VERSION
- * - Shows persistent notification until user reloads or dismisses
- * - Uses cache: 'no-store' + timestamp to bypass browser/proxy cache
- * 
- * VERSION RELEASE PROCESS:
- * 1. Run generate-version.js (updates CACHE_VERSION in service-worker.js)
- * 2. Commit and push to GitHub
- * 3. Users are notified only after GitHub Pages serves the new build
- * 
- * VERSION NUMBERING (Semantic Versioning):
- * - X.0.0 → X.0.1: Bug fixes
- * - X.0.0 → X.1.0: New features (backwards compatible)
- * - X.0.0 → (X+1).0.0: Breaking changes
  */
 
 import { BookLibrary } from "./ui/library.js";
@@ -68,7 +51,6 @@ class BooksWithMusicApp {
     // Note: MusicPanelUI needs reader's musicManager, initialized after reader
     this.musicPanel = null;
     this.currentUser = null;
-    this.latestDeployedVersion = null; 
   }
 
   async initialize() {
@@ -124,12 +106,7 @@ class BooksWithMusicApp {
 
       this.setupEventListeners();
       await this.registerServiceWorker();
-      
-      // Check for updates periodically (every 5 minutes)
-      setInterval(() => {
-        this.checkForUpdates();
-      }, 5 * 60 * 1000);
-      
+
     } catch (error) {
       console.error("Init error:", error);
       alert("Failed to initialize app. Check console for details.");
@@ -437,30 +414,14 @@ class BooksWithMusicApp {
         const swPath = "/BooksWithMusic/service-worker.js";
         const registration = await navigator.serviceWorker.register(swPath);
 
-        
-        // Listen for updates
-        registration.addEventListener('updatefound', () => {
-          const newWorker = registration.installing;
-
-          
-          newWorker.addEventListener('statechange', () => {
-            if (newWorker.state === 'activated') {
-
-            }
-          });
-        });
-        
-        // Listen for messages from the service worker
         navigator.serviceWorker.addEventListener('message', (event) => {
-          if (event.data && event.data.type === 'SW_UPDATED') {
-            // Ignore first install; only show when replacing an existing controller.
-            if (hadController) {
-              this.showUpdateNotification(event.data.version);
-            }
+          if (!hadController) return; // Ignore first install
+          if (event.data?.type === 'SW_UPDATED') {
+            this.showUpdateNotification();
           }
         });
-        
-        // Check for updates periodically (every 30 minutes)
+
+        // Ask browser to check for updated service worker script periodically.
         setInterval(() => {
           registration.update();
         }, 30 * 60 * 1000);
@@ -470,18 +431,16 @@ class BooksWithMusicApp {
       }
     }
   }
-  
-  showUpdateNotification(newVersion) {
-    // Check if notification is already shown
+
+  showUpdateNotification() {
     if (document.getElementById('update-notification')) {
       return;
     }
-    
-    // Create notification element
+
     const notification = document.createElement('div');
     notification.id = 'update-notification';
     notification.className = 'update-notification';
-    
+
     notification.innerHTML = `
       <div class="update-notification-content">
         <span class="update-icon">🎉</span>
@@ -490,93 +449,22 @@ class BooksWithMusicApp {
         <button class="update-dismiss-btn">×</button>
       </div>
     `;
-    
+
     document.body.appendChild(notification);
-    
-    // Add event listeners
+
     const reloadBtn = notification.querySelector('.update-reload-btn');
     const dismissBtn = notification.querySelector('.update-dismiss-btn');
-    
-    reloadBtn.addEventListener('click', () => {
-      if (newVersion) {
-        localStorage.setItem('booksWithMusic-currentVersion', newVersion);
-      } else if (this.latestDeployedVersion) {
-        localStorage.setItem('booksWithMusic-currentVersion', this.latestDeployedVersion);
-      }
-      // Save current timestamp as "last reload" so we know user has latest version
-      localStorage.setItem('booksWithMusic-lastReload', Date.now().toString());
-      // Hard reload to bypass cache and get fresh files
-      window.location.reload(true);
+
+    reloadBtn?.addEventListener('click', () => {
+      window.location.reload();
     });
-    
-    dismissBtn.addEventListener('click', () => {
+
+    dismissBtn?.addEventListener('click', () => {
       notification.classList.add('hiding');
       setTimeout(() => notification.remove(), 300);
     });
-    
-    // Auto-show with animation
+
     setTimeout(() => notification.classList.add('show'), 100);
-  }
-
-  async checkForUpdates() {
-    try {
-      // IMPORTANT: Query the deployed site (not GitHub commits) so we notify only
-      // after GitHub Pages has finished building and serving the new bundle.
-      const deployedVersion = await this.fetchDeployedCacheVersion();
-      if (!deployedVersion) {
-        return false;
-      }
-
-      this.latestDeployedVersion = deployedVersion;
-      const currentVersion = localStorage.getItem('booksWithMusic-currentVersion');
-
-      // First run baseline: don't notify, just store currently deployed version.
-      if (!currentVersion) {
-        localStorage.setItem('booksWithMusic-currentVersion', deployedVersion);
-        console.log(`📦 Initialized local version baseline: ${deployedVersion}`);
-        return false;
-      }
-
-      console.log(`📦 Deployed version: ${deployedVersion}`);
-      console.log(`📦 Local version: ${currentVersion}`);
-
-      if (deployedVersion !== currentVersion) {
-        console.log('🎉 New deployed version available');
-        this.showUpdateNotification(deployedVersion);
-        return true;
-      } else {
-        console.log('✅ App is up to date');
-        return false;
-      }
-    } catch (error) {
-      console.warn('Could not check for updates:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Get currently deployed cache version by reading the live service-worker.js.
-   * This reflects what GitHub Pages is actually serving (post-build).
-   */
-  async fetchDeployedCacheVersion() {
-    // Preserve existing GH Pages path convention used across the app.
-    const swUrl = `/BooksWithMusic/service-worker.js?t=${Date.now()}`;
-    const response = await fetch(swUrl, { cache: 'no-store' });
-    console.log(`📦 Version check request: ${swUrl}`);
-    console.log(`📦 Version check response: ${response.status} ${response.statusText}`);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch deployed service worker (${response.status})`);
-    }
-
-    const swSource = await response.text();
-    console.log('📦 Version check response snippet:', swSource.slice(0, 220));
-    const match = swSource.match(/const\\s+CACHE_VERSION\\s*=\\s*['"]([^'"]+)['"]/);
-    if (!match || !match[1]) {
-      throw new Error('Could not parse CACHE_VERSION from deployed service worker');
-    }
-
-    console.log(`📦 Parsed deployed CACHE_VERSION: ${match[1]}`);
-    return match[1];
   }
 }
 

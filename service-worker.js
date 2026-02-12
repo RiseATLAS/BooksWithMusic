@@ -45,8 +45,7 @@ self.addEventListener('activate', (event) => {
       return self.clients.matchAll().then(clients => {
         clients.forEach(client => {
           client.postMessage({
-            type: 'SW_UPDATED',
-            version: CACHE_VERSION
+            type: 'SW_UPDATED'
           });
         });
       });
