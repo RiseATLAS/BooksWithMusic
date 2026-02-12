@@ -420,7 +420,11 @@ export class ReaderUI {
         .then(() => {
           // After music is initialized, trigger music for the current chapter
           if (this.musicManager && this.currentChapterIndex >= 0) {
-            this.musicManager.onChapterChange(this.currentChapterIndex);
+            this.musicManager.onChapterChange(
+              this.currentChapterIndex,
+              this.currentPageInChapter,
+              this.currentChapterShiftPoints
+            );
           }
         })
         .catch((e) => console.warn('Music init failed:', e));
@@ -465,7 +469,11 @@ export class ReaderUI {
           // Update music for new chapter (only if music manager is ready)
           if (this.musicManager && this._musicInitPromise) {
             await this._musicInitPromise;
-            this.musicManager.onChapterChange(this.currentChapterIndex);
+            this.musicManager.onChapterChange(
+              this.currentChapterIndex,
+              this.currentPageInChapter,
+              this.currentChapterShiftPoints
+            );
           }
         }
       });
@@ -2054,7 +2062,11 @@ export class ReaderUI {
       // Update music for new chapter (only if music manager is ready)
       if (this.musicManager && this._musicInitPromise) {
         await this._musicInitPromise;
-        this.musicManager.onChapterChange(this.currentChapterIndex);
+        this.musicManager.onChapterChange(
+          this.currentChapterIndex,
+          this.currentPageInChapter,
+          this.currentChapterShiftPoints
+        );
       }
     } catch (error) {
       console.error(' Error navigating to next chapter:', error);
@@ -2074,7 +2086,11 @@ export class ReaderUI {
       // Update music for new chapter (only if music manager is ready)
       if (this.musicManager && this._musicInitPromise) {
         await this._musicInitPromise;
-        this.musicManager.onChapterChange(this.currentChapterIndex);
+        this.musicManager.onChapterChange(
+          this.currentChapterIndex,
+          this.currentPageInChapter,
+          this.currentChapterShiftPoints
+        );
       }
     } catch (error) {
       console.error(' Error navigating to previous chapter:', error);

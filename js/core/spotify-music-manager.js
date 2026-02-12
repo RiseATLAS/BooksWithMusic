@@ -280,9 +280,9 @@ export class SpotifyMusicManager {
     }];
 
     for (const shift of shiftPoints) {
-      const mood = shift?.mood || mapping.mood;
+      const mood = shift?.mood || shift?.toMood || mapping.mood;
       const energy = shift?.energy || mapping.energy || 3;
-      const keywords = Array.isArray(shift?.keywords) && shift.keywords.length > 0
+      const keywords = Array.isArray(shift?.keywords)
         ? shift.keywords
         : (mapping.keywords || []);
 
@@ -301,6 +301,75 @@ export class SpotifyMusicManager {
     }
 
     return profiles;
+  }
+
+  /**
+   * Apply reader-provided shift points to chapter mapping so Spotify targeting
+   * uses the same page/mood transitions shown in the UI.
+   * @private
+   */
+  _applyExternalShiftPoints(chapterIndex, chapterShiftPoints) {
+    const mapping = this.chapterMappings[chapterIndex];
+    if (!mapping) return;
+
+    const rawShiftPoints = Array.isArray(chapterShiftPoints?.shiftPoints)
+      ? chapterShiftPoints.shiftPoints
+      : (Array.isArray(chapterShiftPoints) ? chapterShiftPoints : []);
+
+    if (rawShiftPoints.length === 0) {
+      return;
+    }
+
+    const sorted = rawShiftPoints
+      .slice()
+      .sort((a, b) => {
+        const pageA = Number(a?.pageInChapter ?? a?.page ?? Number.MAX_SAFE_INTEGER);
+        const pageB = Number(b?.pageInChapter ?? b?.page ?? Number.MAX_SAFE_INTEGER);
+        return pageA - pageB;
+      });
+
+    const normalized = [];
+    let previousMood = mapping.mood || 'peaceful';
+
+    for (const shift of sorted) {
+      const page = Number(shift?.pageInChapter ?? shift?.page ?? 1);
+      if (!Number.isFinite(page) || page < 1) continue;
+
+      const toMood = shift?.toMood || shift?.mood || previousMood;
+      const fromMood = shift?.fromMood || previousMood;
+      const keywords = Array.isArray(shift?.keywords)
+        ? shift.keywords
+        : [];
+
+      normalized.push({
+        ...shift,
+        page,
+        pageInChapter: page,
+        fromMood,
+        toMood,
+        mood: toMood,
+        energy: shift?.energy || mapping.energy || 3,
+        keywords
+      });
+
+      previousMood = toMood;
+    }
+
+    if (normalized.length === 0) {
+      return;
+    }
+
+    const signature = normalized
+      .map((shift) => `${shift.pageInChapter}:${String(shift.mood).toLowerCase()}`)
+      .join('|');
+
+    if (mapping.shiftSignature !== signature) {
+      mapping.shiftPoints = normalized;
+      mapping.shiftSignature = signature;
+      // Reader shift model changed; invalidate chapter track cache.
+      mapping.tracks = [];
+      mapping.tracksFetched = false;
+    }
   }
 
   /**
@@ -428,12 +497,21 @@ export class SpotifyMusicManager {
    * Handle chapter change event
    * @param {number} chapterIndex - New chapter index
    */
-  async onChapterChange(chapterIndex) {
+  async onChapterChange(chapterIndex, currentPageInChapter = 1, chapterShiftPoints = null) {
     console.log(`📖 Chapter changed to ${chapterIndex} (Spotify)`);
     
+    const mapping = this.chapterMappings[chapterIndex];
+    if (!mapping) {
+      console.warn(`⚠️ No mapping found for chapter ${chapterIndex}`);
+      return;
+    }
+
+    // Prefer the reader's section-analysis shift points when available.
+    this._applyExternalShiftPoints(chapterIndex, chapterShiftPoints);
+
     // Reset track state when chapter changes
     this.currentChapterIndex = chapterIndex;
-    this.currentPageInChapter = 1;
+    this.currentPageInChapter = Number(currentPageInChapter) || 1;
     this.currentTrackIndex = 0;
     this.lastMood = null;
     this.lastEnergy = null;
@@ -441,19 +519,15 @@ export class SpotifyMusicManager {
     
     // Fetch tracks for current chapter only
     const tracks = await this.getTracksForChapter(chapterIndex);
-
-    const mapping = this.chapterMappings[chapterIndex];
     
-    // Get current mood based on page 1
-    const currentShift = this._getCurrentShiftPoint(chapterIndex, 1);
+    // Get current mood based on current page
+    const currentShift = this._getCurrentShiftPoint(chapterIndex, this.currentPageInChapter);
     
     // Emit event for UI in the format music-panel expects
     this.emit('chapterMusicChanged', { 
       chapterIndex,
-      currentPageInChapter: 1,
-      chapterShiftPoints: { 
-        shiftPoints: mapping?.shiftPoints || [] 
-      },
+      currentPageInChapter: this.currentPageInChapter,
+      chapterShiftPoints: chapterShiftPoints || { shiftPoints: mapping?.shiftPoints || [] },
       analysis: {
         mood: currentShift?.mood || mapping?.mood,
         energy: currentShift?.energy || mapping?.energy,
