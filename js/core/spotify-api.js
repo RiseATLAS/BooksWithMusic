@@ -1,12 +1,15 @@
 /**
  * SpotifyAPI - Spotify Web API Integration
  * 
+ * IMPORTANT: Spotify deprecated key endpoints on Nov 27, 2024:
+ * - /recommendations (deprecated) - Now use keyword search
+ * - /audio-features (deprecated) - No longer available
+ * - preview_url field (deprecated) - Removed from track objects
+ * 
  * RESPONSIBILITIES:
- * - Search Spotify catalog using recommendations API
- * - Get track audio features (energy, valence, tempo, etc.)
- * - Create playlists in user's Spotify account
+ * - Search Spotify catalog using keyword-based search API
  * - Control playback via Spotify Connect API
- * - Convert MoodProcessor output to Spotify parameters
+ * - Convert MoodProcessor output to search keywords
  * 
  * INTEGRATION NOTES:
  * - This is ONE of TWO music sources (alternative to Freesound)
@@ -17,17 +20,14 @@
  * - See music-api-factory.js for API selection logic
  * 
  * API FEATURES:
- * - Recommendations: Get tracks based on audio features + genres
- * - Audio Features: Precise mood matching (energy, valence, tempo, etc.)
- * - Search: Text-based search with filters
+ * - Search: Text-based keyword search (only available method)
  * - Playback Control: Play/pause/skip via Web Playback SDK
  * 
  * TRACK SELECTION ALGORITHM:
  * 1. Book Analysis (mood-processor.js) - Analyze chapters, detect mood/themes/energy, generate keywords
- * 2. Track Search - Use Recommendations API with audio features (energy, valence, tempo, genre)
- * 3. Track Scoring - Match keywords/genres, energy level, tempo, sort by score
- * 4. Track Mapping - Assign 1-5 tracks per chapter, calculate shift points
- * 
+ * 2. Track Search - Use Search API with mood/genre keywords (no audio features available)
+ * 3. Track Mapping - Assign tracks based on keyword match
+ *  
  * SPOTIFY ENHANCEMENTS vs FREESOUND:
  * - 100M+ tracks vs ~500K
  * - Precise audio feature matching (energy, valence, tempo, instrumentalness)
@@ -110,11 +110,11 @@ export class SpotifyAPI {
   }
 
   /**
-   * Search for tracks using Spotify Recommendations API
-   * This is the primary method for finding mood-matched music
+   * Search for tracks using Spotify Search API (keyword-based)
+   * NOTE: Recommendations API is deprecated (Nov 2024) and unavailable for new apps
    * 
    * @param {Array<string>} keywords - Keywords from MoodProcessor
-   * @param {number} limit - Number of tracks to return
+   * @param {number} limit - Number of tracks to return (1-50)
    * @param {Object} chapterAnalysis - Full chapter analysis from MoodProcessor
    * @returns {Array} Array of track objects
    */
@@ -128,44 +128,31 @@ export class SpotifyAPI {
     const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
     const instrumentalOnly = settings.instrumentalOnly !== false;
 
-    // If we have chapter analysis, use recommendations API (better results)
+    // Build search terms from chapter analysis and keywords
+    const queryTerms = [];
+    
     if (chapterAnalysis) {
-      return await this._getRecommendations(chapterAnalysis, bookProfile, limit, instrumentalOnly);
-    }
-
-    // Fallback to text search
-    return await this._textSearch(keywords, limit, instrumentalOnly);
-  }
-
-  /**
-   * Get recommendations using Spotify's advanced audio features
-   * @private
-   */
-  async _getRecommendations(chapterAnalysis, bookProfile, limit, instrumentalOnly) {
-    const query = this.mapper.buildRecommendationsQuery(chapterAnalysis, bookProfile, instrumentalOnly);
-    query.limit = limit;
-
-    const queryString = this.mapper.formatQueryForURL(query);
-    const endpoint = `/recommendations?${queryString}`;
-
-    console.log(`🎵 Spotify Query | Genres:[${query.seed_genres.split(',').join(', ')}] | E${query.target_energy} V${query.target_valence} T${query.target_tempo} I${query.target_instrumentalness}`);
-
-    try {
-      const data = await this._makeRequest(endpoint);
-      
-      if (!data || !data.tracks) {
-        console.warn('⚠️ No tracks in Spotify response');
-        return [];
+      if (chapterAnalysis.mood) queryTerms.push(chapterAnalysis.mood);
+      if (chapterAnalysis.genres && chapterAnalysis.genres.length > 0) {
+        queryTerms.push(...chapterAnalysis.genres.slice(0, 2));
       }
-
-      const tracks = data.tracks.map(track => this._formatTrack(track));
-      console.log(`✅ Found ${tracks.length} Spotify tracks`);
-      
-      return tracks;
-    } catch (error) {
-      console.error('❌ Spotify recommendations error:', error);
-      return [];
     }
+    
+    // Add keywords
+    if (keywords && keywords.length > 0) {
+      queryTerms.push(...keywords.slice(0, 2));
+    }
+    
+    // Default fallback
+    if (queryTerms.length === 0) {
+      queryTerms.push('background', 'ambient');
+    }
+    
+    if (instrumentalOnly) {
+      queryTerms.push('instrumental');
+    }
+
+    return await this.searchByQuery(queryTerms, Math.min(50, limit));
   }
 
   /**
@@ -271,62 +258,28 @@ export class SpotifyAPI {
     mood = mood || 'peaceful';
     energy = energy || 3;
     
-    // Validate limit for Recommendations API (1-100)
-    limit = Math.max(1, Math.min(100, Math.floor(limit) || 20));
+    // Search API supports max 50 results
+    limit = Math.max(1, Math.min(50, Math.floor(limit) || 20));
     
-    // Map mood and keywords to Spotify genres (max 5 seeds) and validate them
-    const genreSeeds = this._moodToGenres(mood, energy, keywords);
+    // Build search query from mood and keywords
+    const queryTerms = [mood];
     
-    // If no valid genres after validation, fall back to search
-    if (genreSeeds.length === 0) {
-      console.warn('⚠️ No valid genres available, falling back to search');
-      const searchLimit = Math.min(20, limit);
-      return await this.searchByQuery([mood, 'instrumental', ...keywords.slice(0, 1)], searchLimit);
+    // Get settings
+    const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
+    const instrumentalOnly = settings.instrumentalOnly !== false;
+    
+    if (instrumentalOnly) {
+      queryTerms.push('instrumental');
     }
     
-    // Convert energy (1-5) to Spotify scale (0-1)
-    const targetEnergy = energy / 5;
-    
-    // Build recommendations query with audio features
-    const params = new URLSearchParams({
-      seed_genres: genreSeeds.slice(0, 5).join(','), // Max 5 genre seeds
-      limit: limit.toString(),
-      target_energy: targetEnergy.toFixed(2),
-      target_instrumentalness: '0.7', // Prefer instrumental
-      min_instrumentalness: '0.5', // Filter to instrumental only
-      max_speechiness: '0.3' // Avoid tracks with too much speech/vocals
-    });
-    
-    // Add valence (mood positivity) based on mood
-    const valence = this._moodToValence(mood);
-    if (valence !== null) {
-      params.append('target_valence', valence.toFixed(2));
+    // Add keywords for variety
+    if (keywords && keywords.length > 0) {
+      queryTerms.push(...keywords.slice(0, 2));
     }
     
-    const endpoint = `/recommendations?${params.toString()}`;
+    console.log(`🔍 Spotify Search: mood="${mood}", energy=${energy}, keywords=[${keywords.slice(0, 2).join(', ')}]`);
     
-    console.log(`🎵 Spotify Recommendations: mood="${mood}", energy=${energy}, genres=[${genreSeeds.slice(0, 5).join(', ')}]`);
-    
-    try {
-      const data = await this._makeRequest(endpoint);
-      
-      if (!data || !data.tracks || data.tracks.length === 0) {
-        console.warn('⚠️ No tracks from Recommendations API, falling back to search');
-        // Fallback to text search - limit to 20 for Search API (max 50, but 20 is safer)
-        const searchLimit = Math.min(20, limit);
-        return await this.searchByQuery([mood, 'instrumental', ...keywords.slice(0, 1)], searchLimit);
-      }
-
-      const tracks = data.tracks.map(track => this._formatTrack(track));
-      console.log(`✅ Found ${tracks.length} Spotify tracks via Recommendations API`);
-      
-      return tracks;
-    } catch (error) {
-      console.error('❌ Spotify Recommendations API error:', error);
-      // Fallback to search API - limit to 20 for Search API (max 50, but 20 is safer)
-      const searchLimit = Math.min(20, limit);
-      return await this.searchByQuery([mood, 'instrumental', ...keywords.slice(0, 1)], searchLimit);
-    }
+    return await this.searchByQuery(queryTerms, limit);
   }
   
   /**
@@ -602,7 +555,7 @@ export class SpotifyAPI {
       album: spotifyTrack.album?.name,
       duration: Math.round(spotifyTrack.duration_ms / 1000), // Convert to seconds
       url: spotifyTrack.external_urls?.spotify,  // Web player URL
-      previewUrl: spotifyTrack.preview_url,  // 30-second preview
+      // Note: preview_url removed (deprecated by Spotify)
       imageUrl: spotifyTrack.album?.images?.[0]?.url,
       source: 'spotify',
       
