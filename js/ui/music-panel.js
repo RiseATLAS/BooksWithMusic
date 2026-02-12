@@ -1017,6 +1017,14 @@ export class MusicPanelUI {
         if (track.tags && track.tags.length > 0) {
           infoItems.push(`🎵 Genre: ${track.tags.slice(0, 3).join(', ')}`);
         }
+
+        // Target mood context (especially useful for instrumental-only playlists)
+        if (track.targetMood) {
+          const pageHint = track.targetPage && track.targetPage > 1
+            ? ` (from page ${track.targetPage})`
+            : '';
+          infoItems.push(`🧭 Target mood: ${track.targetMood}${pageHint}`);
+        }
         
         // Energy level
         if (track.energy !== undefined) {

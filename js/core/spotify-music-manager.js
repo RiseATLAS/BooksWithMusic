@@ -107,7 +107,8 @@ export class SpotifyMusicManager {
     // Create mappings but don't fetch tracks yet
     // Tracks will be fetched when chapter changes
     this.bookAnalysis.chapterAnalyses.forEach((analysis, index) => {
-      const chapterIndex = index + 1;
+      // Reader uses 0-based chapter indexes; keep mapping aligned.
+      const chapterIndex = index;
       
       // Generate shift points within the chapter
       const shiftPoints = this._generateShiftPoints(analysis);
@@ -117,6 +118,7 @@ export class SpotifyMusicManager {
         mood: analysis.primaryMood || 'peaceful',
         energy: analysis.energy || 3,
         keywords: analysis.keywords || [],
+        estimatedPages: analysis.estimatedPages || 1,
         shiftPoints: shiftPoints, // Mood shifts within chapter
         tracks: [], // Will be populated on-demand
         tracksFetched: false
@@ -172,7 +174,7 @@ export class SpotifyMusicManager {
 
   /**
    * Get tracks for a specific chapter (fetch on-demand)
-   * @param {number} chapterIndex - Chapter number (1-indexed)
+   * @param {number} chapterIndex - Chapter index (0-indexed)
    * @returns {Promise<Array>} Array of Spotify track objects
    */
   async getTracksForChapter(chapterIndex) {
@@ -190,21 +192,62 @@ export class SpotifyMusicManager {
 
     try {
       console.log(`🎵 Fetching Spotify tracks for chapter ${chapterIndex}...`);
-      
-      // Use Spotify's search API with chapter mood/energy
-      // Max 20 tracks per chapter (Spotify limit reduced in 2026)
-      const tracks = await this.spotifyAPI.searchByMood(
-        mapping.mood,
-        mapping.energy,
-        mapping.keywords,
-        20 // Max 20 tracks per chapter
-      );
 
-      // Add reasoning to each track for display in UI
-      const tracksWithReasoning = tracks.map((track, index) => ({
-        ...track,
-        reasoning: `Selected for ${mapping.mood} mood${mapping.keywords.length > 0 ? ` with ${mapping.keywords.slice(0, 2).join(', ')} themes` : ''}`
-      }));
+      // Build one search profile per shift so early playlist tracks align with mood transitions.
+      const shiftProfiles = this._buildShiftSearchProfiles(mapping);
+      const perProfileLimit = Math.max(4, Math.ceil(20 / shiftProfiles.length));
+      const searchedTracksByProfile = [];
+
+      for (const profile of shiftProfiles) {
+        const tracks = await this.spotifyAPI.searchByMood(
+          profile.mood,
+          profile.energy,
+          profile.keywords,
+          perProfileLimit
+        );
+        searchedTracksByProfile.push({ profile, tracks });
+      }
+
+      // Ensure each shift mood gets at least one "anchor" track at the front of the playlist.
+      const orderedTracks = [];
+      const usedTrackIds = new Set();
+      const addTrack = (track, profile) => {
+        if (!track?.id || usedTrackIds.has(track.id)) return;
+        usedTrackIds.add(track.id);
+        orderedTracks.push(this._withReasoningForProfile(track, profile, mapping));
+      };
+
+      for (const { profile, tracks } of searchedTracksByProfile) {
+        if (tracks && tracks.length > 0) {
+          addTrack(tracks[0], profile);
+        }
+      }
+
+      for (const { profile, tracks } of searchedTracksByProfile) {
+        for (const track of tracks || []) {
+          addTrack(track, profile);
+        }
+      }
+
+      // Fallback to chapter-level mood if shift-based queries return nothing.
+      if (orderedTracks.length === 0) {
+        const fallbackTracks = await this.spotifyAPI.searchByMood(
+          mapping.mood,
+          mapping.energy,
+          mapping.keywords,
+          20
+        );
+        for (const track of fallbackTracks) {
+          addTrack(track, {
+            mood: mapping.mood,
+            energy: mapping.energy,
+            keywords: mapping.keywords,
+            pageInChapter: 1
+          });
+        }
+      }
+
+      const tracksWithReasoning = orderedTracks.slice(0, 20);
 
       mapping.tracks = tracksWithReasoning;
       mapping.tracksFetched = true;
@@ -216,6 +259,69 @@ export class SpotifyMusicManager {
       console.error(`❌ Failed to fetch Spotify tracks for chapter ${chapterIndex}:`, error);
       return [];
     }
+  }
+
+  /**
+   * Create search profiles from chapter shift points.
+   * Guarantees at least one profile.
+   * @private
+   */
+  _buildShiftSearchProfiles(mapping) {
+    const shiftPoints = (mapping?.shiftPoints || [])
+      .slice()
+      .sort((a, b) => (a.pageInChapter || 1) - (b.pageInChapter || 1));
+
+    const profiles = [{
+      key: `${String(mapping?.mood || 'peaceful').toLowerCase()}|${Math.round(mapping?.energy || 3)}|${(mapping?.keywords || []).slice(0, 3).join(',').toLowerCase()}`,
+      mood: mapping?.mood || 'peaceful',
+      energy: mapping?.energy || 3,
+      keywords: mapping?.keywords || [],
+      pageInChapter: 1
+    }];
+
+    for (const shift of shiftPoints) {
+      const mood = shift?.mood || mapping.mood;
+      const energy = shift?.energy || mapping.energy || 3;
+      const keywords = Array.isArray(shift?.keywords) && shift.keywords.length > 0
+        ? shift.keywords
+        : (mapping.keywords || []);
+
+      const key = `${String(mood).toLowerCase()}|${Math.round(energy)}|${keywords.slice(0, 3).join(',').toLowerCase()}`;
+      if (profiles.some(profile => profile.key === key)) {
+        continue;
+      }
+
+      profiles.push({
+        key,
+        mood,
+        energy,
+        keywords,
+        pageInChapter: shift?.pageInChapter || shift?.page || 1
+      });
+    }
+
+    return profiles;
+  }
+
+  /**
+   * Attach UI reasoning/context for a selected track.
+   * @private
+   */
+  _withReasoningForProfile(track, profile, mapping) {
+    const mood = profile?.mood || mapping?.mood || 'peaceful';
+    const keywords = Array.isArray(profile?.keywords) && profile.keywords.length > 0
+      ? profile.keywords
+      : (mapping?.keywords || []);
+    const pageText = profile?.pageInChapter > 1 ? ` from page ${profile.pageInChapter}` : '';
+    const keywordText = keywords.length > 0 ? ` with ${keywords.slice(0, 2).join(', ')} themes` : '';
+
+    return {
+      ...track,
+      targetMood: mood,
+      targetEnergy: profile?.energy || mapping?.energy || 3,
+      targetPage: profile?.pageInChapter || 1,
+      reasoning: `Selected for ${mood} mood${pageText}${keywordText}`
+    };
   }
 
   /**
@@ -356,7 +462,7 @@ export class SpotifyMusicManager {
       recommendedTracks: tracks.map((track, index) => ({
         trackId: track.id,
         score: 100 - (index * 10),
-        reasoning: `Spotify track ${index + 1} for ${currentShift?.mood || mapping?.mood} mood`
+        reasoning: track.reasoning || `Spotify track ${index + 1} for ${currentShift?.mood || mapping?.mood} mood`
       }))
     });
   }
@@ -409,8 +515,17 @@ export class SpotifyMusicManager {
     const mapping = this.chapterMappings[chapterIndex];
     if (!mapping || !mapping.shiftPoints) return null;
     
-    // Find the most recent shift point at or before this page
-    let currentShift = mapping.shiftPoints[0];
+    // Start with chapter opening mood and then apply shifts up to this page.
+    let currentShift = {
+      page: 1,
+      pageInChapter: 1,
+      fromMood: mapping.mood,
+      toMood: mapping.mood,
+      mood: mapping.mood,
+      energy: mapping.energy,
+      keywords: mapping.keywords || [],
+      description: 'Chapter opening'
+    };
     
     for (const shift of mapping.shiftPoints) {
       if (shift.pageInChapter <= pageInChapter) {
@@ -452,9 +567,11 @@ export class SpotifyMusicManager {
     if (!mapping) return null;
     
     return {
+      primaryMood: mapping.mood,
       mood: mapping.mood,
       energy: mapping.energy,
-      keywords: mapping.keywords
+      keywords: mapping.keywords,
+      estimatedPages: mapping.estimatedPages
     };
   }
 
