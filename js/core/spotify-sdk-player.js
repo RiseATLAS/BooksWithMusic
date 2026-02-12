@@ -152,15 +152,37 @@ export class SpotifySDKPlayer {
           volume: 0.7
         });
 
-        // Setup event listeners
+        // Setup event listeners BEFORE connecting
         this._setupSDKEventListeners();
 
-        // Connect to Spotify
+        // Connect to Spotify and wait for ready event
         const connected = await this.player.connect();
         
         if (!connected) {
           throw new Error('Failed to connect to Spotify');
         }
+
+        // Wait for the device to be ready before resolving
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error('Spotify device ready timeout'));
+          }, 10000); // 10 second timeout
+
+          // Listen for ready event
+          const readyHandler = () => {
+            clearTimeout(timeout);
+            resolve();
+          };
+
+          // If already ready (race condition), resolve immediately
+          if (this.deviceId) {
+            clearTimeout(timeout);
+            resolve();
+          } else {
+            // Wait for ready event
+            this.once('ready', readyHandler);
+          }
+        });
 
         console.log('✅ Spotify Web Playback SDK initialized');
         this.sdkReady = true;
@@ -475,6 +497,21 @@ export class SpotifySDKPlayer {
       this.eventHandlers[event] = [];
     }
     this.eventHandlers[event].push(handler);
+  }
+
+  /**
+   * Event emitter: Register one-time event handler
+   */
+  once(event, handler) {
+    const onceHandler = (data) => {
+      handler(data);
+      // Remove handler after first call
+      const index = this.eventHandlers[event]?.indexOf(onceHandler);
+      if (index !== -1) {
+        this.eventHandlers[event].splice(index, 1);
+      }
+    };
+    this.on(event, onceHandler);
   }
 
   /**
