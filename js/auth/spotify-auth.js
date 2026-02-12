@@ -97,8 +97,7 @@ export class SpotifyAuth {
       'user-read-private',                 // REQUIRED: SDK initialization
       'user-read-playback-state',          // Read state + devices 
       'user-modify-playback-state',        // Play/pause/skip/volume
-      'user-read-currently-playing',       // Currently playing track
-      'user-top-read'                      // Personalization (top artists/tracks)
+      'user-read-currently-playing'        // Currently playing track
     ];
     
     // Token storage keys

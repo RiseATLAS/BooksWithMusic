@@ -65,11 +65,6 @@ export class SpotifyAPI {
     this.minRequestInterval = 100; // 100ms between requests
     this.rateLimitedUntil = 0;
     
-    // Cache for search results
-    this.cache = new Map();
-    this.cachedTopArtists = [];
-    this.cachedTopArtistsFetchedAt = 0;
-    
     // Hardcoded list of KNOWN VALID Spotify genre seeds
     // NOTE: Spotify removed the /available-genre-seeds endpoint in Dec 2024
     // This list contains commonly used, tested valid genres
@@ -192,8 +187,7 @@ export class SpotifyAPI {
    * Search for tracks using query terms (compatibility with Freesound API interface)
    * This method provides the same interface as Freesound's searchByQuery
    * 
-   * Uses Spotify-supported query fields (genre:, artist:) and optional
-   * user top-artist anchoring for stronger personalization.
+   * Uses Spotify-supported query fields (genre:) with layered fallback queries.
    * 
    * @param {Array<string>} queryTerms - Terms to search for (e.g., ['epic', 'orchestral'])
    * @param {number} limit - Number of results (1-50, default 15)
@@ -216,8 +210,6 @@ export class SpotifyAPI {
     const contextKeywords = (Array.isArray(options?.keywords) ? options.keywords : [])
       .map(term => (term || '').trim())
       .filter(Boolean);
-    const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
-    const preferTasteAnchored = settings.preferTasteAnchoredSpotifyResults !== false;
     const normalizedTerms = safeTerms.length > 0 ? safeTerms : ['ambient'];
     const combinedTerms = [...normalizedTerms, ...contextKeywords];
     const termsWithoutInstrumental = combinedTerms.filter(term => term.toLowerCase() !== 'instrumental');
@@ -299,25 +291,6 @@ export class SpotifyAPI {
         }
       }
 
-      // If base mood+genre queries don't produce enough variety, anchor on user taste.
-      if (preferTasteAnchored) {
-        const topArtists = await this.getUserTopArtists(3);
-        for (const artist of topArtists) {
-          const artistQuery = `${effectiveMood} instrumental soundtrack artist:"${this._escapeSpotifyQueryValue(artist.name)}"`;
-          const artistTracks = await this._searchTracksByQueryString(
-            artistQuery,
-            Math.max(6, Math.min(10, limit)),
-            `artist:${artist.name}`
-          );
-          addTracks(artistTracks);
-
-          const provisional = this._filterAndSortTracks(Array.from(collectedTracks.values()), limit);
-          if (provisional.length >= limit) {
-            break;
-          }
-        }
-      }
-
       const allTracks = Array.from(collectedTracks.values());
       const filteredTracks = this._filterAndSortTracks(allTracks, limit);
 
@@ -357,56 +330,6 @@ export class SpotifyAPI {
     return data.tracks.items
       .slice(0, safeLimit)
       .map(track => this._formatTrack(track));
-  }
-
-  /**
-   * Get user's top artists (requires user-top-read scope).
-   * Used to anchor search results to real listening taste.
-   */
-  async getUserTopArtists(limit = 5) {
-    const now = Date.now();
-    const cacheTTL = 6 * 60 * 60 * 1000; // 6 hours
-    const clampedLimit = Math.max(1, Math.min(10, Math.floor(limit) || 5));
-
-    if (
-      this.cachedTopArtistsFetchedAt &&
-      (now - this.cachedTopArtistsFetchedAt) < cacheTTL
-    ) {
-      return this.cachedTopArtists.slice(0, clampedLimit);
-    }
-
-    try {
-      const endpoint = `/me/top/artists?time_range=medium_term&limit=${clampedLimit}`;
-      const data = await this._makeRequest(endpoint, 'GET', null, { suppressStatusErrors: [403] });
-      const artists = (data?.items || []).map(artist => ({
-        id: artist.id,
-        name: artist.name,
-        genres: artist.genres || [],
-        popularity: artist.popularity || 0
-      }));
-
-      this.cachedTopArtists = artists;
-      this.cachedTopArtistsFetchedAt = now;
-      return artists;
-    } catch (error) {
-      this.cachedTopArtists = [];
-      this.cachedTopArtistsFetchedAt = now;
-      const msg = (error?.message || '').toLowerCase();
-      if (msg.includes('scope') || msg.includes('insufficient')) {
-        console.warn('⚠️ Spotify top artists unavailable (missing user-top-read scope). Reconnect Spotify to enable taste anchoring.');
-      } else {
-        console.warn('⚠️ Could not fetch Spotify top artists, using generic mood search only.');
-      }
-      return [];
-    }
-  }
-
-  /**
-   * Escape query values used inside quoted Spotify field filters.
-   * @private
-   */
-  _escapeSpotifyQueryValue(value) {
-    return String(value || '').replace(/"/g, '').trim();
   }
 
   /**
