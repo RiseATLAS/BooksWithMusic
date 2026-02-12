@@ -126,7 +126,6 @@ export class SpotifyMusicManager {
 
     try {
       console.log(`🎵 Fetching Spotify tracks for chapter ${chapterIndex}...`);
-      console.log(`   Mood: ${mapping.mood}, Energy: ${mapping.energy}, Keywords:`, mapping.keywords);
       
       // Use Spotify's recommendation API with chapter mood/energy
       const tracks = await this.spotifyAPI.searchByMood(
@@ -174,7 +173,7 @@ export class SpotifyMusicManager {
     console.log(`📖 Chapter changed to ${chapterIndex} (Spotify)`);
     
     // Pre-fetch tracks for current and next chapter
-    await this.getTracksForChapter(chapterIndex);
+    const tracks = await this.getTracksForChapter(chapterIndex);
     
     if (this.chapterMappings[chapterIndex + 1]) {
       this.getTracksForChapter(chapterIndex + 1).catch(err => {
@@ -182,10 +181,23 @@ export class SpotifyMusicManager {
       });
     }
 
-    // Emit event for UI
-    this.emit('chapterChange', { 
+    const mapping = this.chapterMappings[chapterIndex];
+    
+    // Emit event for UI in the format music-panel expects
+    this.emit('chapterMusicChanged', { 
       chapterIndex,
-      mapping: this.chapterMappings[chapterIndex]
+      currentPageInChapter: 1,
+      chapterShiftPoints: { shiftPoints: [] }, // Spotify uses simple rotation, no shift points
+      analysis: {
+        mood: mapping?.mood,
+        energy: mapping?.energy,
+        keywords: mapping?.keywords || []
+      },
+      recommendedTracks: tracks.map((track, index) => ({
+        trackId: track.id,
+        score: 100 - (index * 10), // Higher score for earlier tracks
+        reasoning: `Spotify track ${index + 1} for ${mapping?.mood} mood`
+      }))
     });
   }
 

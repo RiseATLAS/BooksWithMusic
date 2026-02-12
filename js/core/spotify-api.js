@@ -214,24 +214,15 @@ export class SpotifyAPI {
 
     const endpoint = `/search?q=${encodeURIComponent(searchQuery)}&type=track&limit=${limit}`;
 
-    console.log(`🔍 Spotify search endpoint: ${endpoint}`);
-    console.log(`🔍 Search query: "${searchQuery}"`);
-
     try {
       const data = await this._makeRequest(endpoint);
-      
-      console.log(`🔍 Spotify search response:`, data);
       
       if (!data || !data.tracks || !data.tracks.items) {
         console.warn('⚠️ No tracks in response or invalid response structure');
         return [];
       }
 
-      console.log(`🔍 Spotify returned ${data.tracks.items.length} items`);
-      
       const tracks = data.tracks.items.map(track => this._formatTrack(track));
-      
-      console.log(`✅ Found ${tracks.length} Spotify tracks after formatting`);
       
       // Note: Audio features API sometimes returns 403 errors even with correct scopes
       // We'll skip audio features enrichment for now to avoid errors
@@ -259,8 +250,6 @@ export class SpotifyAPI {
     mood = mood || 'peaceful';
     energy = energy || 3;
     
-    console.log(`🔍 Spotify searchByMood - Mood: ${mood}, Energy: ${energy}, Keywords:`, keywords, `Limit: ${limit}`);
-    
     // Simplified: just search for the mood + instrumental
     // Too many genre filters make the query too restrictive
     const searchTerms = [mood, 'instrumental'];
@@ -269,8 +258,6 @@ export class SpotifyAPI {
     if (keywords && keywords.length > 0) {
       searchTerms.push(keywords[0]);
     }
-    
-    console.log(`🔍 Search terms:`, searchTerms);
     
     // Use the existing searchByQuery method
     return await this.searchByQuery(searchTerms, limit);
