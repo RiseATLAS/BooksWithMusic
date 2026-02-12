@@ -114,7 +114,7 @@ export class SpotifyAPI {
    * NOTE: Recommendations API is deprecated (Nov 2024) and unavailable for new apps
    * 
    * @param {Array<string>} keywords - Keywords from MoodProcessor
-   * @param {number} limit - Number of tracks to return (1-50)
+   * @param {number} limit - Number of tracks to return (1-20)
    * @param {Object} chapterAnalysis - Full chapter analysis from MoodProcessor
    * @returns {Array} Array of track objects
    */
@@ -152,7 +152,7 @@ export class SpotifyAPI {
       queryTerms.push('instrumental');
     }
 
-    return await this.searchByQuery(queryTerms, Math.min(50, limit));
+    return await this.searchByQuery(queryTerms, Math.min(20, limit));
   }
 
   /**
@@ -201,9 +201,9 @@ export class SpotifyAPI {
     }
 
     // Validate and clamp limit to Spotify's allowed range
-    // Per official docs: https://developer.spotify.com/documentation/web-api/reference/search
-    // limit parameter: Default=20, Range: 0-50
-    limit = Math.max(1, Math.min(50, Math.floor(limit) || 15));
+    // NOTE: Docs say 0-50, but API rejects values > 20 as of Feb 2026
+    // Safe range: 1-20
+    limit = Math.max(1, Math.min(20, Math.floor(limit) || 15));
 
     // Get settings
     const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
@@ -258,8 +258,8 @@ export class SpotifyAPI {
     mood = mood || 'peaceful';
     energy = energy || 3;
     
-    // Search API supports max 50 results
-    limit = Math.max(1, Math.min(50, Math.floor(limit) || 20));
+    // Search API supports max 20 results (reduced from 50 as of Feb 2026)
+    limit = Math.max(1, Math.min(20, Math.floor(limit) || 20));
     
     // Build search query from mood and keywords
     const queryTerms = [mood];

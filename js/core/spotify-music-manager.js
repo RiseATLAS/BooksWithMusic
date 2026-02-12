@@ -143,13 +143,13 @@ export class SpotifyMusicManager {
     try {
       console.log(`🎵 Fetching Spotify tracks for chapter ${chapterIndex}...`);
       
-      // Use Spotify's recommendation API with chapter mood/energy
-      // Max 30 tracks per chapter - enough variety without overwhelming
+      // Use Spotify's search API with chapter mood/energy
+      // Max 20 tracks per chapter (Spotify limit reduced in 2026)
       const tracks = await this.spotifyAPI.searchByMood(
         mapping.mood,
         mapping.energy,
         mapping.keywords,
-        30 // Max 30 tracks per chapter
+        20 // Max 20 tracks per chapter
       );
 
       // Add reasoning to each track for display in UI
