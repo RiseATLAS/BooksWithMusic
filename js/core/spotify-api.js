@@ -205,18 +205,11 @@ export class SpotifyAPI {
     // Safe range: 1-20
     limit = Math.max(1, Math.min(20, Math.floor(limit) || 15));
 
-    // Get settings
-    const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
-    const instrumentalOnly = settings.instrumentalOnly !== false;
-
     // Build search query using PLAIN TEXT ONLY (no genre: filters!)
     // Spotify Search API does NOT support genre filters in query string
     let searchQuery = queryTerms.join(' ');
     
-    // Add instrumental-related terms if needed (plain text, not genre filters)
-    if (instrumentalOnly) {
-      searchQuery += ' instrumental';
-    }
+    // NOTE: Do NOT add 'instrumental' here - it should be in queryTerms already
 
     const endpoint = `/search?q=${encodeURIComponent(searchQuery)}&type=track&limit=${limit}`;
     
@@ -652,6 +645,12 @@ export class SpotifyAPI {
 
       if (!response.ok) {
         const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('❌ Spotify API Error Response:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: error,
+          url: url
+        });
         throw new Error(`Spotify API error: ${error.error?.message || error.error || response.statusText}`);
       }
 
