@@ -6,7 +6,60 @@
  * - Get track audio features (energy, valence, tempo, etc.)
  * - Create playlists in user's Spotify account
  * - Control playback via Spotify Connect API
- * - Handle rate limiting and errors
+ * - Handle rate     try {
+      const data = await this._makeRequest(endpoint);
+      
+      if (!data || !data.tracks || data.tracks.length === 0) {
+        console.warn('⚠️ No tracks from Recommendations API, falling back to search');
+        // Fallback to text search if recommendations fail
+        return await this.searchByQuery([mood, 'instrumental', ...keywords.slice(0, 1)], limit);
+      }
+
+      // Format tracks with full metadata
+      let tracks = data.tracks.map(track => this._formatTrack(track));
+      
+      // Fetch audio features for better scoring (if not already present)
+      const trackIds = tracks.map(t => t.id);
+      const audioFeatures = await this.getAudioFeatures(trackIds);
+      
+      // Merge audio features into tracks
+      tracks = tracks.map((track, index) => {
+        if (audioFeatures[index]) {
+          return {
+            ...track,
+            energy: audioFeatures[index].energy,
+            valence: audioFeatures[index].valence,
+            tempo: audioFeatures[index].tempo,
+            instrumentalness: audioFeatures[index].instrumentalness,
+            speechiness: audioFeatures[index].speechiness,
+            danceability: audioFeatures[index].danceability,
+            acousticness: audioFeatures[index].acousticness
+          };
+        }
+        return track;
+      });
+      
+      // QUALITY CHECK: Score and filter tracks based on how well they match
+      tracks = this._scoreAndFilterTracks(tracks, {
+        mood,
+        targetEnergy,
+        targetValence: valence,
+        instrumentalnessThreshold: 0.5
+      });
+      
+      console.log(`✅ Found ${tracks.length} Spotify tracks via Recommendations API (${data.tracks.length} before filtering)`);
+      
+      // If too few tracks passed quality check, try fallback
+      if (tracks.length < 3) {
+        console.warn(`⚠️ Only ${tracks.length} tracks passed quality check, trying fallback search`);
+        const fallbackTracks = await this.searchByQuery([mood, 'instrumental', ...keywords.slice(0, 1)], limit);
+        // Merge and dedupe
+        tracks = [...tracks, ...fallbackTracks].filter((track, index, self) => 
+          index === self.findIndex(t => t.id === track.id)
+        );
+      }
+      
+      return tracks;errors
  * - Convert MoodProcessor output to Spotify parameters
  * 
  * INTEGRATION NOTES:
@@ -189,7 +242,7 @@ export class SpotifyAPI {
     const instrumentalOnly = settings.instrumentalOnly !== false;
 
     // For Spotify, we'll use text search with genre hints
-    // Convert query terms to Spotify-friendly search
+    // Convert query terms to Spotify-friendly search with enhanced genre mapping
     const searchTerms = queryTerms.map(term => {
       // Map common music terms to Spotify genres
       const genreMap = {
@@ -202,14 +255,21 @@ export class SpotifyAPI {
         'classical': 'genre:classical',
         'electronic': 'genre:electronic',
         'folk': 'genre:folk',
-        'world': 'genre:world-music'
+        'world': 'genre:world-music',
+        'dramatic': 'genre:soundtrack genre:orchestral',
+        'intense': 'genre:epic genre:dramatic',
+        'calm': 'genre:ambient genre:chill',
+        'peaceful': 'genre:ambient genre:meditation',
+        'tense': 'genre:soundtrack genre:suspense',
+        'dark': 'genre:dark-ambient genre:soundtrack',
+        'adventure': 'genre:orchestral genre:adventure'
       };
       
       return genreMap[term.toLowerCase()] || term;
     });
 
-    // Build search query
-    let searchQuery = searchTerms.slice(0, 3).join(' ');
+    // Build search query - use up to 5 terms for more specificity
+    let searchQuery = searchTerms.slice(0, 5).join(' ');
     
     if (instrumentalOnly) {
       searchQuery += ' genre:instrumental';
@@ -250,31 +310,222 @@ export class SpotifyAPI {
   }
 
   /**
-   * Search by mood characteristics
-   * Maps book moods to Spotify audio features and genres
+   * Search by mood characteristics using Spotify Recommendations API
+   * This is MORE EFFICIENT than text search and respects rate limits better
    * 
    * @param {string} mood - Chapter mood (e.g., 'tense', 'peaceful', 'epic')
    * @param {number} energy - Energy level 1-5
    * @param {Array<string>} keywords - Additional mood keywords
-   * @param {number} limit - Max tracks to return
+   * @param {number} limit - Max tracks to return (1-100 for Recommendations API)
    * @returns {Promise<Array>} Array of track objects
    */
-  async searchByMood(mood, energy, keywords = [], limit = 5) {
+  async searchByMood(mood, energy, keywords = [], limit = 20) {
     // Default values for safety
     mood = mood || 'peaceful';
     energy = energy || 3;
     
-    // Simplified: just search for the mood + instrumental
-    // Too many genre filters make the query too restrictive
-    const searchTerms = [mood, 'instrumental'];
+    // Map mood and keywords to Spotify genres (max 5 seeds)
+    const genreSeeds = this._moodToGenres(mood, energy, keywords);
     
-    // Add one keyword if available
-    if (keywords && keywords.length > 0) {
-      searchTerms.push(keywords[0]);
+    // Convert energy (1-5) to Spotify scale (0-1)
+    const targetEnergy = energy / 5;
+    
+    // Build recommendations query with audio features
+    const params = new URLSearchParams({
+      seed_genres: genreSeeds.slice(0, 5).join(','), // Max 5 genre seeds
+      limit: Math.min(100, Math.max(1, limit)), // 1-100 for Recommendations API
+      target_energy: targetEnergy.toFixed(2),
+      target_instrumentalness: '0.7', // Prefer instrumental
+      min_instrumentalness: '0.5', // Filter to instrumental only
+      max_speechiness: '0.3' // Avoid tracks with too much speech/vocals
+    });
+    
+    // Add valence (mood positivity) based on mood
+    const valence = this._moodToValence(mood);
+    if (valence !== null) {
+      params.append('target_valence', valence.toFixed(2));
     }
     
-    // Use the existing searchByQuery method
-    return await this.searchByQuery(searchTerms, limit);
+    const endpoint = `/recommendations?${params.toString()}`;
+    
+    console.log(`🎵 Spotify Recommendations: mood="${mood}", energy=${energy}, genres=[${genreSeeds.slice(0, 5).join(', ')}]`);
+    
+    try {
+      const data = await this._makeRequest(endpoint);
+      
+      if (!data || !data.tracks || data.tracks.length === 0) {
+        console.warn('⚠️ No tracks from Recommendations API, falling back to search');
+        // Fallback to text search if recommendations fail
+        return await this.searchByQuery([mood, 'instrumental', ...keywords.slice(0, 1)], limit);
+      }
+
+      const tracks = data.tracks.map(track => this._formatTrack(track));
+      console.log(`✅ Found ${tracks.length} Spotify tracks via Recommendations API`);
+      
+      return tracks;
+    } catch (error) {
+      console.error('❌ Spotify Recommendations API error:', error);
+      // Fallback to search API
+      return await this.searchByQuery([mood, 'instrumental', ...keywords.slice(0, 1)], limit);
+    }
+  }
+  
+  /**
+   * Score and filter tracks based on match quality
+   * Ensures we only return tracks that actually fit the mood
+   * @private
+   */
+  _scoreAndFilterTracks(tracks, criteria) {
+    const { mood, targetEnergy, targetValence, instrumentalnessThreshold } = criteria;
+    
+    const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
+    const showTrackInfo = settings.showTrackInfo || false;
+    
+    // Score each track
+    const scoredTracks = tracks.map(track => {
+      let score = 100; // Start with perfect score
+      let reasons = [];
+      
+      // Fetch audio features if available (from Spotify's response)
+      // Note: Recommendations API doesn't always return audio features
+      // We might need to fetch them separately for accurate scoring
+      
+      // 1. Check instrumentalness (CRITICAL - must be instrumental)
+      if (track.instrumentalness !== undefined) {
+        if (track.instrumentalness < instrumentalnessThreshold) {
+          score -= 50; // Major penalty for vocal tracks
+          reasons.push(`❌ Too vocal (${(track.instrumentalness * 100).toFixed(0)}% instrumental)`);
+        } else {
+          reasons.push(`✅ Instrumental (${(track.instrumentalness * 100).toFixed(0)}%)`);
+        }
+      }
+      
+      // 2. Check energy match (IMPORTANT)
+      if (track.energy !== undefined && targetEnergy !== undefined) {
+        const energyDiff = Math.abs(track.energy - targetEnergy);
+        if (energyDiff > 0.3) {
+          score -= 20; // Penalty for energy mismatch
+          reasons.push(`⚠️ Energy mismatch (want ${(targetEnergy * 100).toFixed(0)}%, got ${(track.energy * 100).toFixed(0)}%)`);
+        } else {
+          reasons.push(`✅ Energy match (${(track.energy * 100).toFixed(0)}%)`);
+        }
+      }
+      
+      // 3. Check valence (mood positivity) match
+      if (track.valence !== undefined && targetValence !== null) {
+        const valenceDiff = Math.abs(track.valence - targetValence);
+        if (valenceDiff > 0.4) {
+          score -= 15; // Penalty for mood mismatch
+          reasons.push(`⚠️ Mood mismatch (want ${(targetValence * 100).toFixed(0)}% positive, got ${(track.valence * 100).toFixed(0)}%)`);
+        } else {
+          reasons.push(`✅ Mood match (${(track.valence * 100).toFixed(0)}% positive)`);
+        }
+      }
+      
+      // 4. Check speechiness (should be low for instrumental)
+      if (track.speechiness !== undefined) {
+        if (track.speechiness > 0.33) {
+          score -= 25; // Penalty for too much speech
+          reasons.push(`❌ Too much speech (${(track.speechiness * 100).toFixed(0)}%)`);
+        } else {
+          reasons.push(`✅ Low speech (${(track.speechiness * 100).toFixed(0)}%)`);
+        }
+      }
+      
+      // 5. Bonus for perfect matches
+      if (track.instrumentalness >= 0.9) {
+        score += 10;
+        reasons.push(`🌟 Highly instrumental`);
+      }
+      
+      // Store score and reasoning
+      track.matchScore = score;
+      track.matchReasons = reasons;
+      
+      if (showTrackInfo) {
+        console.log(`📊 ${track.title} - Score: ${score}/100 - ${reasons.join(', ')}`);
+      }
+      
+      return track;
+    });
+    
+    // Filter out tracks that don't meet minimum quality
+    const MIN_SCORE = 50; // Tracks must score at least 50/100
+    const filteredTracks = scoredTracks.filter(track => {
+      if (track.matchScore < MIN_SCORE) {
+        console.warn(`🚫 Filtered out "${track.title}" (score: ${track.matchScore}/100)`);
+        return false;
+      }
+      return true;
+    });
+    
+    // Sort by score (best matches first)
+    filteredTracks.sort((a, b) => b.matchScore - a.matchScore);
+    
+    return filteredTracks;
+  }
+
+  /**
+   * Map mood to Spotify genres
+   * @private
+   */
+  _moodToGenres(mood, energy, keywords) {
+    const moodGenreMap = {
+      'epic': ['orchestral', 'cinematic', 'soundtrack'],
+      'tense': ['suspense', 'dark-ambient', 'soundtrack'],
+      'peaceful': ['ambient', 'meditation', 'chill'],
+      'mysterious': ['ambient', 'dark-ambient', 'ethereal'],
+      'joyful': ['happy', 'upbeat', 'indie'],
+      'sad': ['melancholy', 'sad', 'piano'],
+      'dramatic': ['soundtrack', 'orchestral', 'cinematic'],
+      'calm': ['ambient', 'chill', 'new-age'],
+      'energetic': ['energetic', 'upbeat', 'electronic'],
+      'dark': ['dark-ambient', 'industrial', 'gothic'],
+      'romantic': ['romance', 'acoustic', 'piano'],
+      'adventure': ['adventure', 'orchestral', 'world-music']
+    };
+    
+    // Start with mood-based genres
+    let genres = moodGenreMap[mood.toLowerCase()] || ['ambient', 'instrumental'];
+    
+    // Add energy-based genre
+    if (energy >= 4) {
+      genres.push('epic');
+    } else if (energy <= 2) {
+      genres.push('ambient');
+    }
+    
+    // Add keyword-based genres if they map
+    keywords.forEach(kw => {
+      if (moodGenreMap[kw.toLowerCase()]) {
+        genres.push(...moodGenreMap[kw.toLowerCase()]);
+      }
+    });
+    
+    // Return unique genres, max 5
+    return [...new Set(genres)];
+  }
+  
+  /**
+   * Map mood to valence (happiness/positivity)
+   * @private
+   */
+  _moodToValence(mood) {
+    const valenceMap = {
+      'joyful': 0.8,
+      'happy': 0.8,
+      'peaceful': 0.5,
+      'calm': 0.5,
+      'mysterious': 0.4,
+      'tense': 0.3,
+      'sad': 0.2,
+      'dark': 0.2,
+      'epic': 0.6,
+      'dramatic': 0.5,
+      'romantic': 0.7
+    };
+    
+    return valenceMap[mood.toLowerCase()] || null;
   }
 
   /**

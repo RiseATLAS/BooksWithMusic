@@ -1001,21 +1001,40 @@ export class MusicPanelUI {
       if (showTrackInfo) {
         const infoItems = [];
         
+        // Match Score (if available from Spotify scoring)
+        if (track.matchScore !== undefined) {
+          const scoreColor = track.matchScore >= 80 ? '#4CAF50' : 
+                           track.matchScore >= 60 ? '#FFC107' : '#FF9800';
+          infoItems.push(`<div style="color: ${scoreColor}; font-weight: bold;">🎯 Match Score: ${track.matchScore}/100</div>`);
+          
+          // Show match reasons if available
+          if (track.matchReasons && track.matchReasons.length > 0) {
+            infoItems.push(`<div style="margin-top: 0.25rem; font-size: 0.65rem; opacity: 0.8;">${track.matchReasons.join(' • ')}</div>`);
+          }
+        }
+        
         // Genre/Tags
         if (track.tags && track.tags.length > 0) {
           infoItems.push(`🎵 Genre: ${track.tags.slice(0, 3).join(', ')}`);
         }
         
         // Energy level
-        if (track.energy) {
-          const energyLevel = track.energy >= 4 ? 'High' : track.energy >= 3 ? 'Medium' : 'Low';
-          infoItems.push(`⚡ Energy: ${energyLevel} (${track.energy}/5)`);
+        if (track.energy !== undefined) {
+          const energyLevel = track.energy >= 0.8 ? 'Very High' : 
+                            track.energy >= 0.6 ? 'High' : 
+                            track.energy >= 0.4 ? 'Medium' : 
+                            track.energy >= 0.2 ? 'Low' : 'Very Low';
+          const energyPercent = Math.round(track.energy * 100);
+          infoItems.push(`⚡ Energy: ${energyLevel} (${energyPercent}%)`);
         }
         
         // Valence (mood positivity)
         if (track.valence !== undefined) {
-          const moodType = track.valence >= 0.6 ? 'Uplifting' : track.valence >= 0.4 ? 'Neutral' : 'Melancholic';
-          infoItems.push(`😊 Mood: ${moodType}`);
+          const moodType = track.valence >= 0.7 ? 'Very Happy' :
+                          track.valence >= 0.5 ? 'Uplifting' : 
+                          track.valence >= 0.3 ? 'Neutral' : 'Melancholic';
+          const valencePercent = Math.round(track.valence * 100);
+          infoItems.push(`😊 Mood: ${moodType} (${valencePercent}%)`);
         }
         
         // Tempo
@@ -1025,8 +1044,15 @@ export class MusicPanelUI {
         }
         
         // Instrumentalness
-        if (track.instrumentalness !== undefined && track.instrumentalness >= 0.5) {
-          infoItems.push(`🎹 Instrumental`);
+        if (track.instrumentalness !== undefined) {
+          const instPercent = Math.round(track.instrumentalness * 100);
+          if (track.instrumentalness >= 0.9) {
+            infoItems.push(`🎹 Highly Instrumental (${instPercent}%)`);
+          } else if (track.instrumentalness >= 0.5) {
+            infoItems.push(`🎹 Instrumental (${instPercent}%)`);
+          } else {
+            infoItems.push(`🎤 Contains Vocals (${instPercent}% instrumental)`);
+          }
         }
         
         // Why it was chosen (reasoning)
