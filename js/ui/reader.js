@@ -55,6 +55,7 @@ export class ReaderUI {
     this._lastViewportSnapshot = null;
     this._layoutSafetyPaddingPx = 0;
     this._overflowReflowAttempts = 0;
+    this._layoutRelaxAttempts = 0;
     this._autoAdjustingLayout = false;
     this._isRepaginating = false;
 
@@ -971,6 +972,7 @@ export class ReaderUI {
     // Recompute from fresh dimensions; overflow guard can re-apply if needed.
     this._layoutSafetyPaddingPx = 0;
     this._overflowReflowAttempts = 0;
+    this._layoutRelaxAttempts = 0;
 
     window.clearTimeout(this._viewportResizeTimer);
     this._viewportResizeTimer = window.setTimeout(() => {
@@ -1044,10 +1046,36 @@ export class ReaderUI {
       const clippedBottom = visualViewportHeight > 0
         ? Math.ceil(Math.max(0, chapterRect.bottom - visualViewportHeight))
         : 0;
+      const sparePx = linesEl
+        ? Math.floor(Math.max(0, chapterTextEl.clientHeight - linesEl.scrollHeight))
+        : 0;
+      const lineHeightPx = this._getLineHeightPx(chapterTextEl);
       const overflowPx = Math.max(0, chapterOverflow, linesOverflow, clippedBottom);
 
       if (overflowPx <= 1) {
         this._overflowReflowAttempts = 0;
+        // If we now have clear spare room, relax emergency safety padding so pages
+        // don't look under-filled on mobile.
+        const currentSafety = Number(this._layoutSafetyPaddingPx) || 0;
+        const relaxThreshold = Math.max(10, lineHeightPx * 0.9);
+        if (
+          currentSafety > 0 &&
+          sparePx > relaxThreshold &&
+          this._layoutRelaxAttempts < 2
+        ) {
+          this._layoutRelaxAttempts += 1;
+          const relaxBy = Math.max(4, lineHeightPx * 0.5);
+          this._layoutSafetyPaddingPx = Math.max(0, currentSafety - relaxBy);
+          this._autoAdjustingLayout = true;
+          this._repaginateCurrentChapterPreservePosition({ clearLayoutCache: false })
+            .catch((error) => console.warn('Safety relaxation reflow failed:', error))
+            .finally(() => {
+              this._autoAdjustingLayout = false;
+            });
+        } else if (sparePx <= relaxThreshold) {
+          // Page is near full; reset relax attempts for future adjustments.
+          this._layoutRelaxAttempts = 0;
+        }
         return;
       }
 
@@ -1055,9 +1083,10 @@ export class ReaderUI {
         return;
       }
 
+      this._layoutRelaxAttempts = 0;
       this._overflowReflowAttempts += 1;
       const currentSafety = Number(this._layoutSafetyPaddingPx) || 0;
-      const nextSafety = Math.min(120, Math.max(currentSafety, overflowPx + 6));
+      const nextSafety = Math.min(72, Math.max(currentSafety, overflowPx + 4));
 
       if (nextSafety <= currentSafety) {
         return;
@@ -1356,7 +1385,7 @@ export class ReaderUI {
 
     availableWidth = Math.max(200, availableWidth);
     const baseSafetyPx = isMobile
-      ? Math.max(14, effectiveLineHeight * 0.45)
+      ? Math.max(8, effectiveLineHeight * 0.3)
       : Math.max(2, effectiveLineHeight * 0.18);
     const dynamicSafetyPx = Math.max(0, Number(this._layoutSafetyPaddingPx) || 0);
     availableHeight = Math.max(effectiveLineHeight * 5, availableHeight - baseSafetyPx - dynamicSafetyPx);
