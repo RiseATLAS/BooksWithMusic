@@ -860,14 +860,16 @@ export class ReaderUI {
       if (bookPageDisplay) {
         e.preventDefault();
         e.stopPropagation();
-        const currentPage = bookPageDisplay.dataset.current;
-        const totalPages = bookPageDisplay.dataset.total;
+        const currentPage = parseInt(bookPageDisplay.dataset.current, 10);
+        const totalPages = parseInt(bookPageDisplay.dataset.total, 10);
+        if (!Number.isFinite(currentPage) || !Number.isFinite(totalPages) || totalPages < 1) {
+          return;
+        }
         const newPage = prompt(`Jump to page (1-${totalPages}):`, currentPage);
         if (newPage !== null && newPage !== '') {
           const pageNum = parseInt(newPage, 10);
-          if (pageNum >= 1 && pageNum <= totalPages) {
-            const targetProgress = (pageNum / totalPages) * 100;
-            this.jumpToBookProgress(targetProgress.toFixed(1));
+          if (Number.isFinite(pageNum) && pageNum >= 1 && pageNum <= totalPages) {
+            this.jumpToBookPage(pageNum);
           } else {
             this.showToast(`Please enter a page number between 1 and ${totalPages}`);
           }
@@ -958,7 +960,9 @@ export class ReaderUI {
     const deltaW = Math.abs(next.width - prev.width);
     const deltaH = Math.abs(next.height - prev.height);
     const isMobileViewport = window.innerWidth <= 768;
-    const threshold = isMobileViewport ? 8 : 20;
+    // Mobile browser chrome (address bar/toolbars) can shift viewport by a few px.
+    // Keep threshold low so pagination tracks those changes and avoids clipped text.
+    const threshold = isMobileViewport ? 4 : 20;
 
     if (deltaW < threshold && deltaH < threshold) {
       return;
@@ -1035,20 +1039,25 @@ export class ReaderUI {
       const linesOverflow = linesEl
         ? Math.ceil(linesEl.scrollHeight - linesEl.clientHeight)
         : 0;
-      const overflowPx = Math.max(0, chapterOverflow, linesOverflow);
+      const visualViewportHeight = window.visualViewport?.height || window.innerHeight || 0;
+      const chapterRect = chapterTextEl.getBoundingClientRect();
+      const clippedBottom = visualViewportHeight > 0
+        ? Math.ceil(Math.max(0, chapterRect.bottom - visualViewportHeight))
+        : 0;
+      const overflowPx = Math.max(0, chapterOverflow, linesOverflow, clippedBottom);
 
       if (overflowPx <= 1) {
         this._overflowReflowAttempts = 0;
         return;
       }
 
-      if (this._overflowReflowAttempts >= 2) {
+      if (this._overflowReflowAttempts >= 3) {
         return;
       }
 
       this._overflowReflowAttempts += 1;
       const currentSafety = Number(this._layoutSafetyPaddingPx) || 0;
-      const nextSafety = Math.min(64, Math.max(currentSafety, overflowPx + 4));
+      const nextSafety = Math.min(120, Math.max(currentSafety, overflowPx + 6));
 
       if (nextSafety <= currentSafety) {
         return;
@@ -1329,9 +1338,25 @@ export class ReaderUI {
       availableHeight = pageViewport.clientHeight - viewportPadTop - viewportPadBottom - paddingTop - paddingBottom;
     }
 
+    if (isMobile) {
+      // Clamp to what is truly visible in the dynamic viewport to avoid
+      // text extending below rounded corners / browser chrome.
+      const viewportHeight = window.visualViewport?.height || window.innerHeight || 0;
+      const rect = measureEl.getBoundingClientRect();
+      if (viewportHeight > 0 && rect.height > 0) {
+        const visibleTop = Math.max(0, rect.top);
+        const visibleBottom = Math.min(viewportHeight, rect.bottom);
+        const visibleBorderBoxHeight = Math.max(0, visibleBottom - visibleTop);
+        const visibleContentHeight = Math.max(0, visibleBorderBoxHeight - paddingTop - paddingBottom);
+        if (visibleContentHeight > 0) {
+          availableHeight = Math.min(availableHeight, visibleContentHeight);
+        }
+      }
+    }
+
     availableWidth = Math.max(200, availableWidth);
     const baseSafetyPx = isMobile
-      ? Math.max(8, effectiveLineHeight * 0.35)
+      ? Math.max(14, effectiveLineHeight * 0.45)
       : Math.max(2, effectiveLineHeight * 0.18);
     const dynamicSafetyPx = Math.max(0, Number(this._layoutSafetyPaddingPx) || 0);
     availableHeight = Math.max(effectiveLineHeight * 5, availableHeight - baseSafetyPx - dynamicSafetyPx);
@@ -1894,22 +1919,12 @@ export class ReaderUI {
       indicator.style.display = 'none';
     }
     
-    // Check settings for page number display preference
-    const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
-    if (
-      settings.showBookPageCount === undefined &&
-      settings.showChapterPageCount === undefined &&
-      settings.showBookPageNumbers === false
-    ) {
-      settings.showBookPageCount = true;  // Enable by default
-      settings.showChapterPageCount = true;
-    }
-
-    // Book-level features are now ENABLED
-    const showBookPageCount = settings.showBookPageCount !== false;
-    const showBookProgress = settings.showBookProgress !== false;
-    const showChapterPageCount = settings.showChapterPageCount !== false;
-    const showChapterCount = settings.showChapterCount !== false;
+    // Prefer live settings manager state; fallback to localStorage for safety.
+    const settings = this._getPageIndicatorSettings();
+    const showBookPageCount = settings.showBookPageCount ?? false;
+    const showBookProgress = settings.showBookProgress ?? false;
+    const showChapterPageCount = settings.showChapterPageCount ?? true;
+    const showChapterCount = settings.showChapterCount ?? true;
 
     const lines = [];
     const totalChapters = this.chapters.length || 1;
@@ -1937,12 +1952,28 @@ export class ReaderUI {
       lines.push(`Chapter: ${this.currentChapterIndex + 1} / ${totalChapters}`);
     }
 
-    // Fallback: if no indicators are shown, show chapter page by default
+    // If user disabled all page-counter rows, hide indicator entirely.
     if (lines.length === 0) {
-      lines.push(`Chapter Page: ${this.currentPageInChapter} / ${chapterPages}`);
+      indicator.innerHTML = '';
+      if (!isFullscreen) {
+        indicator.style.display = 'none';
+      }
+      return;
     }
 
     indicator.innerHTML = lines.map((line) => `<span class="indicator-line">${line}</span>`).join('');
+    indicator.style.display = isFullscreen ? 'none' : '';
+  }
+
+  _getPageIndicatorSettings() {
+    try {
+      if (window.settingsManager?.getSettings) {
+        return window.settingsManager.getSettings() || {};
+      }
+      return JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
+    } catch {
+      return {};
+    }
   }
 
   async saveProgress() {

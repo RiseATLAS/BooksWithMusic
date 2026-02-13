@@ -1752,7 +1752,9 @@ html:-ms-fullscreen .page-indicator,
     padding: 4% 3% calc(6% + var(--safe-area-bottom));
     font-size: var(--reader-font-size, 16px);
     top: calc(5vh + var(--safe-area-top));
+    top: calc(5dvh + var(--safe-area-top));
     bottom: calc(5vh + var(--safe-area-bottom));
+    bottom: calc(5dvh + var(--safe-area-bottom));
   }
 
   /* Reduce page gaps on mobile to maximize text area */
@@ -1765,7 +1767,9 @@ html:-ms-fullscreen .page-indicator,
   :fullscreen .chapter-text,
   :-webkit-full-screen .chapter-text {
     top: calc(2vh + var(--safe-area-top));
+    top: calc(2dvh + var(--safe-area-top));
     bottom: calc(2vh + var(--safe-area-bottom));
+    bottom: calc(2dvh + var(--safe-area-bottom));
   }
 
   /* Page indicator - more compact on mobile, fully visible */

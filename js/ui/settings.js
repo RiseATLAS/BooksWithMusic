@@ -376,14 +376,23 @@ export class SettingsUI {
   }
 
   loadSettings() {
-    // Load from device-specific storage key
+    // Load from device-specific storage key, with legacy/global fallback
     const storageKey = this.isMobile ? this.STORAGE_KEY_MOBILE : this.STORAGE_KEY_DESKTOP;
-    const saved = localStorage.getItem(storageKey);
-    
-    if (saved) {
-      const savedSettings = JSON.parse(saved);
-      // Merge saved settings with current defaults (in case new settings were added)
+    const globalSaved = localStorage.getItem(this.STORAGE_KEY);
+    const deviceSaved = localStorage.getItem(storageKey);
+
+    if (globalSaved) {
+      const globalSettings = JSON.parse(globalSaved);
+      this.settings = { ...this.settings, ...globalSettings };
+    }
+
+    if (deviceSaved) {
+      const savedSettings = JSON.parse(deviceSaved);
+      // Device-specific values should win on that device type.
       this.settings = { ...this.settings, ...savedSettings };
+    } else if (globalSaved) {
+      // Migrate legacy/global settings into the active device bucket.
+      localStorage.setItem(storageKey, JSON.stringify(this.settings));
     }
     
     // Force textWidth to 81% on mobile devices for optimal reading with proper margins
@@ -424,6 +433,8 @@ export class SettingsUI {
     // Save to device-specific storage key
     const storageKey = this.isMobile ? this.STORAGE_KEY_MOBILE : this.STORAGE_KEY_DESKTOP;
     localStorage.setItem(storageKey, JSON.stringify(this.settings));
+    // Keep global key in sync for components that still read the shared key.
+    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.settings));
     
     // Sync to Firestore if user is signed in
     this.syncToFirestore();
@@ -446,25 +457,30 @@ export class SettingsUI {
   }
 
   syncPageIndicatorSettings() {
-    // Book-level page count and progress are now ENABLED features
+    // Use explicit defaults so UI reflects intended behavior consistently.
+    const showBookPageCountValue = this.settings.showBookPageCount ?? false;
+    const showBookProgressValue = this.settings.showBookProgress ?? false;
+    const showChapterPageCountValue = this.settings.showChapterPageCount ?? true;
+    const showChapterCountValue = this.settings.showChapterCount ?? true;
+
     const showBookPageCount = document.getElementById('show-book-page-count');
     if (showBookPageCount) {
-      showBookPageCount.checked = this.settings.showBookPageCount !== false;
+      showBookPageCount.checked = showBookPageCountValue;
     }
 
     const showBookProgress = document.getElementById('show-book-progress');
     if (showBookProgress) {
-      showBookProgress.checked = this.settings.showBookProgress !== false;
+      showBookProgress.checked = showBookProgressValue;
     }
 
     const showChapterPageCount = document.getElementById('show-chapter-page-count');
     if (showChapterPageCount) {
-      showChapterPageCount.checked = this.settings.showChapterPageCount !== false;
+      showChapterPageCount.checked = showChapterPageCountValue;
     }
 
     const showChapterCount = document.getElementById('show-chapter-count');
     if (showChapterCount) {
-      showChapterCount.checked = this.settings.showChapterCount !== false;
+      showChapterCount.checked = showChapterCountValue;
     }
   }
 
