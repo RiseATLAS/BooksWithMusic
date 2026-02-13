@@ -1192,10 +1192,10 @@ export class ReaderUI {
   /**
    * Get text layout dimensions from the page structure
    * Must be called after page structure exists in DOM
-   * CRITICAL: Must account for CSS padding on .chapter-text to prevent overflow
+   * Uses computed dimensions from the rendered chapter box to stay in sync
+   * with responsive CSS (desktop/mobile/fullscreen/safe-area insets).
    */
   _getLayoutDimensions() {
-    // Measure the viewport, not the container, since that's where chapter-text lives
     const pageViewport = document.querySelector('.page-viewport');
     
     if (!pageViewport) {
@@ -1216,44 +1216,38 @@ export class ReaderUI {
     const lineHeight = fontSize * lineHeightMultiplier;
     const textWidthPercent = (settings.textWidth || 100) / 100;
     
-    // Detect mobile
+    // Detect mobile (used for text-width centering behavior)
     const isMobile = window.settingsManager?.isMobile || false;
-    const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
-    
-    // Get full viewport dimensions
-    const viewportWidth = pageViewport.clientWidth;
-    const viewportHeight = pageViewport.clientHeight;
-    
-    // Calculate CSS padding on .chapter-text element
-    // Mobile: padding: 4% 3% 6% (top, right, bottom, left) = 3% horizontal each side = 6% total
-    // Mobile Fullscreen: padding: 2vh 0 3vh 0 = 0% horizontal - USE FULL WIDTH!
-    // Desktop: padding: 48px 0 96px 0 = 0px horizontal
-    let horizontalPaddingPercent = 0;
-    let verticalPaddingTop = 48;
-    let verticalPaddingBottom = 96;
-    let pageGap = 120; // Desktop default
-    
-    if (isMobile) {
-      if (isFullscreen) {
-        // Mobile fullscreen: padding: 2vh 0 3vh 0 - NO horizontal padding!
-        horizontalPaddingPercent = 0;
-        verticalPaddingTop = viewportHeight * 0.02; // 2vh
-        verticalPaddingBottom = viewportHeight * 0.03; // 3vh
-        pageGap = viewportHeight * 0.02; // 2vh
-      } else {
-        // Mobile normal: padding: 4% 3% 6%
-        horizontalPaddingPercent = 0.06; // 3% left + 3% right
-        verticalPaddingTop = viewportHeight * 0.04;
-        verticalPaddingBottom = viewportHeight * 0.06;
-        pageGap = viewportHeight * 0.05; // 5vh
-      }
+    const chapterText = pageViewport.querySelector('.chapter-text');
+    const measureEl = chapterText || pageViewport;
+    const measureStyles = window.getComputedStyle(measureEl);
+    const viewportStyles = window.getComputedStyle(pageViewport);
+
+    const paddingLeft = parseFloat(measureStyles.paddingLeft) || 0;
+    const paddingRight = parseFloat(measureStyles.paddingRight) || 0;
+    const paddingTop = parseFloat(measureStyles.paddingTop) || 0;
+    const paddingBottom = parseFloat(measureStyles.paddingBottom) || 0;
+
+    // Width/height available for actual text lines inside the measured element.
+    let availableWidth = (measureEl.clientWidth || 0) - paddingLeft - paddingRight;
+    let availableHeight = (measureEl.clientHeight || 0) - paddingTop - paddingBottom;
+
+    // Fallbacks for early render states where absolute-positioned chapter box
+    // may briefly report zero dimensions.
+    if (availableWidth <= 0) {
+      availableWidth = pageViewport.clientWidth - paddingLeft - paddingRight;
     }
-    
-    // Calculate available width after CSS padding
-    const horizontalPaddingPx = viewportWidth * horizontalPaddingPercent;
-    let availableWidth = viewportWidth - horizontalPaddingPx;
-    
-    // Apply text width percentage to available width (after padding)
+
+    if (availableHeight <= 0) {
+      const viewportPadTop = parseFloat(viewportStyles.paddingTop) || 0;
+      const viewportPadBottom = parseFloat(viewportStyles.paddingBottom) || 0;
+      availableHeight = pageViewport.clientHeight - viewportPadTop - viewportPadBottom - paddingTop - paddingBottom;
+    }
+
+    availableWidth = Math.max(200, availableWidth);
+    availableHeight = Math.max(lineHeight * 5, availableHeight);
+
+    // Apply text width setting to the actual available content width.
     let textWidth = availableWidth * textWidthPercent;
     
     // Calculate centering offset (only on desktop, never on mobile)
@@ -1270,25 +1264,12 @@ export class ReaderUI {
     // Ensure minimum readable width
     textWidth = Math.max(200, textWidth);
     
-    // Calculate available height after CSS padding and page-gap
-    let availableHeight = viewportHeight - (pageGap * 2) - verticalPaddingTop - verticalPaddingBottom;
-    
-    // In mobile fullscreen, maximize space
-    if (isMobile && isFullscreen) {
-      // Total padding: 2vh (top) + 3vh (bottom) + 2vh (gap top) + 2vh (gap bottom) = 9vh
-      // Available: 100vh - 9vh = 91vh
-      availableHeight = viewportHeight * 0.91;
-    }
-    
-    // Ensure reasonable height
-    availableHeight = Math.max(availableHeight, lineHeight * 5);
-    
     // Calculate max lines per page
     const maxLinesPerPage = Math.floor(availableHeight / lineHeight);
     
     return { 
       textWidth, 
-      pageHeight: viewportHeight, 
+      pageHeight: measureEl.clientHeight || pageViewport.clientHeight, 
       maxLinesPerPage: Math.max(5, maxLinesPerPage), 
       fontSize, 
       lineHeight 

@@ -18,6 +18,10 @@
   --reader-line-height: 1.8;
   --page-gap: 120px;
   --reader-font-family: Georgia, "Times New Roman", serif;
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-right: env(safe-area-inset-right, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-left: env(safe-area-inset-left, 0px);
 }
 
 /* Respect system dark mode preference */
@@ -375,10 +379,13 @@ body.reader-page::-webkit-scrollbar {
 
 /* Reader */
 #reader-view {
+  min-height: 100vh;
   height: 100vh;
+  height: 100dvh;
   position: relative;
   background: var(--page-paper-bg, var(--reader-bg));
   color: var(--page-paper-text, var(--reader-text));
+  padding-bottom: var(--safe-area-bottom);
 }
 
 /* User Menu Dropdown */
@@ -477,7 +484,8 @@ body.reader-page::-webkit-scrollbar {
   flex: 1;
   display: flex;
   overflow: hidden;
-  height: 100vh; /* Full viewport height */
+  height: 100%;
+  min-height: 100%;
 }
 
 .chapter-sidebar {
@@ -606,7 +614,7 @@ body.reader-page::-webkit-scrollbar {
 /* Page indicator overlay (bottom-center) - button-like style */
 .page-indicator {
   position: absolute;
-  bottom: 15px;
+  bottom: calc(15px + var(--safe-area-bottom));
   left: 50%;
   transform: translateX(-50%);
   padding: 0.5rem 0.75rem;
@@ -746,9 +754,9 @@ body.reader-page::-webkit-scrollbar {
 .chapter-text {
   /* Use absolute positioning for both static and flipping pages to prevent layout shift */
   position: absolute;
-  top: var(--page-gap, 120px); /* Account for viewport's top padding */
+  top: calc(var(--page-gap, 120px) + var(--safe-area-top)); /* Account for top inset/notch */
   left: 0; /* Align to left edge - no margin */
-  bottom: var(--page-gap, 120px); /* Account for viewport's bottom padding */
+  bottom: calc(var(--page-gap, 120px) + var(--safe-area-bottom)); /* Account for curved bottom insets */
   width: 100%; /* Full width */
   margin: 0;
   padding: 48px 0 96px 0; /* Only top and bottom padding */
@@ -759,7 +767,7 @@ body.reader-page::-webkit-scrollbar {
   background: var(--page-paper-bg, var(--reader-bg));
   overflow: visible;
   height: auto;
-  min-height: calc(100% - var(--page-gap, 120px) * 2); /* Subtract top and bottom gaps */
+  min-height: calc(100% - (var(--page-gap, 120px) * 2) - var(--safe-area-top) - var(--safe-area-bottom));
   box-sizing: border-box; /* Include padding in width */
   /* Force BOTH pages onto GPU layer for consistent rendering */
   /* Dynamic horizontal centering based on text width percentage */
@@ -1559,7 +1567,8 @@ body.reader-page::-webkit-scrollbar {
   left: -280px;
   z-index: 999;
   transition: left 0.3s;
-  height: 100vh;
+  height: 100dvh;
+  min-height: 100vh;
 }
 
 :-webkit-full-screen .chapter-sidebar {
@@ -1567,7 +1576,8 @@ body.reader-page::-webkit-scrollbar {
   left: -280px;
   z-index: 999;
   transition: left 0.3s;
-  height: 100vh;
+  height: 100dvh;
+  min-height: 100vh;
 }
 
 :fullscreen .chapter-sidebar:hover,
@@ -1609,14 +1619,16 @@ html:-ms-fullscreen .page-indicator,
 
 :fullscreen .page-container,
 :-webkit-full-screen .page-container {
-  height: 100vh !important; /* Use full viewport height */
+  height: 100dvh !important; /* Use dynamic viewport height */
+  min-height: 100vh !important;
 } 
 
 :fullscreen .chapter-text,
 :-webkit-full-screen .chapter-text {
   padding: 0px 0 0px 0 !important; /* Only vertical padding */
   height: auto !important; /* Let content determine height */
-  min-height: calc(100vh - 88px) !important; /* Minimum full height: 100vh - (20+20 viewport + 16+32 padding) */
+  min-height: calc(100vh - 88px) !important;
+  min-height: calc(100dvh - 88px - var(--safe-area-top) - var(--safe-area-bottom)) !important;
 }
 
 /* Mobile fullscreen - controls hidden by default, tap center to toggle */
@@ -1737,10 +1749,10 @@ html:-ms-fullscreen .page-indicator,
 
   /* Chapter text - use percentage-based padding for better mobile space usage */
   .chapter-text {
-    padding: 4% 3% 6%;
+    padding: 4% 3% calc(6% + var(--safe-area-bottom));
     font-size: var(--reader-font-size, 16px);
-    top: 5vh;
-    bottom: 5vh;
+    top: calc(5vh + var(--safe-area-top));
+    bottom: calc(5vh + var(--safe-area-bottom));
   }
 
   /* Reduce page gaps on mobile to maximize text area */
@@ -1752,13 +1764,13 @@ html:-ms-fullscreen .page-indicator,
   /* Fullscreen mode - maximize space for text */
   :fullscreen .chapter-text,
   :-webkit-full-screen .chapter-text {
-    top: 2vh;
-    bottom: 2vh;
+    top: calc(2vh + var(--safe-area-top));
+    bottom: calc(2vh + var(--safe-area-bottom));
   }
 
   /* Page indicator - more compact on mobile, fully visible */
   .page-indicator {
-    bottom: 10px;
+    bottom: calc(10px + var(--safe-area-bottom));
     padding: 0.4rem 0.6rem;
     font-size: 0.7rem;
     gap: 0.2rem;
@@ -1987,7 +1999,7 @@ html:-ms-fullscreen .page-indicator,
   }
 
   .page-indicator {
-    bottom: 8px;
+    bottom: calc(8px + var(--safe-area-bottom));
     padding: 0.35rem 0.5rem;
     font-size: 0.65rem;
     gap: 0.15rem;
@@ -2004,7 +2016,7 @@ html:-ms-fullscreen .page-indicator,
       padding: 0.3rem 0.4rem;
       font-size: 0.6rem;
       gap: 0.1rem;
-      bottom: 5px;
+      bottom: calc(5px + var(--safe-area-bottom));
     }
 
     .page-indicator .indicator-line {
