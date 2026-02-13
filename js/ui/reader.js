@@ -51,6 +51,12 @@ export class ReaderUI {
 
     this._scrollUpdateTimer = null;
     this._progressSaveTimer = null;
+    this._viewportResizeTimer = null;
+    this._lastViewportSnapshot = null;
+    this._layoutSafetyPaddingPx = 0;
+    this._overflowReflowAttempts = 0;
+    this._autoAdjustingLayout = false;
+    this._isRepaginating = false;
 
     this._viewportEl = null;
     this._boundViewportScrollHandler = null;
@@ -841,42 +847,10 @@ export class ReaderUI {
         return;
       }
       
-      // Save the first visible text block
-      const textBlock = this.getFirstVisibleTextBlock();
-      
       // Update internal setting
       this.charsPerPage = newDensity;
-      
-      // Clear cached pages for all chapters (force re-split)
-      this.chapterPages = {};
-      this.chapterPageData = {};
-      
-      // Re-split and reload current chapter
-      if (this.currentChapterIndex >= 0 && this.chapters.length > 0) {
-        await this.loadChapter(this.currentChapterIndex, { 
-          pageInChapter: this.currentPageInChapter, 
-          preservePage: true 
-        });
-        
-        // Restore position by finding the text (must be first on page)
-        const newPage = this.findPageByTextBlock(
-          this.currentChapterIndex, 
-          textBlock.text,
-          textBlock.blockIndex,
-          true // Must be first text on page
-        );
-        
-        if (newPage !== this.currentPageInChapter) {
-          this.currentPageInChapter = newPage;
-          this.renderCurrentPage();
-          this.currentPage = this.calculateCurrentPageNumber();
-          this.totalPages = this.calculateTotalPages();
-          this.updatePageIndicator();
-          
-          // Don't notify music manager here - this is just restoring position after layout change
-          // Normal page navigation handles music updates through _notifyPageChange()
-        }
-      }
+
+      await this._repaginateCurrentChapterPreservePosition({ clearLayoutCache: false });
     });
 
     // Event delegation for clickable page indicators (book page and progress)
@@ -943,44 +917,151 @@ export class ReaderUI {
       
       if (paginationAffectingChanges.includes(reason)) {
         // Clear layout engine cache when font settings change
-        if (this.layoutEngine && ['fontSize', 'fontFamily'].includes(reason)) {
-          this.layoutEngine.clearCache();
-        }
-        
-        // Save the first visible text block
-        const textBlock = this.getFirstVisibleTextBlock();
-        
-        // Now clear cached pages to force re-pagination
-        this.chapterPages = {};
-        this.chapterPageData = {};
-        
-        // Re-load current chapter with new pagination
-        if (this.currentChapterIndex >= 0 && this.chapters.length > 0) {
-          await this.loadChapter(this.currentChapterIndex, { 
-            pageInChapter: this.currentPageInChapter, 
-            preservePage: true 
-          });
-          
-          // Restore position by finding the text (must be first on page)
-          const newPage = this.findPageByTextBlock(
-            this.currentChapterIndex, 
-            textBlock.text,
-            textBlock.blockIndex,
-            true // Must be first text on page
-          );
-          
-          if (newPage !== this.currentPageInChapter) {
-            this.currentPageInChapter = newPage;
-            this.renderCurrentPage();
-            this.currentPage = this.calculateCurrentPageNumber();
-            this.totalPages = this.calculateTotalPages();
-            this.updatePageIndicator();
-            
-            // Don't notify music manager here - this is just restoring position after layout change
-            // Normal page navigation handles music updates through _notifyPageChange()
-          }
-        }
+        await this._repaginateCurrentChapterPreservePosition({
+          clearLayoutCache: ['fontSize', 'fontFamily'].includes(reason)
+        });
       }
+    });
+
+    const handleViewportResize = () => {
+      this._handleViewportResize();
+    };
+
+    window.addEventListener('resize', handleViewportResize, { passive: true });
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleViewportResize, { passive: true });
+    }
+    this._lastViewportSnapshot = this._getViewportSnapshot();
+  }
+
+  _getViewportSnapshot() {
+    const viewport = document.querySelector('.page-viewport');
+    return {
+      width: Math.round(viewport?.clientWidth || window.innerWidth || 0),
+      height: Math.round(viewport?.clientHeight || window.innerHeight || 0)
+    };
+  }
+
+  _handleViewportResize() {
+    if (this._isInitializing || this.currentChapterIndex < 0 || !this.chapters?.length) {
+      return;
+    }
+
+    const next = this._getViewportSnapshot();
+    const prev = this._lastViewportSnapshot;
+    this._lastViewportSnapshot = next;
+
+    if (!prev) {
+      return;
+    }
+
+    const deltaW = Math.abs(next.width - prev.width);
+    const deltaH = Math.abs(next.height - prev.height);
+    const isMobileViewport = window.innerWidth <= 768;
+    const threshold = isMobileViewport ? 8 : 20;
+
+    if (deltaW < threshold && deltaH < threshold) {
+      return;
+    }
+
+    // Recompute from fresh dimensions; overflow guard can re-apply if needed.
+    this._layoutSafetyPaddingPx = 0;
+    this._overflowReflowAttempts = 0;
+
+    window.clearTimeout(this._viewportResizeTimer);
+    this._viewportResizeTimer = window.setTimeout(() => {
+      this._repaginateCurrentChapterPreservePosition({ clearLayoutCache: false })
+        .catch((error) => console.warn('Viewport reflow failed:', error));
+    }, isMobileViewport ? 90 : 160);
+  }
+
+  async _repaginateCurrentChapterPreservePosition({ clearLayoutCache = false } = {}) {
+    if (this._isInitializing || this.currentChapterIndex < 0 || !this.chapters?.length) {
+      return;
+    }
+    if (this._isRepaginating) {
+      return;
+    }
+
+    this._isRepaginating = true;
+    try {
+      if (clearLayoutCache && this.layoutEngine) {
+        this.layoutEngine.clearCache();
+      }
+
+      const textBlock = this.getFirstVisibleTextBlock();
+
+      // Invalidate all chapter pages because viewport/font changes affect every chapter.
+      this.chapterPages = {};
+      this.chapterPageData = {};
+
+      await this.loadChapter(this.currentChapterIndex, {
+        pageInChapter: this.currentPageInChapter,
+        preservePage: true
+      });
+
+      const newPage = this.findPageByTextBlock(
+        this.currentChapterIndex,
+        textBlock.text,
+        textBlock.blockIndex,
+        true
+      );
+
+      if (newPage !== this.currentPageInChapter) {
+        this.currentPageInChapter = newPage;
+        this.renderCurrentPage();
+        this.currentPage = this.calculateCurrentPageNumber();
+        this.totalPages = this.calculateTotalPages();
+        this.updatePageIndicator();
+      }
+    } finally {
+      this._isRepaginating = false;
+    }
+  }
+
+  _scheduleMobileOverflowGuard() {
+    if (this._autoAdjustingLayout) return;
+    if (window.innerWidth > 768) {
+      this._overflowReflowAttempts = 0;
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      const chapterTextEl = document.querySelector('.chapter-text');
+      if (!chapterTextEl) return;
+
+      const linesEl = chapterTextEl.querySelector('.page-lines');
+      const chapterOverflow = Math.ceil(chapterTextEl.scrollHeight - chapterTextEl.clientHeight);
+      const linesOverflow = linesEl
+        ? Math.ceil(linesEl.scrollHeight - linesEl.clientHeight)
+        : 0;
+      const overflowPx = Math.max(0, chapterOverflow, linesOverflow);
+
+      if (overflowPx <= 1) {
+        this._overflowReflowAttempts = 0;
+        return;
+      }
+
+      if (this._overflowReflowAttempts >= 2) {
+        return;
+      }
+
+      this._overflowReflowAttempts += 1;
+      const currentSafety = Number(this._layoutSafetyPaddingPx) || 0;
+      const nextSafety = Math.min(64, Math.max(currentSafety, overflowPx + 4));
+
+      if (nextSafety <= currentSafety) {
+        return;
+      }
+
+      this._layoutSafetyPaddingPx = nextSafety;
+      this._autoAdjustingLayout = true;
+
+      this._repaginateCurrentChapterPreservePosition({ clearLayoutCache: false })
+        .catch((error) => console.warn('Overflow recovery reflow failed:', error))
+        .finally(() => {
+          this._autoAdjustingLayout = false;
+        });
     });
   }
 
@@ -1227,6 +1308,10 @@ export class ReaderUI {
     const paddingRight = parseFloat(measureStyles.paddingRight) || 0;
     const paddingTop = parseFloat(measureStyles.paddingTop) || 0;
     const paddingBottom = parseFloat(measureStyles.paddingBottom) || 0;
+    const computedLineHeight = parseFloat(measureStyles.lineHeight);
+    const effectiveLineHeight = Number.isFinite(computedLineHeight) && computedLineHeight > 0
+      ? computedLineHeight
+      : lineHeight;
 
     // Width/height available for actual text lines inside the measured element.
     let availableWidth = (measureEl.clientWidth || 0) - paddingLeft - paddingRight;
@@ -1245,7 +1330,11 @@ export class ReaderUI {
     }
 
     availableWidth = Math.max(200, availableWidth);
-    availableHeight = Math.max(lineHeight * 5, availableHeight);
+    const baseSafetyPx = isMobile
+      ? Math.max(8, effectiveLineHeight * 0.35)
+      : Math.max(2, effectiveLineHeight * 0.18);
+    const dynamicSafetyPx = Math.max(0, Number(this._layoutSafetyPaddingPx) || 0);
+    availableHeight = Math.max(effectiveLineHeight * 5, availableHeight - baseSafetyPx - dynamicSafetyPx);
 
     // Apply text width setting to the actual available content width.
     let textWidth = availableWidth * textWidthPercent;
@@ -1265,14 +1354,14 @@ export class ReaderUI {
     textWidth = Math.max(200, textWidth);
     
     // Calculate max lines per page
-    const maxLinesPerPage = Math.floor(availableHeight / lineHeight);
+    const maxLinesPerPage = Math.floor(availableHeight / effectiveLineHeight);
     
     return { 
       textWidth, 
       pageHeight: measureEl.clientHeight || pageViewport.clientHeight, 
       maxLinesPerPage: Math.max(5, maxLinesPerPage), 
       fontSize, 
-      lineHeight 
+      lineHeight: effectiveLineHeight
     };
   }
 
@@ -1453,6 +1542,8 @@ export class ReaderUI {
 
       // Update progress indicator
       this.updatePageIndicator();
+      this._lastViewportSnapshot = this._getViewportSnapshot();
+      this._scheduleMobileOverflowGuard();
     } catch (error) {
       console.error(' Error rendering page:', error);
       console.error('Context:', {
