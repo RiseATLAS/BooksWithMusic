@@ -164,6 +164,7 @@ export class SettingsUI {
       }
       this.applyFontSize();
       this.saveSettings();
+      this._emitLayoutChanged('fontSize');
     });
 
     // Line height
