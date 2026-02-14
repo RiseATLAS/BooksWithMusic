@@ -1,10 +1,10 @@
 /**
  * SpotifyAPI - Spotify Web API Integration
  * 
- * IMPORTANT: Spotify deprecated key endpoints on Nov 27, 2024:
- * - /recommendations (deprecated) - Now use keyword search
- * - /audio-features (deprecated) - No longer available
- * - preview_url field (deprecated) - Removed from track objects
+ * NOTE ON SPOTIFY WEB API CHANGES:
+ * - Recommendation and audio-feature endpoints are not used in this app.
+ * - Search API is the primary discovery mechanism.
+ * - preview_url was removed from track objects.
  * 
  * RESPONSIBILITIES:
  * - Search Spotify catalog using keyword-based search API
@@ -30,10 +30,9 @@
  *  
  * SPOTIFY ENHANCEMENTS vs FREESOUND:
  * - 100M+ tracks vs ~500K
- * - Precise audio feature matching (energy, valence, tempo, instrumentalness)
+ * - Better coverage and curation for narrative moods
  * - Professional catalog with consistent quality
- * - Example: "epic" mood → seed_genres: ["cinematic", "orchestral", "epic"],
- *   target_energy: 0.85, target_valence: 0.6, target_instrumentalness: 0.8
+ * - Query-based mood matching with low-vocal filtering
  * 
  * RATE LIMITING:
  * - API calls limited by Spotify (usually fine for personal use)
@@ -47,8 +46,7 @@
  * 
  * REFERENCES:
  * - Web API Reference: https://developer.spotify.com/documentation/web-api
- * - Recommendations: https://developer.spotify.com/documentation/web-api/reference/get-recommendations
- * - Audio Features: https://developer.spotify.com/documentation/web-api/reference/get-audio-features
+ * - Search Reference: https://developer.spotify.com/documentation/web-api/reference/search
  */
 
 import { SpotifyAuth } from '../auth/spotify-auth.js';
@@ -145,6 +143,40 @@ export class SpotifyAPI {
     }
     
     return validated;
+  }
+
+  /**
+   * Detect whether chapter context intentionally asks for soundtrack/cinematic music.
+   * @private
+   */
+  _shouldPreferCinematicMood(mood, terms = []) {
+    const cinematicMoods = new Set(['epic', 'dramatic', 'adventure', 'action', 'fantasy', 'war']);
+    if (cinematicMoods.has(String(mood || '').toLowerCase())) {
+      return true;
+    }
+
+    return terms.some((term) => /cinematic|orchestral|score|trailer|soundtrack/i.test(String(term || '')));
+  }
+
+  /**
+   * Detect explicit game-music intent from mood/keywords.
+   * @private
+   */
+  _hasExplicitGameMusicIntent(terms = [], mood = '') {
+    const joinedTerms = terms
+      .map((term) => String(term || '').toLowerCase())
+      .join(' ');
+    const moodText = String(mood || '').toLowerCase();
+    return /video game|game music|game soundtrack|\bbgm\b|\bost\b|chiptune|8-?bit/.test(joinedTerms + ' ' + moodText);
+  }
+
+  /**
+   * Build optional negative query clause for game-heavy results.
+   * @private
+   */
+  _buildNegativeQuerySuffix({ avoidGameMusic = true } = {}) {
+    if (!avoidGameMusic) return '';
+    return 'NOT "video game" NOT "game music" NOT bgm NOT ost NOT chiptune';
   }
 
   /**
@@ -265,16 +297,24 @@ export class SpotifyAPI {
     const effectiveMood = String(options?.mood || normalizedTerms[0] || 'peaceful').toLowerCase();
     const effectiveEnergy = this._normalizeEnergyLevel(options?.energy);
     const energyProfile = this._getEnergySearchProfile(effectiveEnergy);
+    const preferCinematic = this._shouldPreferCinematicMood(effectiveMood, uniqueTerms);
+    const avoidGameMusic = options?.avoidGameMusic !== undefined
+      ? options.avoidGameMusic !== false
+      : !this._hasExplicitGameMusicIntent([...uniqueTerms, ...contextKeywords], effectiveMood);
+    const negativeSuffix = this._buildNegativeQuerySuffix({ avoidGameMusic });
     const mappedGenres = this.validateGenres(
       this.mapper.mapKeywordsToGenres(uniqueTerms, effectiveMood).map(genre => String(genre).toLowerCase())
     );
+    const filteredMappedGenres = preferCinematic
+      ? mappedGenres
+      : mappedGenres.filter((genre) => genre !== 'soundtrack');
     const candidateGenres = [
       ...new Set([
-        ...mappedGenres,
-        'soundtrack',
+        ...filteredMappedGenres,
         'classical',
         'ambient',
-        ...energyProfile.genres
+        ...energyProfile.genres,
+        ...(preferCinematic ? ['soundtrack'] : [])
       ])
     ].slice(0, 5);
     const strictQueryCore = [termsText, energyProfile.queryHint].filter(Boolean).join(' ');
@@ -292,13 +332,13 @@ export class SpotifyAPI {
     try {
       const baseQueries = candidateGenres.slice(0, 3).map((genre, index) => {
         const core = index === 0 ? strictQueryCore : relaxedQueryCore;
-        return [core, instrumentalOnly ? 'instrumental' : null, `genre:${genre}`]
+        return [core, instrumentalOnly ? 'instrumental' : null, `genre:${genre}`, negativeSuffix]
           .filter(Boolean)
           .join(' ');
       });
 
       if (baseQueries.length === 0) {
-        baseQueries.push([strictQueryCore, instrumentalOnly ? 'instrumental' : null, 'soundtrack']
+        baseQueries.push([strictQueryCore, instrumentalOnly ? 'instrumental' : null, 'genre:classical', negativeSuffix]
           .filter(Boolean)
           .join(' '));
       }
@@ -312,7 +352,11 @@ export class SpotifyAPI {
         );
         addTracks(tracks);
 
-        const provisional = this._filterAndSortTracks(Array.from(collectedTracks.values()), limit, { instrumentalOnly });
+        const provisional = this._filterAndSortTracks(Array.from(collectedTracks.values()), limit, {
+          instrumentalOnly,
+          avoidGameMusic,
+          lowVocalPreference: true
+        });
         if (provisional.length >= limit) {
           break;
         }
@@ -320,17 +364,30 @@ export class SpotifyAPI {
 
       // If strict field-filtered queries fail, fall back to broader plain-text searches.
       if (collectedTracks.size === 0) {
-        const fallbackQueries = instrumentalOnly
+        const fallbackQueries = (instrumentalOnly
           ? [
-              `${relaxedQueryCore} instrumental soundtrack OR ambient OR classical`,
-              `${effectiveMood} instrumental soundtrack`,
-              `instrumental soundtrack ambient`
+              preferCinematic
+                ? `${relaxedQueryCore} instrumental cinematic score OR orchestral`
+                : `${relaxedQueryCore} instrumental ambient OR classical OR piano`,
+              preferCinematic
+                ? `${effectiveMood} instrumental cinematic score`
+                : `${effectiveMood} instrumental ambient`,
+              preferCinematic
+                ? 'instrumental cinematic orchestral'
+                : 'instrumental ambient classical'
             ]
           : [
-              `${relaxedQueryCore} soundtrack OR ambient OR classical`,
-              `${effectiveMood} soundtrack`,
-              `cinematic soundtrack ambient`
-            ];
+              preferCinematic
+                ? `${relaxedQueryCore} cinematic score OR orchestral`
+                : `${relaxedQueryCore} ambient OR classical OR acoustic`,
+              preferCinematic
+                ? `${effectiveMood} cinematic instrumental`
+                : `${effectiveMood} ambient instrumental`,
+              preferCinematic
+                ? 'cinematic ambient orchestral'
+                : 'ambient classical piano'
+            ])
+          .map((query) => [query, negativeSuffix].filter(Boolean).join(' '));
 
         for (let i = 0; i < fallbackQueries.length; i++) {
           const query = fallbackQueries[i];
@@ -348,11 +405,15 @@ export class SpotifyAPI {
       }
 
       const allTracks = Array.from(collectedTracks.values());
-      const filteredTracks = this._filterAndSortTracks(allTracks, limit, { instrumentalOnly });
-      const selectionLabel = instrumentalOnly ? 'instrumental tracks' : 'tracks';
+      const filteredTracks = this._filterAndSortTracks(allTracks, limit, {
+        instrumentalOnly,
+        avoidGameMusic,
+        lowVocalPreference: true
+      });
+      const selectionLabel = instrumentalOnly ? 'low-vocal tracks' : 'tracks';
 
       this._debugLog(
-        `✅ Spotify candidate pool: ${allTracks.length} tracks, returning ${filteredTracks.length} ${selectionLabel} (mood=${effectiveMood}, energy=${effectiveEnergy})`
+        `✅ Spotify candidate pool: ${allTracks.length} tracks, returning ${filteredTracks.length} ${selectionLabel} (mood=${effectiveMood}, energy=${effectiveEnergy}, avoidGameMusic=${avoidGameMusic})`
       );
 
       return filteredTracks;
@@ -414,14 +475,14 @@ export class SpotifyAPI {
 
     if (energyLevel >= 4) {
       return {
-        queryHint: 'epic',
-        genres: ['soundtrack', 'electronic', 'metal']
+        queryHint: 'intense',
+        genres: ['electronic', 'metal', 'classical']
       };
     }
 
     return {
-      queryHint: 'cinematic',
-      genres: ['soundtrack', 'classical', 'ambient']
+      queryHint: 'atmospheric',
+      genres: ['classical', 'ambient', 'new-age']
     };
   }
 
@@ -431,18 +492,95 @@ export class SpotifyAPI {
    */
   _filterAndSortTracks(tracks, limit, options = {}) {
     const instrumentalOnly = options.instrumentalOnly !== false;
-    let candidateTracks = instrumentalOnly
-      ? tracks.filter(track => this._isLikelyInstrumental(track))
-      : tracks.slice();
+    const avoidGameMusic = options.avoidGameMusic !== false;
+    const lowVocalPreference = options.lowVocalPreference !== false;
+    let candidateTracks = tracks.slice();
+
+    if (instrumentalOnly) {
+      candidateTracks = candidateTracks.filter(track => this._isLikelyInstrumental(track));
+    }
 
     // Safety fallback: if heuristics are too strict, prefer returning playable music over silence.
     if (instrumentalOnly && candidateTracks.length === 0 && tracks.length > 0) {
       this._debugWarn('⚠️ Strict instrumental filter removed all Spotify candidates, using relaxed fallback.');
-      candidateTracks = tracks.slice();
+      candidateTracks = tracks.filter(track => !this._isLikelyVocalTrack(track));
+      if (candidateTracks.length === 0) {
+        candidateTracks = tracks.slice();
+      }
     }
 
-    candidateTracks.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
-    return candidateTracks.slice(0, limit);
+    const scoredTracks = candidateTracks.map((track) => ({
+      track,
+      score: this._scoreTrackForSelection(track, {
+        instrumentalOnly,
+        avoidGameMusic,
+        lowVocalPreference
+      })
+    }));
+
+    scoredTracks.sort((a, b) => b.score - a.score);
+    return scoredTracks.slice(0, limit).map(({ track }) => track);
+  }
+
+  /**
+   * Rank tracks with emphasis on low-vocal, non-game tracks.
+   * @private
+   */
+  _scoreTrackForSelection(track, options = {}) {
+    const avoidGameMusic = options.avoidGameMusic !== false;
+    const lowVocalPreference = options.lowVocalPreference !== false;
+    const instrumentalOnly = options.instrumentalOnly !== false;
+    let score = Number(track?.popularity || 0);
+    const instrumentalness = Number(track?.instrumentalness);
+
+    if (Number.isFinite(instrumentalness)) {
+      score += instrumentalness * 35;
+      if (lowVocalPreference && instrumentalness < 0.35) {
+        score -= 18;
+      }
+      if (instrumentalOnly && instrumentalness < 0.5) {
+        score -= 40;
+      }
+    } else if (this._isLikelyInstrumental(track)) {
+      score += 14;
+    } else if (lowVocalPreference && this._isLikelyVocalTrack(track)) {
+      score -= 20;
+    }
+
+    if (avoidGameMusic && this._isLikelyGameTrack(track)) {
+      score -= 30;
+    }
+
+    return score;
+  }
+
+  /**
+   * Heuristic vocal detection for low-vocal preference mode.
+   * @private
+   */
+  _isLikelyVocalTrack(track) {
+    const titleLower = track?.title?.toLowerCase() || '';
+    const artistLower = track?.artist?.toLowerCase() || '';
+    const combined = `${titleLower} ${artistLower}`;
+    if (/\b(feat\.?|ft\.?|featuring|vocals?|singer|lyrics?)\b/.test(combined)) {
+      return true;
+    }
+    const instrumentalness = Number(track?.instrumentalness);
+    if (Number.isFinite(instrumentalness)) {
+      return instrumentalness < 0.2;
+    }
+    return false;
+  }
+
+  /**
+   * Heuristic for game-heavy tracks to down-rank unless explicitly requested.
+   * @private
+   */
+  _isLikelyGameTrack(track) {
+    const titleLower = track?.title?.toLowerCase() || '';
+    const artistLower = track?.artist?.toLowerCase() || '';
+    const combined = `${titleLower} ${artistLower}`;
+    return /video game|game music|game soundtrack|chiptune|8-?bit|\bbgm\b|\bost\b/.test(combined);
   }
 
   /**
@@ -490,207 +628,6 @@ export class SpotifyAPI {
       instrumentalOnly
     });
   }
-  
-  /**
-   * Score and filter tracks based on match quality
-   * Ensures we only return tracks that actually fit the mood
-   * @private
-   */
-  _scoreAndFilterTracks(tracks, criteria) {
-    const { mood, targetEnergy, targetValence, instrumentalnessThreshold } = criteria;
-    
-    const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
-    const showTrackInfo = settings.showTrackInfo || false;
-    
-    // Score each track
-    const scoredTracks = tracks.map(track => {
-      let score = 100; // Start with perfect score
-      let reasons = [];
-      
-      // Fetch audio features if available (from Spotify's response)
-      // Note: Recommendations API doesn't always return audio features
-      // We might need to fetch them separately for accurate scoring
-      
-      // 1. Check instrumentalness (CRITICAL - must be instrumental)
-      if (track.instrumentalness !== undefined) {
-        if (track.instrumentalness < instrumentalnessThreshold) {
-          score -= 50; // Major penalty for vocal tracks
-          reasons.push(`❌ Too vocal (${(track.instrumentalness * 100).toFixed(0)}% instrumental)`);
-        } else {
-          reasons.push(`✅ Instrumental (${(track.instrumentalness * 100).toFixed(0)}%)`);
-        }
-      }
-      
-      // 2. Check energy match (IMPORTANT)
-      if (track.energy !== undefined && targetEnergy !== undefined) {
-        const energyDiff = Math.abs(track.energy - targetEnergy);
-        if (energyDiff > 0.3) {
-          score -= 20; // Penalty for energy mismatch
-          reasons.push(`⚠️ Energy mismatch (want ${(targetEnergy * 100).toFixed(0)}%, got ${(track.energy * 100).toFixed(0)}%)`);
-        } else {
-          reasons.push(`✅ Energy match (${(track.energy * 100).toFixed(0)}%)`);
-        }
-      }
-      
-      // 3. Check valence (mood positivity) match
-      if (track.valence !== undefined && targetValence !== null) {
-        const valenceDiff = Math.abs(track.valence - targetValence);
-        if (valenceDiff > 0.4) {
-          score -= 15; // Penalty for mood mismatch
-          reasons.push(`⚠️ Mood mismatch (want ${(targetValence * 100).toFixed(0)}% positive, got ${(track.valence * 100).toFixed(0)}%)`);
-        } else {
-          reasons.push(`✅ Mood match (${(track.valence * 100).toFixed(0)}% positive)`);
-        }
-      }
-      
-      // 4. Check speechiness (should be low for instrumental)
-      if (track.speechiness !== undefined) {
-        if (track.speechiness > 0.33) {
-          score -= 25; // Penalty for too much speech
-          reasons.push(`❌ Too much speech (${(track.speechiness * 100).toFixed(0)}%)`);
-        } else {
-          reasons.push(`✅ Low speech (${(track.speechiness * 100).toFixed(0)}%)`);
-        }
-      }
-      
-      // 5. Bonus for perfect matches
-      if (track.instrumentalness >= 0.9) {
-        score += 10;
-        reasons.push(`🌟 Highly instrumental`);
-      }
-      
-      // Store score and reasoning
-      track.matchScore = score;
-      track.matchReasons = reasons;
-      
-      if (showTrackInfo) {
-        console.log(`📊 ${track.title} - Score: ${score}/100 - ${reasons.join(', ')}`);
-      }
-      
-      return track;
-    });
-    
-    // Filter out tracks that don't meet minimum quality
-    const MIN_SCORE = 50; // Tracks must score at least 50/100
-    const filteredTracks = scoredTracks.filter(track => {
-      if (track.matchScore < MIN_SCORE) {
-        console.warn(`🚫 Filtered out "${track.title}" (score: ${track.matchScore}/100)`);
-        return false;
-      }
-      return true;
-    });
-    
-    // Sort by score (best matches first)
-    filteredTracks.sort((a, b) => b.matchScore - a.matchScore);
-    
-    return filteredTracks;
-  }
-
-  /**
-   * Map mood to Spotify genres and validate them
-   * @private
-   */
-  _moodToGenres(mood, energy, keywords) {
-    // Map to Spotify genre seeds
-    const moodGenreMap = {
-      'epic': ['soundtrack', 'classical', 'metal'],
-      'tense': ['ambient', 'electronic', 'industrial'],
-      'peaceful': ['ambient', 'chill', 'piano', 'new-age'],
-      'mysterious': ['ambient', 'electronic', 'minimal-techno'],
-      'joyful': ['indie', 'folk', 'happy', 'indie-pop'],
-      'sad': ['piano', 'acoustic', 'indie', 'sad', 'rainy-day'],
-      'dramatic': ['soundtrack', 'classical', 'opera'],
-      'calm': ['ambient', 'chill', 'acoustic', 'sleep'],
-      'energetic': ['electronic', 'indie', 'dance', 'edm'],
-      'dark': ['ambient', 'electronic', 'goth', 'industrial'],
-      'romantic': ['acoustic', 'piano', 'indie', 'romance'],
-      'adventure': ['soundtrack', 'folk', 'classical', 'world'],
-      'action': ['electronic', 'soundtrack', 'metal'],
-      'fantasy': ['soundtrack', 'classical', 'folk', 'ambient']
-    };
-    
-    // Start with mood-based genres
-    let genres = moodGenreMap[mood.toLowerCase()] || ['ambient', 'chill'];
-    
-    // Add energy-based genre
-    if (energy >= 4) {
-      genres.push('electronic'); // High energy
-    } else if (energy <= 2) {
-      genres.push('ambient'); // Low energy
-    } else {
-      genres.push('soundtrack'); // Medium energy
-    }
-    
-    // Add keyword-based genres if they map
-    keywords.forEach(kw => {
-      if (moodGenreMap[kw.toLowerCase()]) {
-        genres.push(...moodGenreMap[kw.toLowerCase()]);
-      }
-    });
-    
-    // Get unique genres first
-    const uniqueGenres = [...new Set(genres)];
-    
-    // Validate genres against known valid list
-    const validatedGenres = this.validateGenres(uniqueGenres);
-    
-    // Limit to 5 (Spotify's max for seed_genres)
-    const finalGenres = validatedGenres.slice(0, 5);
-    
-    // Log for debugging
-    this._debugLog(`🎼 Genre seeds: [${finalGenres.join(', ')}] (from mood="${mood}", energy=${energy})`);
-    
-    return finalGenres;
-  }
-  
-  /**
-   * Map mood to valence (happiness/positivity)
-   * @private
-   */
-  _moodToValence(mood) {
-    const valenceMap = {
-      'joyful': 0.8,
-      'happy': 0.8,
-      'peaceful': 0.5,
-      'calm': 0.5,
-      'mysterious': 0.4,
-      'tense': 0.3,
-      'sad': 0.2,
-      'dark': 0.2,
-      'epic': 0.6,
-      'dramatic': 0.5,
-      'romantic': 0.7
-    };
-    
-    return valenceMap[mood.toLowerCase()] || null;
-  }
-
-  /**
-   * Get audio features for multiple tracks
-   * Used for more precise track scoring
-   * Max 100 track IDs per request
-   */
-  async getAudioFeatures(trackIds) {
-    if (!trackIds || trackIds.length === 0) return [];
-
-    // Spotify API allows max 100 track IDs per request
-    if (trackIds.length > 100) {
-      trackIds = trackIds.slice(0, 100);
-    }
-
-    const ids = trackIds.join(',');
-    const endpoint = `/audio-features?ids=${ids}`;
-
-    try {
-      const data = await this._makeRequest(endpoint);
-      return data.audio_features || [];
-    } catch (error) {
-      console.error('❌ Error getting audio features:', error);
-      // Return empty array instead of failing - audio features are optional
-      return trackIds.map(() => null);
-    }
-  }
-
   /**
    * Create a playlist in user's Spotify account
    */
@@ -820,11 +757,11 @@ export class SpotifyAPI {
     const instrumentalKeywords = [
       'instrumental', 'karaoke', 'no vocals', 'without vocals',
       'piano version', 'guitar version', 'orchestral', 'orchestra', 'symphony',
-      'soundtrack', 'ost', 'original score', 'film score', 'movie score',
+      'original score', 'film score', 'movie score',
       'ambient', 'piano solo', 'guitar solo',
       'classical', 'concerto', 'sonata', 'prelude',
       'trailer', 'cinematic', 'epic music', 'dramatic music',
-      'video game', 'game music', 'bgm', 'background music',
+      'background music',
       'meditation', 'relaxing', 'study music', 'sleep music',
       'lofi', 'lo-fi', 'chillhop', 'beats'
     ];
@@ -847,8 +784,8 @@ export class SpotifyAPI {
     // Check for common instrumental genres/artists
     const instrumentalGenres = [
       'classical', 'jazz', 'ambient', 'electronic', 'piano',
-      'orchestral', 'soundtrack', 'post-rock', 'downtempo',
-      'cinematic', 'trailer', 'epic'
+      'orchestral', 'post-rock', 'downtempo',
+      'cinematic', 'trailer', 'new-age'
     ];
     
     const tags = track.tags || [];

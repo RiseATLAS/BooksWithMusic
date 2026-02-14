@@ -645,16 +645,6 @@ export class ReaderUI {
         const chapterIndex = parseInt(e.currentTarget.dataset.chapter);
         if (!isNaN(chapterIndex)) {
           await this.loadChapter(chapterIndex);
-          
-          // Update music for new chapter (only if music manager is ready)
-          if (this.musicManager && this._musicInitPromise) {
-            await this._musicInitPromise;
-            this.musicManager.onChapterChange(
-              this.currentChapterIndex,
-              this.currentPageInChapter,
-              this.currentChapterShiftPoints
-            );
-          }
         }
       });
     });
@@ -1177,7 +1167,8 @@ export class ReaderUI {
 
       await this.loadChapter(this.currentChapterIndex, {
         pageInChapter: this.currentPageInChapter,
-        preservePage: true
+        preservePage: true,
+        skipMusicRefresh: true
       });
 
       const newPage = this.findPageByTextBlock(
@@ -1666,7 +1657,7 @@ export class ReaderUI {
     return dimensions;
   }
 
-  async loadChapter(index, { pageInChapter = 1, preservePage = false } = {}) {
+  async loadChapter(index, { pageInChapter = 1, preservePage = false, skipMusicRefresh = false } = {}) {
     try {
       if (index < 0 || index >= this.chapters.length) {
         console.error(' Invalid chapter index:', index, '(total chapters:', this.chapters.length, ')');
@@ -1742,7 +1733,7 @@ export class ReaderUI {
       await this._analyzeChapterSections(index);
 
       // Update music for new chapter (only if music manager is ready)
-      if (this.musicManager && this._musicInitPromise) {
+      if (!skipMusicRefresh && this.musicManager && this._musicInitPromise) {
         await this._musicInitPromise;
         this.musicManager.onChapterChange(
           this.currentChapterIndex, 
@@ -2441,16 +2432,6 @@ export class ReaderUI {
       
       this.currentPageInChapter = 1;
       await this.loadChapter(this.currentChapterIndex + 1, { pageInChapter: 1, preservePage: false });
-      
-      // Update music for new chapter (only if music manager is ready)
-      if (this.musicManager && this._musicInitPromise) {
-        await this._musicInitPromise;
-        this.musicManager.onChapterChange(
-          this.currentChapterIndex,
-          this.currentPageInChapter,
-          this.currentChapterShiftPoints
-        );
-      }
     } catch (error) {
       console.error(' Error navigating to next chapter:', error);
       console.error('Stack trace:', error.stack);
@@ -2465,16 +2446,6 @@ export class ReaderUI {
       const prevChapterIndex = this.currentChapterIndex - 1;
       // Jump to the end of the previous chapter; page is clamped after pagination.
       await this.loadChapter(prevChapterIndex, { pageInChapter: Number.MAX_SAFE_INTEGER, preservePage: true });
-      
-      // Update music for new chapter (only if music manager is ready)
-      if (this.musicManager && this._musicInitPromise) {
-        await this._musicInitPromise;
-        this.musicManager.onChapterChange(
-          this.currentChapterIndex,
-          this.currentPageInChapter,
-          this.currentChapterShiftPoints
-        );
-      }
     } catch (error) {
       console.error(' Error navigating to previous chapter:', error);
       console.error('Stack trace:', error.stack);

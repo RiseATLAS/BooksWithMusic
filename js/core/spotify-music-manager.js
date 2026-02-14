@@ -1,28 +1,17 @@
 /**
  * SpotifyMusicManager - Spotify-specific music management
- * 
+ *
  * RESPONSIBILITIES:
- * - Initialize Spotify player and manage tr    try {
-      console.log(`🎵 Fetching Spotify tracks for chapter ${chapterIndex}...`);
-      
-      // Use Spotify's recommendation API with chapter mood/energy
-      // Max 20 tracks per chapter (Spotify API safe limit)
-      const tracks = await this.spotifyAPI.searchByMood(
-        mapping.mood,
-        mapping.energy,
-        mapping.keywords,
-        20 // Max 20 tracks per chapter (safe Spotify API limit)
-      );on
- * - Use Spotify's recommendation API instead of search-based approach
+ * - Initialize Spotify API integration and chapter mappings
+ * - Fetch chapter playlists via Spotify Search API (keyword/mood based)
  * - Handle chapter-to-track mapping for Spotify content
  * - Manage playback through Spotify SDK player
- * 
+ *
  * DIFFERENCES FROM FREESOUND:
- * - No pre-loading track library (uses dynamic search/recommendations)
+ * - No pre-loading track library (uses dynamic search)
  * - No caching (Spotify streams directly)
- * - Uses audio features (energy, valence, tempo) for matching
- * - Relies on Spotify's recommendation engine
- * 
+ * - Uses mood/keyword targeting with low-vocal ranking
+ *
  * INTEGRATION:
  * - Used by music-manager.js when music source is 'spotify'
  * - Coordinates with spotify-sdk-player.js for playback
@@ -103,7 +92,7 @@ export class SpotifyMusicManager {
   }
 
   /**
-   * Generate chapter-to-track mappings using Spotify recommendations
+   * Generate chapter-to-track mappings using Spotify search profiles
    */
   generateChapterMappings() {
     if (!this.bookAnalysis || !this.bookAnalysis.chapterAnalyses) {
@@ -458,14 +447,14 @@ export class SpotifyMusicManager {
    */
   _applyExternalShiftPoints(chapterIndex, chapterShiftPoints) {
     const mapping = this.chapterMappings[chapterIndex];
-    if (!mapping) return;
+    if (!mapping) return false;
 
     const rawShiftPoints = Array.isArray(chapterShiftPoints?.shiftPoints)
       ? chapterShiftPoints.shiftPoints
       : (Array.isArray(chapterShiftPoints) ? chapterShiftPoints : []);
 
     if (rawShiftPoints.length === 0) {
-      return;
+      return false;
     }
 
     const sorted = rawShiftPoints
@@ -487,7 +476,7 @@ export class SpotifyMusicManager {
       const fromMood = shift?.fromMood || previousMood;
       const keywords = Array.isArray(shift?.keywords)
         ? shift.keywords
-        : [];
+        : (mapping.keywords || []);
 
       normalized.push({
         ...shift,
@@ -504,7 +493,7 @@ export class SpotifyMusicManager {
     }
 
     if (normalized.length === 0) {
-      return;
+      return false;
     }
 
     const signature = normalized
@@ -530,6 +519,8 @@ export class SpotifyMusicManager {
       mapping.tracks = [];
       mapping.tracksFetched = false;
     }
+
+    return profileChanged;
   }
 
   /**
@@ -693,7 +684,19 @@ export class SpotifyMusicManager {
     }
 
     // Prefer the reader's section-analysis shift points when available.
-    this._applyExternalShiftPoints(chapterIndex, chapterShiftPoints);
+    const profileChanged = this._applyExternalShiftPoints(chapterIndex, chapterShiftPoints);
+
+    const sameChapter = this.currentChapterIndex === chapterIndex;
+    const hasCachedTracks = mapping.tracksFetched && mapping.tracks.length > 0;
+    if (sameChapter && !profileChanged && hasCachedTracks) {
+      this.currentPageInChapter = Number(currentPageInChapter) || this.currentPageInChapter || 1;
+      this._chapterContextByIndex[chapterIndex] = {
+        currentPageInChapter: this.currentPageInChapter,
+        chapterShiftPoints: chapterShiftPoints || { shiftPoints: mapping?.shiftPoints || [] }
+      };
+      this._emitChapterMusicChanged(chapterIndex, mapping.tracks);
+      return;
+    }
 
     // Reset track state when chapter changes
     this.currentChapterIndex = chapterIndex;
