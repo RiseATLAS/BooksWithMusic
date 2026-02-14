@@ -590,6 +590,26 @@ export class MusicPanelUI {
       await this.reloadMusicWithFilter();
     });
 
+    // Cinematic score preference (Spotify soundtrack/orchestral bias)
+    const preferCinematicCheckbox = document.getElementById('prefer-cinematic-scores');
+    preferCinematicCheckbox?.addEventListener('change', async (e) => {
+      const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
+      settings.preferCinematicScores = e.target.checked;
+      localStorage.setItem('booksWithMusic-settings', JSON.stringify(settings));
+
+      if (window.app?.settings) {
+        window.app.settings.settings.preferCinematicScores = e.target.checked;
+        window.app.settings.syncToFirestore();
+      }
+
+      this.showToast(
+        `${e.target.checked ? '🎬 Cinematic' : '🌿 Neutral'} Spotify bias - Reloading tracks...`,
+        'info'
+      );
+
+      await this.reloadMusicWithFilter();
+    });
+
     // Verbose logging toggle
     const verboseLoggingCheckbox = document.getElementById('verbose-logging');
     verboseLoggingCheckbox?.addEventListener('change', (e) => {
@@ -611,6 +631,11 @@ export class MusicPanelUI {
     // Load background music filter setting on startup
     if (instrumentalOnlyCheckbox && settings.instrumentalOnly !== undefined) {
       instrumentalOnlyCheckbox.checked = settings.instrumentalOnly;
+    }
+
+    // Load cinematic score preference on startup (default off)
+    if (preferCinematicCheckbox) {
+      preferCinematicCheckbox.checked = settings.preferCinematicScores === true;
     }
 
     // Load verbose logging setting on startup

@@ -297,7 +297,9 @@ export class SpotifyAPI {
     const effectiveMood = String(options?.mood || normalizedTerms[0] || 'peaceful').toLowerCase();
     const effectiveEnergy = this._normalizeEnergyLevel(options?.energy);
     const energyProfile = this._getEnergySearchProfile(effectiveEnergy);
-    const preferCinematic = this._shouldPreferCinematicMood(effectiveMood, uniqueTerms);
+    const preferCinematicScores = settings.preferCinematicScores === true;
+    const preferCinematic = preferCinematicScores &&
+      this._shouldPreferCinematicMood(effectiveMood, uniqueTerms);
     const avoidGameMusic = options?.avoidGameMusic !== undefined
       ? options.avoidGameMusic !== false
       : !this._hasExplicitGameMusicIntent([...uniqueTerms, ...contextKeywords], effectiveMood);

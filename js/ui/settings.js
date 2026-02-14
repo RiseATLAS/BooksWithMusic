@@ -19,7 +19,7 @@
  * - Visual: theme, pageColor, pageWarmth, brightness
  * - Typography: fontSize, lineHeight, fontFamily, textAlign, textWidth
  * - Reading: showBookPageCount, showBookProgress, showChapterPageCount, showChapterCount
- * - Music: musicEnabled, autoPlay, crossfadeDuration, pageBasedMusicSwitch, instrumentalOnly, maxEnergyLevel
+ * - Music: musicEnabled, autoPlay, crossfadeDuration, pageBasedMusicSwitch, instrumentalOnly, preferCinematicScores, maxEnergyLevel
  */
 
 import { auth } from '../config/firebase-config.js';
@@ -54,6 +54,7 @@ export class SettingsUI {
       crossfadeDuration: 3,
       pageBasedMusicSwitch: true,  // Intelligent content-based music switching
       instrumentalOnly: true,  // Filter to background/instrumental/ambient music only
+      preferCinematicScores: false,  // If enabled, allow cinematic/soundtrack search bias for Spotify
       maxEnergyLevel: 3,  // Default to moderate energy level (3 out of 5)
       showTrackInfo: false  // Show detailed track information (genre, energy, reasoning)
     };
