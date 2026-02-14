@@ -98,10 +98,54 @@ export class ReaderUI {
   _logLayout(message, payload) {
     if (!this._isLayoutDebugEnabled()) return;
     if (payload !== undefined) {
-      console.log(`📐 ${message}`, payload);
+      if (payload && typeof payload === 'object') {
+        console.log(`📐 ${message}\n${this._formatLayoutTable(payload)}`);
+      } else {
+        console.log(`📐 ${message}: ${String(payload)}`);
+      }
     } else {
       console.log(`📐 ${message}`);
     }
+  }
+
+  _formatLayoutTable(payload) {
+    const entries = Object.entries(payload)
+      .filter(([key]) => key !== '__proto__')
+      .sort(([a], [b]) => a.localeCompare(b));
+
+    if (entries.length === 0) return '(no data)';
+
+    const normalized = entries.map(([key, value]) => {
+      let renderedValue;
+      if (typeof value === 'number') {
+        renderedValue = Number.isInteger(value)
+          ? String(value)
+          : value.toFixed(2).replace(/\.?0+$/, '');
+      } else if (typeof value === 'boolean') {
+        renderedValue = value ? 'yes' : 'no';
+      } else if (value === null || value === undefined) {
+        renderedValue = '-';
+      } else if (typeof value === 'object') {
+        try {
+          renderedValue = JSON.stringify(value);
+        } catch {
+          renderedValue = String(value);
+        }
+      } else {
+        renderedValue = String(value);
+      }
+      return [key, renderedValue];
+    });
+
+    const keyWidth = normalized.reduce((max, [key]) => Math.max(max, key.length), 0);
+    const valueWidth = normalized.reduce((max, [, value]) => Math.max(max, value.length), 0);
+    const border = `+-${'-'.repeat(keyWidth)}-+-${'-'.repeat(valueWidth)}-+`;
+
+    const rows = normalized.map(([key, value]) => {
+      return `| ${key.padEnd(keyWidth)} | ${value.padStart(valueWidth)} |`;
+    });
+
+    return [border, ...rows, border].join('\n');
   }
 
   _getPageUsageMetrics(chapterTextEl, linesEl = chapterTextEl?.querySelector('.page-lines')) {
@@ -1479,9 +1523,11 @@ export class ReaderUI {
     }
 
     availableWidth = Math.max(200, availableWidth);
+    // Mobile should use the full available vertical space by default.
+    // Any real collision risk is handled by dynamic safety padding + overflow guard.
     const baseSafetyPx = isMobile
-      ? Math.max(8, effectiveLineHeight * 0.3)
-      : Math.max(2, effectiveLineHeight * 0.18);
+      ? 0
+      : Math.max(1, effectiveLineHeight * 0.08);
     const dynamicSafetyPx = Math.max(0, Number(this._layoutSafetyPaddingPx) || 0);
     availableHeight = Math.max(effectiveLineHeight * 5, availableHeight - baseSafetyPx - dynamicSafetyPx);
 
