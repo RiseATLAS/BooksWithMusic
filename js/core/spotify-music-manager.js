@@ -47,6 +47,13 @@ export class SpotifyMusicManager {
     this.lastEnergy = null;
     this.lastKeywords = [];
     this.currentTrackIndex = 0;
+
+    // Track-fetch retry policy (for rate limits / temporary API failures).
+    this._trackRetryDelayMs = 30000;
+    this._maxTrackRetryAttempts = 5;
+    this._trackRetryStateByChapter = {};
+    this._trackFetchPromises = {};
+    this._chapterContextByIndex = {};
   }
 
   /**
@@ -103,6 +110,16 @@ export class SpotifyMusicManager {
       console.error('❌ No book analysis available for mapping');
       return;
     }
+
+    // Clear pending retry timers when switching/rebuilding mappings.
+    Object.values(this._trackRetryStateByChapter).forEach((state) => {
+      if (state?.timerId) {
+        window.clearTimeout(state.timerId);
+      }
+    });
+    this._trackRetryStateByChapter = {};
+    this._trackFetchPromises = {};
+    this._chapterContextByIndex = {};
 
     // Create mappings but don't fetch tracks yet
     // Tracks will be fetched when chapter changes
@@ -172,12 +189,88 @@ export class SpotifyMusicManager {
     return shiftPoints.sort((a, b) => a.pageInChapter - b.pageInChapter);
   }
 
+  _getTrackRetryState(chapterIndex) {
+    if (!this._trackRetryStateByChapter[chapterIndex]) {
+      this._trackRetryStateByChapter[chapterIndex] = {
+        attempts: 0,
+        timerId: null,
+        nextRetryAt: 0
+      };
+    }
+    return this._trackRetryStateByChapter[chapterIndex];
+  }
+
+  _clearTrackRetryState(chapterIndex) {
+    const state = this._trackRetryStateByChapter[chapterIndex];
+    if (!state) return;
+    if (state.timerId) {
+      window.clearTimeout(state.timerId);
+    }
+    this._trackRetryStateByChapter[chapterIndex] = {
+      attempts: 0,
+      timerId: null,
+      nextRetryAt: 0
+    };
+  }
+
+  _scheduleTrackRetry(chapterIndex, reason = 'fetch-failed') {
+    const state = this._getTrackRetryState(chapterIndex);
+    if (state.timerId) {
+      return;
+    }
+
+    if (state.attempts >= this._maxTrackRetryAttempts) {
+      console.error(
+        `❌ Spotify retry limit reached for chapter ${chapterIndex}. ` +
+        `Stopping after ${this._maxTrackRetryAttempts} attempts.`
+      );
+      return;
+    }
+
+    const nextAttempt = state.attempts + 1;
+    state.nextRetryAt = Date.now() + this._trackRetryDelayMs;
+    state.timerId = window.setTimeout(() => {
+      state.timerId = null;
+      this._runTrackRetry(chapterIndex).catch((error) => {
+        console.error(`❌ Scheduled Spotify retry failed for chapter ${chapterIndex}:`, error);
+      });
+    }, this._trackRetryDelayMs);
+
+    console.warn(
+      `⏳ Scheduling Spotify retry ${nextAttempt}/${this._maxTrackRetryAttempts} ` +
+      `for chapter ${chapterIndex} in 30s (${reason}).`
+    );
+  }
+
+  async _runTrackRetry(chapterIndex) {
+    const state = this._getTrackRetryState(chapterIndex);
+    if (state.attempts >= this._maxTrackRetryAttempts) {
+      return;
+    }
+
+    state.attempts += 1;
+    state.nextRetryAt = 0;
+
+    console.log(
+      `🔄 Retrying Spotify tracks for chapter ${chapterIndex} ` +
+      `(${state.attempts}/${this._maxTrackRetryAttempts})...`
+    );
+
+    const tracks = await this.getTracksForChapter(chapterIndex, { bypassRetryGate: true });
+    if (tracks.length > 0) {
+      this._clearTrackRetryState(chapterIndex);
+      if (chapterIndex === this.currentChapterIndex) {
+        this._emitChapterMusicChanged(chapterIndex, tracks);
+      }
+    }
+  }
+
   /**
    * Get tracks for a specific chapter (fetch on-demand)
    * @param {number} chapterIndex - Chapter index (0-indexed)
    * @returns {Promise<Array>} Array of Spotify track objects
    */
-  async getTracksForChapter(chapterIndex) {
+  async getTracksForChapter(chapterIndex, { bypassRetryGate = false } = {}) {
     const mapping = this.chapterMappings[chapterIndex];
     
     if (!mapping) {
@@ -190,6 +283,38 @@ export class SpotifyMusicManager {
       return mapping.tracks;
     }
 
+    if (this._trackFetchPromises[chapterIndex]) {
+      return this._trackFetchPromises[chapterIndex];
+    }
+
+    const retryState = this._getTrackRetryState(chapterIndex);
+    if (
+      !bypassRetryGate &&
+      retryState.nextRetryAt > Date.now() &&
+      mapping.tracks.length === 0
+    ) {
+      return [];
+    }
+
+    if (
+      !bypassRetryGate &&
+      retryState.attempts >= this._maxTrackRetryAttempts &&
+      mapping.tracks.length === 0
+    ) {
+      return [];
+    }
+
+    const fetchPromise = this._fetchTracksForChapter(chapterIndex, mapping);
+    this._trackFetchPromises[chapterIndex] = fetchPromise;
+
+    try {
+      return await fetchPromise;
+    } finally {
+      delete this._trackFetchPromises[chapterIndex];
+    }
+  }
+
+  async _fetchTracksForChapter(chapterIndex, mapping) {
     try {
       console.log(`🎵 Fetching Spotify tracks for chapter ${chapterIndex}...`);
       const desiredTrackCount = this._getDesiredTrackCount(mapping);
@@ -249,15 +374,23 @@ export class SpotifyMusicManager {
       }
 
       const tracksWithReasoning = orderedTracks.slice(0, desiredTrackCount);
-
       mapping.tracks = tracksWithReasoning;
-      mapping.tracksFetched = true;
+      mapping.tracksFetched = tracksWithReasoning.length > 0;
 
-      console.log(`✅ Loaded ${tracksWithReasoning.length} Spotify tracks for chapter ${chapterIndex}`);
-      
-      return tracksWithReasoning;
+      if (tracksWithReasoning.length > 0) {
+        this._clearTrackRetryState(chapterIndex);
+        console.log(`✅ Loaded ${tracksWithReasoning.length} Spotify tracks for chapter ${chapterIndex}`);
+        return tracksWithReasoning;
+      }
+
+      console.warn(`⚠️ No Spotify tracks returned for chapter ${chapterIndex}`);
+      this._scheduleTrackRetry(chapterIndex, 'no-tracks');
+      return [];
     } catch (error) {
+      mapping.tracks = [];
+      mapping.tracksFetched = false;
       console.error(`❌ Failed to fetch Spotify tracks for chapter ${chapterIndex}:`, error);
+      this._scheduleTrackRetry(chapterIndex, 'request-failed');
       return [];
     }
   }
@@ -375,13 +508,25 @@ export class SpotifyMusicManager {
     }
 
     const signature = normalized
-      .map((shift) => `${shift.pageInChapter}:${String(shift.mood).toLowerCase()}`)
-      .join('|');
+      .map((shift) => {
+        const mood = String(shift.mood || '').toLowerCase().trim();
+        const energy = Number.isFinite(Number(shift.energy))
+          ? Math.round(Number(shift.energy))
+          : '';
+        const keywordSig = (shift.keywords || [])
+          .slice(0, 3)
+          .map((keyword) => String(keyword).toLowerCase().trim())
+          .join(',');
+        return `${mood}|${energy}|${keywordSig}`;
+      })
+      .join('||');
 
-    if (mapping.shiftSignature !== signature) {
-      mapping.shiftPoints = normalized;
-      mapping.shiftSignature = signature;
-      // Reader shift model changed; invalidate chapter track cache.
+    const profileChanged = mapping.shiftSignature !== signature;
+    mapping.shiftPoints = normalized;
+    mapping.shiftSignature = signature;
+
+    if (profileChanged) {
+      // Reader shift profiles changed in a way that affects track targeting.
       mapping.tracks = [];
       mapping.tracksFetched = false;
     }
@@ -508,6 +653,32 @@ export class SpotifyMusicManager {
     return false;
   }
 
+  _emitChapterMusicChanged(chapterIndex, tracks = []) {
+    const mapping = this.chapterMappings[chapterIndex];
+    if (!mapping) return;
+
+    const context = this._chapterContextByIndex[chapterIndex] || {};
+    const currentPageInChapter = Number(context.currentPageInChapter || this.currentPageInChapter || 1);
+    const chapterShiftPoints = context.chapterShiftPoints || { shiftPoints: mapping?.shiftPoints || [] };
+    const currentShift = this._getCurrentShiftPoint(chapterIndex, currentPageInChapter);
+
+    this.emit('chapterMusicChanged', {
+      chapterIndex,
+      currentPageInChapter,
+      chapterShiftPoints,
+      analysis: {
+        mood: currentShift?.mood || mapping?.mood,
+        energy: currentShift?.energy || mapping?.energy,
+        keywords: currentShift?.keywords || mapping?.keywords || []
+      },
+      recommendedTracks: tracks.map((track, index) => ({
+        trackId: track.id,
+        score: 100 - (index * 10),
+        reasoning: track.reasoning || `Spotify track ${index + 1} for ${currentShift?.mood || mapping?.mood} mood`
+      }))
+    });
+  }
+
   /**
    * Handle chapter change event
    * @param {number} chapterIndex - New chapter index
@@ -527,6 +698,10 @@ export class SpotifyMusicManager {
     // Reset track state when chapter changes
     this.currentChapterIndex = chapterIndex;
     this.currentPageInChapter = Number(currentPageInChapter) || 1;
+    this._chapterContextByIndex[chapterIndex] = {
+      currentPageInChapter: this.currentPageInChapter,
+      chapterShiftPoints: chapterShiftPoints || { shiftPoints: mapping?.shiftPoints || [] }
+    };
     this.currentTrackIndex = 0;
     this.lastMood = null;
     this.lastEnergy = null;
@@ -535,25 +710,8 @@ export class SpotifyMusicManager {
     // Fetch tracks for current chapter only
     const tracks = await this.getTracksForChapter(chapterIndex);
     
-    // Get current mood based on current page
-    const currentShift = this._getCurrentShiftPoint(chapterIndex, this.currentPageInChapter);
-    
     // Emit event for UI in the format music-panel expects
-    this.emit('chapterMusicChanged', { 
-      chapterIndex,
-      currentPageInChapter: this.currentPageInChapter,
-      chapterShiftPoints: chapterShiftPoints || { shiftPoints: mapping?.shiftPoints || [] },
-      analysis: {
-        mood: currentShift?.mood || mapping?.mood,
-        energy: currentShift?.energy || mapping?.energy,
-        keywords: currentShift?.keywords || mapping?.keywords || []
-      },
-      recommendedTracks: tracks.map((track, index) => ({
-        trackId: track.id,
-        score: 100 - (index * 10),
-        reasoning: track.reasoning || `Spotify track ${index + 1} for ${currentShift?.mood || mapping?.mood} mood`
-      }))
-    });
+    this._emitChapterMusicChanged(chapterIndex, tracks);
   }
 
   /**
@@ -565,6 +723,9 @@ export class SpotifyMusicManager {
     // Update current position
     this.currentChapterIndex = chapterIndex;
     this.currentPageInChapter = pageInChapter;
+    if (this._chapterContextByIndex[chapterIndex]) {
+      this._chapterContextByIndex[chapterIndex].currentPageInChapter = pageInChapter;
+    }
     
     // Check if we crossed a shift point
     const newShift = this._getCurrentShiftPoint(chapterIndex, pageInChapter);
