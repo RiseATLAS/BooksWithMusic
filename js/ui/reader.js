@@ -1258,8 +1258,8 @@ export class ReaderUI {
           const chapterPages = this.chapterPages?.[this.currentChapterIndex] || [];
           const hasMorePagesInChapter = chapterPages.length > 0 && this.currentPageInChapter < chapterPages.length;
           const underfillThresholdPx = Math.max(
-            Math.ceil(lineHeightPx * 1.02),
-            Math.round(lineHeightPx)
+            Math.ceil(lineHeightPx * 1.2),
+            Math.round(lineHeightPx + 4)
           );
 
           if (
@@ -1269,25 +1269,14 @@ export class ReaderUI {
             this._underfillReflowAttempts < 1
           ) {
             this._underfillReflowAttempts += 1;
-            const minSafetyPx = -Math.round(lineHeightPx * 1.25);
-            const targetSafetyPx = Math.max(
-              minSafetyPx,
-              Math.round(currentSafety - lineHeightPx)
-            );
-            this._layoutSafetyPaddingPx = targetSafetyPx;
             this._logLayout('Repaginating to reclaim unused space', {
               page: this.currentPageInChapter,
               chapter: this.currentChapterIndex + 1,
               sparePx: Math.round(sparePx),
-              thresholdPx: Math.round(underfillThresholdPx),
-              safetyPaddingFromPx: Math.round(currentSafety),
-              safetyPaddingToPx: Math.round(targetSafetyPx)
+              thresholdPx: Math.round(underfillThresholdPx)
             });
             this._autoAdjustingLayout = true;
-            this._repaginateCurrentChapterPreservePosition({
-              clearLayoutCache: true,
-              anchorMustBeFirst: false
-            })
+            this._repaginateCurrentChapterPreservePosition({ clearLayoutCache: true })
               .catch((error) => console.warn('Underfill recovery reflow failed:', error))
               .finally(() => {
                 this._autoAdjustingLayout = false;
@@ -1613,10 +1602,7 @@ export class ReaderUI {
     const baseSafetyPx = isMobile
       ? 0
       : Math.max(1, effectiveLineHeight * 0.08);
-    const dynamicSafetyPx = Math.max(
-      -effectiveLineHeight * 2,
-      Math.min(72, Number(this._layoutSafetyPaddingPx) || 0)
-    );
+    const dynamicSafetyPx = Math.max(0, Math.min(72, Number(this._layoutSafetyPaddingPx) || 0));
     availableHeight = Math.max(effectiveLineHeight * 5, availableHeight - baseSafetyPx - dynamicSafetyPx);
 
     // Apply text width setting to the actual available content width.
@@ -1636,11 +1622,7 @@ export class ReaderUI {
     // Ensure minimum readable width
     textWidth = Math.max(200, textWidth);
     
-    // Slight mobile bias helps reclaim the near-line remainder introduced by
-    // subpixel rounding, while overflow guard still protects against collisions.
-    const linePackingBiasPx = isMobile
-      ? Math.min(8, effectiveLineHeight * 0.35)
-      : 0;
+    const linePackingBiasPx = 0;
     const adjustedAvailableHeight = availableHeight + linePackingBiasPx;
 
     // Calculate max lines per page
