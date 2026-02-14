@@ -323,7 +323,7 @@ export class ReaderUI {
    * @param {boolean} mustBeFirst - If true, text must be the first text on the page (for exiting fullscreen)
    *                                 If false, text can appear anywhere on page (for entering fullscreen)
    */
-  findPageByTextBlock(chapterIndex, targetText, targetBlockIndex, mustBeFirst = false) {
+  findPageByTextBlock(chapterIndex, targetText, targetBlockIndex, mustBeFirst = false, preferredPage = null) {
     if (!targetText || targetText.trim().length === 0) {
       return 1;
     }
@@ -336,6 +336,8 @@ export class ReaderUI {
     const searchLower = targetText.toLowerCase().trim();
     const searchPrefix = searchLower.substring(0, Math.min(40, searchLower.length));
     
+    const candidates = [];
+
     // Search through all pages
     for (let pageIndex = 0; pageIndex < pageData.length; pageIndex++) {
       const page = pageData[pageIndex];
@@ -368,11 +370,23 @@ export class ReaderUI {
             if (linePrefix === searchPrefix || 
                 lineText.startsWith(searchPrefix) ||
                 searchLower.startsWith(linePrefix)) {
-              return pageIndex + 1;
+              candidates.push(pageIndex + 1);
+              break;
             }
           }
         }
       }
+    }
+
+    if (!mustBeFirst && candidates.length > 0) {
+      if (Number.isFinite(preferredPage) && preferredPage > 0) {
+        return candidates.reduce((best, current) => {
+          return Math.abs(current - preferredPage) < Math.abs(best - preferredPage)
+            ? current
+            : best;
+        }, candidates[0]);
+      }
+      return candidates[0];
     }
     
     // If not found, return page 1
@@ -1140,7 +1154,7 @@ export class ReaderUI {
     }, isMobileViewport ? 90 : 160);
   }
 
-  async _repaginateCurrentChapterPreservePosition({ clearLayoutCache = false } = {}) {
+  async _repaginateCurrentChapterPreservePosition({ clearLayoutCache = false, anchorMustBeFirst = true } = {}) {
     if (this._isInitializing || this.currentChapterIndex < 0 || !this.chapters?.length) {
       return;
     }
@@ -1155,6 +1169,7 @@ export class ReaderUI {
       }
 
       const textBlock = this.getFirstVisibleTextBlock();
+      const originalPageInChapter = this.currentPageInChapter;
 
       // Invalidate all chapter pages because viewport/font changes affect every chapter.
       this.chapterPages = {};
@@ -1169,7 +1184,8 @@ export class ReaderUI {
         this.currentChapterIndex,
         textBlock.text,
         textBlock.blockIndex,
-        true
+        anchorMustBeFirst,
+        originalPageInChapter
       );
 
       if (newPage !== this.currentPageInChapter) {
@@ -1241,7 +1257,10 @@ export class ReaderUI {
         } else {
           const chapterPages = this.chapterPages?.[this.currentChapterIndex] || [];
           const hasMorePagesInChapter = chapterPages.length > 0 && this.currentPageInChapter < chapterPages.length;
-          const underfillThresholdPx = Math.max(14, lineHeightPx * 0.65);
+          const underfillThresholdPx = Math.max(
+            Math.ceil(lineHeightPx * 1.02),
+            Math.round(lineHeightPx)
+          );
 
           if (
             currentSafety <= 0 &&
@@ -1257,7 +1276,10 @@ export class ReaderUI {
               thresholdPx: Math.round(underfillThresholdPx)
             });
             this._autoAdjustingLayout = true;
-            this._repaginateCurrentChapterPreservePosition({ clearLayoutCache: true })
+            this._repaginateCurrentChapterPreservePosition({
+              clearLayoutCache: true,
+              anchorMustBeFirst: false
+            })
               .catch((error) => console.warn('Underfill recovery reflow failed:', error))
               .finally(() => {
                 this._autoAdjustingLayout = false;
