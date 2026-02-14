@@ -1599,15 +1599,17 @@ export class ReaderUI {
 
     if (metricsSignature !== this._lastLayoutMetricsSignature) {
       this._lastLayoutMetricsSignature = metricsSignature;
+      const lineGridUsedHeightPx = dimensions.maxLinesPerPage * effectiveLineHeight;
       this._logLayout('Layout dimensions', {
         textWidthPx: Math.round(textWidth),
         availableHeightPx: Math.round(availableHeight),
         maxLinesPerPage: dimensions.maxLinesPerPage,
         lineHeightPx: Number(effectiveLineHeight.toFixed(2)),
-        estimatedUsedHeightPx: Math.round(dimensions.maxLinesPerPage * effectiveLineHeight),
-        estimatedFillPercent: Number(
-          ((dimensions.maxLinesPerPage * effectiveLineHeight) / Math.max(1, availableHeight) * 100).toFixed(1)
+        lineGridUsedHeightPx: Math.round(lineGridUsedHeightPx),
+        lineGridFillPercent: Number(
+          (lineGridUsedHeightPx / Math.max(1, availableHeight) * 100).toFixed(1)
         ),
+        lineGridRemainderPx: Math.round(Math.max(0, availableHeight - lineGridUsedHeightPx)),
         safetyPaddingPx: Math.round(this._layoutSafetyPaddingPx)
       });
     }
