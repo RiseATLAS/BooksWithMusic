@@ -1751,7 +1751,8 @@ html:-ms-fullscreen .page-indicator,
 
   /* Chapter text - use percentage-based padding for better mobile space usage */
   .chapter-text {
-    padding: 2.5% 3% 3.5%;
+    /* Use full vertical space on mobile; keep only horizontal breathing room */
+    padding: 0 3%;
     font-size: var(--reader-font-size, 16px);
     top: calc(3vh + var(--safe-area-top));
     top: calc(3dvh + var(--safe-area-top));
