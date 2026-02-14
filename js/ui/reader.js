@@ -58,6 +58,8 @@ export class ReaderUI {
     this._layoutRelaxAttempts = 0;
     this._autoAdjustingLayout = false;
     this._isRepaginating = false;
+    this._lastLayoutMetricsSignature = '';
+    this._lastLayoutUsageLogKey = '';
 
     this._viewportEl = null;
     this._boundViewportScrollHandler = null;
@@ -82,6 +84,93 @@ export class ReaderUI {
     } catch {
       return 1500;
     }
+  }
+
+  _isLayoutDebugEnabled() {
+    try {
+      // Set localStorage.reader_layout_debug = "0" to silence layout logs.
+      return localStorage.getItem('reader_layout_debug') !== '0';
+    } catch {
+      return true;
+    }
+  }
+
+  _logLayout(message, payload) {
+    if (!this._isLayoutDebugEnabled()) return;
+    if (payload !== undefined) {
+      console.log(`📐 ${message}`, payload);
+    } else {
+      console.log(`📐 ${message}`);
+    }
+  }
+
+  _getPageUsageMetrics(chapterTextEl, linesEl = chapterTextEl?.querySelector('.page-lines')) {
+    if (!chapterTextEl) return null;
+
+    const visualViewportHeight = window.visualViewport?.height || window.innerHeight || 0;
+    const chapterRect = chapterTextEl.getBoundingClientRect();
+    const chapterOverflowPx = Math.ceil(chapterTextEl.scrollHeight - chapterTextEl.clientHeight);
+    const linesOverflowPx = linesEl
+      ? Math.ceil(linesEl.scrollHeight - linesEl.clientHeight)
+      : 0;
+    const clippedBottomPx = visualViewportHeight > 0
+      ? Math.ceil(Math.max(0, chapterRect.bottom - visualViewportHeight))
+      : 0;
+    const overflowPx = Math.max(0, chapterOverflowPx, linesOverflowPx, clippedBottomPx);
+
+    const availableHeightPx = Math.max(0, chapterTextEl.clientHeight);
+    const usedHeightPx = Math.max(
+      0,
+      linesEl ? linesEl.scrollHeight : chapterTextEl.scrollHeight
+    );
+    const unusedHeightPx = Math.max(0, availableHeightPx - usedHeightPx);
+    const usagePercent = availableHeightPx > 0
+      ? (usedHeightPx / availableHeightPx) * 100
+      : 0;
+
+    return {
+      availableHeightPx,
+      usedHeightPx,
+      unusedHeightPx,
+      usagePercent,
+      chapterOverflowPx,
+      linesOverflowPx,
+      clippedBottomPx,
+      overflowPx,
+      colliding: overflowPx > 1
+    };
+  }
+
+  _logPageUsage(tag, metrics, extra = {}) {
+    if (!this._isLayoutDebugEnabled() || !metrics) return;
+    const signature = [
+      tag,
+      this.currentChapterIndex,
+      this.currentPageInChapter,
+      Math.round(metrics.availableHeightPx),
+      Math.round(metrics.usedHeightPx),
+      metrics.overflowPx,
+      Math.round(this._layoutSafetyPaddingPx)
+    ].join('|');
+    if (signature === this._lastLayoutUsageLogKey) {
+      return;
+    }
+    this._lastLayoutUsageLogKey = signature;
+
+    this._logLayout(
+      `Usage [${tag}] chapter=${this.currentChapterIndex + 1} page=${this.currentPageInChapter} ` +
+      `fill=${metrics.usagePercent.toFixed(1)}% collision=${metrics.colliding ? 'yes' : 'no'}`,
+      {
+        availableHeightPx: Math.round(metrics.availableHeightPx),
+        usedHeightPx: Math.round(metrics.usedHeightPx),
+        unusedHeightPx: Math.round(metrics.unusedHeightPx),
+        chapterOverflowPx: metrics.chapterOverflowPx,
+        linesOverflowPx: metrics.linesOverflowPx,
+        clippedBottomPx: metrics.clippedBottomPx,
+        safetyPaddingPx: Math.round(this._layoutSafetyPaddingPx),
+        ...extra
+      }
+    );
   }
 
   /**
@@ -1037,20 +1126,16 @@ export class ReaderUI {
       if (!chapterTextEl) return;
 
       const linesEl = chapterTextEl.querySelector('.page-lines');
-      const chapterOverflow = Math.ceil(chapterTextEl.scrollHeight - chapterTextEl.clientHeight);
-      const linesOverflow = linesEl
-        ? Math.ceil(linesEl.scrollHeight - linesEl.clientHeight)
-        : 0;
-      const visualViewportHeight = window.visualViewport?.height || window.innerHeight || 0;
-      const chapterRect = chapterTextEl.getBoundingClientRect();
-      const clippedBottom = visualViewportHeight > 0
-        ? Math.ceil(Math.max(0, chapterRect.bottom - visualViewportHeight))
-        : 0;
-      const sparePx = linesEl
-        ? Math.floor(Math.max(0, chapterTextEl.clientHeight - linesEl.scrollHeight))
-        : 0;
+      const metrics = this._getPageUsageMetrics(chapterTextEl, linesEl);
+      if (!metrics) return;
+      this._logPageUsage('mobile-check', metrics, {
+        overflowReflowAttempts: this._overflowReflowAttempts,
+        relaxAttempts: this._layoutRelaxAttempts
+      });
+
+      const sparePx = Math.floor(metrics.unusedHeightPx);
       const lineHeightPx = this._getLineHeightPx(chapterTextEl);
-      const overflowPx = Math.max(0, chapterOverflow, linesOverflow, clippedBottom);
+      const overflowPx = metrics.overflowPx;
 
       if (overflowPx <= 1) {
         this._overflowReflowAttempts = 0;
@@ -1066,6 +1151,11 @@ export class ReaderUI {
           this._layoutRelaxAttempts += 1;
           const relaxBy = Math.max(4, lineHeightPx * 0.5);
           this._layoutSafetyPaddingPx = Math.max(0, currentSafety - relaxBy);
+          this._logLayout('Relaxing safety padding', {
+            fromPx: Math.round(currentSafety),
+            toPx: Math.round(this._layoutSafetyPaddingPx),
+            sparePx: Math.round(sparePx)
+          });
           this._autoAdjustingLayout = true;
           this._repaginateCurrentChapterPreservePosition({ clearLayoutCache: false })
             .catch((error) => console.warn('Safety relaxation reflow failed:', error))
@@ -1093,6 +1183,11 @@ export class ReaderUI {
       }
 
       this._layoutSafetyPaddingPx = nextSafety;
+      this._logLayout('Increasing safety padding', {
+        fromPx: Math.round(currentSafety),
+        toPx: Math.round(nextSafety),
+        overflowPx: Math.round(overflowPx)
+      });
       this._autoAdjustingLayout = true;
 
       this._repaginateCurrentChapterPreservePosition({ clearLayoutCache: false })
@@ -1409,14 +1504,39 @@ export class ReaderUI {
     
     // Calculate max lines per page
     const maxLinesPerPage = Math.floor(availableHeight / effectiveLineHeight);
-    
-    return { 
+    const dimensions = {
       textWidth, 
       pageHeight: measureEl.clientHeight || pageViewport.clientHeight, 
       maxLinesPerPage: Math.max(5, maxLinesPerPage), 
       fontSize, 
       lineHeight: effectiveLineHeight
     };
+
+    const metricsSignature = [
+      window.innerWidth <= 768 ? 'm' : 'd',
+      Math.round(textWidth),
+      Math.round(availableHeight),
+      dimensions.maxLinesPerPage,
+      Math.round(effectiveLineHeight),
+      Math.round(this._layoutSafetyPaddingPx)
+    ].join('|');
+
+    if (metricsSignature !== this._lastLayoutMetricsSignature) {
+      this._lastLayoutMetricsSignature = metricsSignature;
+      this._logLayout('Layout dimensions', {
+        textWidthPx: Math.round(textWidth),
+        availableHeightPx: Math.round(availableHeight),
+        maxLinesPerPage: dimensions.maxLinesPerPage,
+        lineHeightPx: Number(effectiveLineHeight.toFixed(2)),
+        estimatedUsedHeightPx: Math.round(dimensions.maxLinesPerPage * effectiveLineHeight),
+        estimatedFillPercent: Number(
+          ((dimensions.maxLinesPerPage * effectiveLineHeight) / Math.max(1, availableHeight) * 100).toFixed(1)
+        ),
+        safetyPaddingPx: Math.round(this._layoutSafetyPaddingPx)
+      });
+    }
+
+    return dimensions;
   }
 
   async loadChapter(index, { pageInChapter = 1, preservePage = false } = {}) {
@@ -1598,6 +1718,10 @@ export class ReaderUI {
       this.updatePageIndicator();
       this._lastViewportSnapshot = this._getViewportSnapshot();
       this._scheduleMobileOverflowGuard();
+      window.requestAnimationFrame(() => {
+        const usageMetrics = this._getPageUsageMetrics(document.querySelector('.chapter-text'));
+        this._logPageUsage('render', usageMetrics);
+      });
     } catch (error) {
       console.error(' Error rendering page:', error);
       console.error('Context:', {

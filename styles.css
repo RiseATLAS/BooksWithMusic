@@ -603,11 +603,12 @@ body.reader-page::-webkit-scrollbar {
 /* Page flip container */
 .page-container {
   width: 100%;
-  min-height: 100%; /* Allow content to grow */
+  height: 100%;
+  min-height: 100%;
   position: relative;
   overflow: visible; /* Allow overflow for tall pages */
   display: flex;
-  align-items: flex-start; /* Align to top */
+  align-items: stretch;
   /* Perspective handled by .page-viewport */
 }
 
@@ -665,13 +666,14 @@ body.reader-page::-webkit-scrollbar {
   position: relative;
   width: 100%; /* Always use full width */
   max-width: calc(100% - 160px); /* Leave space for nav buttons */
+  height: 100%;
   min-height: 100%;
   overflow: hidden; /* No scrollbar - pages should fit */
   background: var(--page-paper-bg, var(--reader-bg));
   color: var(--page-paper-text, var(--reader-text));
   border-radius: 0;
   padding: var(--page-gap, 120px) 0; /* Top and bottom padding for gaps */
-  box-sizing: content-box; /* Padding adds to height, not included */
+  box-sizing: border-box;
   transform-style: preserve-3d;
   /* Perspective based on viewport width */
   perspective: calc(100vw * 4);
@@ -1749,18 +1751,19 @@ html:-ms-fullscreen .page-indicator,
 
   /* Chapter text - use percentage-based padding for better mobile space usage */
   .chapter-text {
-    padding: 4% 3% calc(6% + var(--safe-area-bottom));
+    padding: 2.5% 3% 3.5%;
     font-size: var(--reader-font-size, 16px);
-    top: calc(5vh + var(--safe-area-top));
-    top: calc(5dvh + var(--safe-area-top));
-    bottom: calc(5vh + var(--safe-area-bottom));
-    bottom: calc(5dvh + var(--safe-area-bottom));
+    top: calc(3vh + var(--safe-area-top));
+    top: calc(3dvh + var(--safe-area-top));
+    bottom: calc(3vh + var(--safe-area-bottom));
+    bottom: calc(3dvh + var(--safe-area-bottom));
   }
 
   /* Reduce page gaps on mobile to maximize text area */
   .page-viewport {
     max-width: 100%;
     translate: 10px 0px;
+    padding: 0;
   }
 
   /* Fullscreen mode - maximize space for text */
