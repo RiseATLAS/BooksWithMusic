@@ -56,6 +56,7 @@ export class ReaderUI {
     this._layoutSafetyPaddingPx = 0;
     this._overflowReflowAttempts = 0;
     this._layoutRelaxAttempts = 0;
+    this._underfillReflowAttempts = 0;
     this._autoAdjustingLayout = false;
     this._isRepaginating = false;
     this._lastLayoutMetricsSignature = '';
@@ -1162,6 +1163,7 @@ export class ReaderUI {
     if (this._autoAdjustingLayout) return;
     if (window.innerWidth > 768) {
       this._overflowReflowAttempts = 0;
+      this._underfillReflowAttempts = 0;
       return;
     }
 
@@ -1174,7 +1176,8 @@ export class ReaderUI {
       if (!metrics) return;
       this._logPageUsage('mobile-check', metrics, {
         overflowReflowAttempts: this._overflowReflowAttempts,
-        relaxAttempts: this._layoutRelaxAttempts
+        relaxAttempts: this._layoutRelaxAttempts,
+        underfillReflowAttempts: this._underfillReflowAttempts
       });
 
       const sparePx = Math.floor(metrics.unusedHeightPx);
@@ -1209,6 +1212,32 @@ export class ReaderUI {
         } else if (sparePx <= relaxThreshold) {
           // Page is near full; reset relax attempts for future adjustments.
           this._layoutRelaxAttempts = 0;
+          this._underfillReflowAttempts = 0;
+        } else {
+          const chapterPages = this.chapterPages?.[this.currentChapterIndex] || [];
+          const hasMorePagesInChapter = chapterPages.length > 0 && this.currentPageInChapter < chapterPages.length;
+          const underfillThresholdPx = Math.max(14, lineHeightPx * 0.65);
+
+          if (
+            currentSafety <= 0 &&
+            hasMorePagesInChapter &&
+            sparePx >= underfillThresholdPx &&
+            this._underfillReflowAttempts < 1
+          ) {
+            this._underfillReflowAttempts += 1;
+            this._logLayout('Repaginating to reclaim unused space', {
+              page: this.currentPageInChapter,
+              chapter: this.currentChapterIndex + 1,
+              sparePx: Math.round(sparePx),
+              thresholdPx: Math.round(underfillThresholdPx)
+            });
+            this._autoAdjustingLayout = true;
+            this._repaginateCurrentChapterPreservePosition({ clearLayoutCache: true })
+              .catch((error) => console.warn('Underfill recovery reflow failed:', error))
+              .finally(() => {
+                this._autoAdjustingLayout = false;
+              });
+          }
         }
         return;
       }
@@ -1217,6 +1246,7 @@ export class ReaderUI {
         return;
       }
 
+      this._underfillReflowAttempts = 0;
       this._layoutRelaxAttempts = 0;
       this._overflowReflowAttempts += 1;
       const currentSafety = Number(this._layoutSafetyPaddingPx) || 0;
