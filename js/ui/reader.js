@@ -164,9 +164,12 @@ export class ReaderUI {
     const overflowPx = Math.max(0, chapterOverflowPx, linesOverflowPx, clippedBottomPx);
 
     const availableHeightPx = Math.max(0, chapterTextEl.clientHeight);
+    const contentUsedHeightPx = linesEl
+      ? this._getPageLinesContentHeightPx(linesEl)
+      : Math.max(0, chapterTextEl.scrollHeight);
     const usedHeightPx = Math.max(
       0,
-      linesEl ? linesEl.scrollHeight : chapterTextEl.scrollHeight
+      contentUsedHeightPx
     );
     const unusedHeightPx = Math.max(0, availableHeightPx - usedHeightPx);
     const usagePercent = availableHeightPx > 0
@@ -184,6 +187,28 @@ export class ReaderUI {
       overflowPx,
       colliding: overflowPx > 1
     };
+  }
+
+  _getPageLinesContentHeightPx(linesEl) {
+    if (!linesEl) return 0;
+    const children = Array.from(linesEl.children || []);
+    if (children.length === 0) {
+      return Math.max(0, linesEl.scrollHeight || 0);
+    }
+
+    let contentBottomPx = 0;
+    for (const child of children) {
+      if (!(child instanceof HTMLElement)) continue;
+      const childBottom = child.offsetTop + child.offsetHeight;
+      if (childBottom > contentBottomPx) {
+        contentBottomPx = childBottom;
+      }
+    }
+
+    if (contentBottomPx > 0) {
+      return Math.ceil(contentBottomPx);
+    }
+    return Math.max(0, linesEl.scrollHeight || 0);
   }
 
   _logPageUsage(tag, metrics, extra = {}) {
@@ -1578,8 +1603,15 @@ export class ReaderUI {
     // Ensure minimum readable width
     textWidth = Math.max(200, textWidth);
     
+    // Slight mobile bias helps reclaim the near-line remainder introduced by
+    // subpixel rounding, while overflow guard still protects against collisions.
+    const linePackingBiasPx = isMobile
+      ? Math.min(8, effectiveLineHeight * 0.35)
+      : 0;
+    const adjustedAvailableHeight = availableHeight + linePackingBiasPx;
+
     // Calculate max lines per page
-    const maxLinesPerPage = Math.floor(availableHeight / effectiveLineHeight);
+    const maxLinesPerPage = Math.floor(adjustedAvailableHeight / effectiveLineHeight);
     const dimensions = {
       textWidth, 
       pageHeight: measureEl.clientHeight || pageViewport.clientHeight, 
@@ -1594,6 +1626,7 @@ export class ReaderUI {
       Math.round(availableHeight),
       dimensions.maxLinesPerPage,
       Math.round(effectiveLineHeight),
+      Math.round(linePackingBiasPx),
       Math.round(this._layoutSafetyPaddingPx)
     ].join('|');
 
@@ -1610,6 +1643,7 @@ export class ReaderUI {
           (lineGridUsedHeightPx / Math.max(1, availableHeight) * 100).toFixed(1)
         ),
         lineGridRemainderPx: Math.round(Math.max(0, availableHeight - lineGridUsedHeightPx)),
+        linePackingBiasPx: Number(linePackingBiasPx.toFixed(2)),
         safetyPaddingPx: Math.round(this._layoutSafetyPaddingPx)
       });
     }
