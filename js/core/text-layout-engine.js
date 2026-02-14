@@ -317,6 +317,7 @@ class TextLayoutEngine {
           currentPage.spaceUsed += 1;
         } else {
           // Page is full, start new page
+          this.trimTrailingSpacing(currentPage);
           pages.push(currentPage);
           currentPage = { lines: [], blocks: [], spaceUsed: 0 };
         }
@@ -331,6 +332,7 @@ class TextLayoutEngine {
         // For headings, they count as multiple lines due to larger font size
         if (currentPage.spaceUsed + lineMultiplier > maxLinesPerPage) {
           // Page is full, start new page
+          this.trimTrailingSpacing(currentPage);
           pages.push(currentPage);
           currentPage = { lines: [], blocks: [], spaceUsed: 0 };
         }
@@ -377,6 +379,7 @@ class TextLayoutEngine {
     
     // Add remaining page if it has content
     if (currentPage.lines.length > 0) {
+      this.trimTrailingSpacing(currentPage);
       pages.push(currentPage);
     }
     
@@ -388,18 +391,19 @@ class TextLayoutEngine {
    * Headings are larger and take up more vertical space
    */
   getLineHeightMultiplier(blockType) {
-    switch (blockType) {
-      case 'h1':
-        return 2.0; // h1 is 2em, takes ~2 lines of space
-      case 'h2':
-        return 1.5; // h2 is 1.5em, takes ~1.5 lines of space
-      case 'h3':
-        return 1.2; // h3 is 1.17em, takes ~1.2 lines of space
-      case 'h4':
-        return 1.2;
-      case 'p':
-      default:
-        return 1.0; // Normal paragraphs are 1 line per line
+    // Line packing should reflect actual rendered line boxes.
+    // With fixed reader line-height, all block lines consume one line slot.
+    return 1.0;
+  }
+
+  /**
+   * Remove trailing spacer rows so we do not end pages with avoidable blank bands.
+   */
+  trimTrailingSpacing(page) {
+    if (!page || !Array.isArray(page.lines) || page.lines.length === 0) return;
+    while (page.lines.length > 0 && page.lines[page.lines.length - 1]?.type === 'spacing') {
+      page.lines.pop();
+      page.spaceUsed = Math.max(0, page.spaceUsed - 1);
     }
   }
 
