@@ -1269,11 +1269,19 @@ export class ReaderUI {
             this._underfillReflowAttempts < 1
           ) {
             this._underfillReflowAttempts += 1;
+            const minSafetyPx = -Math.round(lineHeightPx * 1.25);
+            const targetSafetyPx = Math.max(
+              minSafetyPx,
+              Math.round(currentSafety - lineHeightPx)
+            );
+            this._layoutSafetyPaddingPx = targetSafetyPx;
             this._logLayout('Repaginating to reclaim unused space', {
               page: this.currentPageInChapter,
               chapter: this.currentChapterIndex + 1,
               sparePx: Math.round(sparePx),
-              thresholdPx: Math.round(underfillThresholdPx)
+              thresholdPx: Math.round(underfillThresholdPx),
+              safetyPaddingFromPx: Math.round(currentSafety),
+              safetyPaddingToPx: Math.round(targetSafetyPx)
             });
             this._autoAdjustingLayout = true;
             this._repaginateCurrentChapterPreservePosition({
@@ -1605,7 +1613,10 @@ export class ReaderUI {
     const baseSafetyPx = isMobile
       ? 0
       : Math.max(1, effectiveLineHeight * 0.08);
-    const dynamicSafetyPx = Math.max(0, Number(this._layoutSafetyPaddingPx) || 0);
+    const dynamicSafetyPx = Math.max(
+      -effectiveLineHeight * 2,
+      Math.min(72, Number(this._layoutSafetyPaddingPx) || 0)
+    );
     availableHeight = Math.max(effectiveLineHeight * 5, availableHeight - baseSafetyPx - dynamicSafetyPx);
 
     // Apply text width setting to the actual available content width.

@@ -2283,8 +2283,9 @@ html:-ms-fullscreen .page-indicator,
 }
 
 .page-lines .line-spacing {
-  height: 1em;
-  /* Spacing handled by layout engine - accounts for heading context */
+  /* Match one real text line so pagination math and rendered spacing stay aligned */
+  height: calc(var(--reader-font-size, 18px) * var(--reader-line-height, 1.8));
+  flex: 0 0 auto;
 }
 
 /* Paragraphs - default book-style indent */
