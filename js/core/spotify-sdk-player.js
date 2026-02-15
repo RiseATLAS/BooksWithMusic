@@ -338,7 +338,7 @@ export class SpotifySDKPlayer {
         throw new Error(`Failed to play: ${response.statusText}`);
       }
 
-      console.log(`▶️ Playing on Spotify SDK: ${this.currentTrack?.title || uris[0]}`);
+      console.log(`▶️ Playing on Spotify SDK: ${uris[0]}`);
       return true;
     } catch (error) {
       console.error('❌ Spotify play error:', error);

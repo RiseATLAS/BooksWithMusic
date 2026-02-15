@@ -1336,7 +1336,10 @@ export class MoodProcessor {
     const potentialShifts = []; // Collect all potential shifts first
     let currentSectionMood = chapterMood;
 
-    // PASS 1: Analyze each page and collect potential shifts
+    // PASS 1: Analyze each page and collect potential shifts.
+    // We keep both strong (threshold-passing) and weaker candidates so
+    // long chapters can still produce enough shift points when the user
+    // asks for a higher song density.
     for (let page = 1; page <= totalPages; page++) {
       const startWord = (page - 1) * wordsPerPage;
       const endWord = Math.min(page * wordsPerPage, words.length);
@@ -1347,13 +1350,14 @@ export class MoodProcessor {
       const analysis = this.analyzePageMoodShift(pageText, currentSectionMood);
 
       // Collect potential shift points with their scores
-      if (analysis.shouldShift && page > 1) {
+      if (page > 1 && analysis.pageMood !== currentSectionMood && analysis.shiftScore > 0) {
         potentialShifts.push({
           page,
           fromMood: currentSectionMood,
           toMood: analysis.pageMood,
           confidence: analysis.confidence,
-          shiftScore: analysis.shiftScore
+          shiftScore: analysis.shiftScore,
+          isStrong: analysis.shouldShift
         });
       }
     }
@@ -1361,22 +1365,48 @@ export class MoodProcessor {
     // PASS 2: Select best-distributed shifts across the chapter
     const selectedShifts = [];
     if (potentialShifts.length > 0) {
-      // Sort by shift score (highest first)
-      potentialShifts.sort((a, b) => b.shiftScore - a.shiftScore);
+      // Prefer strong candidates first, then by score.
+      potentialShifts.sort((a, b) => {
+        if (Boolean(a.isStrong) !== Boolean(b.isStrong)) {
+          return a.isStrong ? -1 : 1;
+        }
+        return b.shiftScore - a.shiftScore;
+      });
       
       // Calculate minimum spacing between shifts
-      const minSpacing = Math.floor(totalPages / (maxShifts + 1));
+      const baseSpacing = Math.max(1, Math.floor(totalPages / (maxShifts + 1)));
+      const relaxedSpacing = Math.max(1, Math.floor(baseSpacing / 2));
+      const selectedPages = new Set();
+
+      const trySelectWithSpacing = (minSpacingPx) => {
+        for (const shift of potentialShifts) {
+          if (selectedShifts.length >= maxShifts) break;
+          if (selectedPages.has(shift.page)) continue;
+          
+          const tooClose = selectedShifts.some(selected =>
+            Math.abs(selected.page - shift.page) < minSpacingPx
+          );
+          
+          if (!tooClose) {
+            selectedShifts.push(shift);
+            selectedPages.add(shift.page);
+          }
+        }
+      };
       
-      for (const shift of potentialShifts) {
-        if (selectedShifts.length >= maxShifts) break;
-        
-        // Check if this shift is far enough from already selected shifts
-        const tooClose = selectedShifts.some(selected => 
-          Math.abs(selected.page - shift.page) < minSpacing
-        );
-        
-        if (!tooClose) {
+      // First pass: preserve broad spacing.
+      trySelectWithSpacing(baseSpacing);
+      // Second pass: relax spacing if we still need more shifts.
+      if (selectedShifts.length < maxShifts) {
+        trySelectWithSpacing(relaxedSpacing);
+      }
+      // Final fill: allow remaining top candidates if we still have room.
+      if (selectedShifts.length < maxShifts) {
+        for (const shift of potentialShifts) {
+          if (selectedShifts.length >= maxShifts) break;
+          if (selectedPages.has(shift.page)) continue;
           selectedShifts.push(shift);
+          selectedPages.add(shift.page);
         }
       }
       
