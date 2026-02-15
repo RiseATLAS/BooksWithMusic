@@ -2271,16 +2271,32 @@ export class MusicPanelUI {
   }
 
   /**
+   * Check whether verbose logs should be emitted.
+   * @private
+   */
+  _shouldEmitDebugLogs() {
+    try {
+      const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
+      return settings.verboseLogging !== false;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  /**
    * Debug logger for shift/playback flow.
-   * Uses console.error so logs remain visible while non-error logs are suppressed globally.
    * @private
    */
   _debugShiftLog(message, payload = null) {
-    if (payload && typeof payload === 'object') {
-      console.error(`🎵[ShiftDebug] ${message}`, payload);
+    if (!this._shouldEmitDebugLogs()) {
       return;
     }
-    console.error(`🎵[ShiftDebug] ${message}`);
+
+    if (payload && typeof payload === 'object') {
+      console.debug(`🎵[ShiftDebug] ${message}`, payload);
+      return;
+    }
+    console.debug(`🎵[ShiftDebug] ${message}`);
   }
 
   /**

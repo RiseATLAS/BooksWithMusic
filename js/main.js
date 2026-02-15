@@ -40,15 +40,6 @@ import {
 } from "./storage/firestore-storage.js";
 import { auth, db, storage } from "./config/firebase-config.js";
 
-// Keep console output error-only in production usage.
-// This suppresses non-error logging noise from reader/music modules.
-if (typeof window !== "undefined" && window.console) {
-  window.console.log = () => {};
-  window.console.info = () => {};
-  window.console.warn = () => {};
-  window.console.debug = () => {};
-}
-
 class BooksWithMusicApp {
   constructor() {
     this.db = new DatabaseManager();
