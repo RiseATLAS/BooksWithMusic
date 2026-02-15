@@ -1867,10 +1867,6 @@ export class ReaderUI {
       this.updatePageIndicator();
       this._lastViewportSnapshot = this._getViewportSnapshot();
       this._scheduleMobileOverflowGuard();
-      window.requestAnimationFrame(() => {
-        const usageMetrics = this._getPageUsageMetrics(document.querySelector('.chapter-text'));
-        this._logPageUsage('render', usageMetrics);
-      });
     } catch (error) {
       console.error(' Error rendering page:', error);
       console.error('Context:', {

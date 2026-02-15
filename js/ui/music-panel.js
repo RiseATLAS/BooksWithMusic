@@ -23,6 +23,7 @@ export class MusicPanelUI {
     this.pageTrackHistory = new Map(); // Track which track was playing at each page
     this.currentChapter = null;
     this._chapterLoadRequestToken = 0;
+    this._lastPageTrackAssignmentLog = null;
     
     // Playback controls
     this.isToggling = false; // Prevent multiple simultaneous toggles
@@ -229,6 +230,7 @@ export class MusicPanelUI {
       // Reset page history when chapter changes
       this.currentChapter = data.chapterIndex;
       this.pageTrackHistory.clear();
+      this._lastPageTrackAssignmentLog = null;
       
       // Store shift points for this chapter
       this.currentShiftPoints = this._normalizeShiftPoints(data.chapterShiftPoints?.shiftPoints || []);
@@ -327,6 +329,7 @@ export class MusicPanelUI {
         console.warn('⚠️ No tracks available - check if music is enabled and API key is set');
         this.playlist = [];
         this.playlistChapterIndex = chapterIndex;
+        this._lastPageTrackAssignmentLog = null;
         this.renderPlaylist();
         return true;
       }
@@ -382,29 +385,70 @@ export class MusicPanelUI {
    * based on shift points in the chapter
    */
   determineTrackIndexForPage(pageNumber) {
-    if (!this.currentShiftPoints || this.currentShiftPoints.length === 0 || !this.playlist || this.playlist.length === 0) {
-      // No shift points or no playlist, start at first track
-      this.pageTrackHistory.set(pageNumber, 0);
-      return 0;
+    const normalizedPage = Math.max(1, Number(pageNumber) || 1);
+    const assignment = this._resolveTrackAssignmentForPage(normalizedPage);
+    const { trackIndex, shiftsBeforePage, assignmentMode } = assignment;
+
+    this.pageTrackHistory.set(normalizedPage, trackIndex);
+
+    if (this._shouldLogPageTrackAssignment(normalizedPage, trackIndex, shiftsBeforePage, assignmentMode)) {
+      console.log(
+        `📍 Page ${normalizedPage}: Starting at track ${trackIndex} ` +
+        `(${shiftsBeforePage} shifts before this page, mode=${assignmentMode})`
+      );
     }
-    
-    // Count how many shift points are active at this page.
-    // Include shifts that start on the current page, so opening/seek-to-page
-    // behavior matches forward-navigation shift events.
-    const shiftsBeforePage = this.currentShiftPoints
-      .map(sp => Number(sp.pageInChapter ?? sp.page ?? 0))
-      .filter(shiftPage => Number.isFinite(shiftPage) && shiftPage > 1 && shiftPage <= pageNumber)
-      .length;
-    
-    // Track index is the number of shifts that have occurred (clamped to playlist length)
-    const trackIndex = Math.min(shiftsBeforePage, this.playlist.length - 1);
-    
-    // Store in history
-    this.pageTrackHistory.set(pageNumber, trackIndex);
-    
-    console.log(`📍 Page ${pageNumber}: Starting at track ${trackIndex} (${shiftsBeforePage} shifts before this page)`);
-    
+
     return trackIndex;
+  }
+
+  _resolveTrackAssignmentForPage(pageNumber) {
+    if (!this.playlist || this.playlist.length === 0) {
+      return {
+        trackIndex: 0,
+        shiftsBeforePage: 0,
+        assignmentMode: 'empty-playlist'
+      };
+    }
+
+    const normalizedPage = Math.max(1, Number(pageNumber) || 1);
+    const shiftsBeforePage = this._normalizeShiftPoints(this.currentShiftPoints || [])
+      .map((shiftPoint) => Number(shiftPoint?.pageInChapter ?? shiftPoint?.page ?? 0))
+      .filter((shiftPage) => Number.isFinite(shiftPage) && shiftPage > 1 && shiftPage <= normalizedPage)
+      .length;
+
+    const maxDirectTrackIndex = this.playlist.length - 1;
+    const shouldWrap = this.playlist.length > 1 && shiftsBeforePage > maxDirectTrackIndex;
+    const trackIndex = shouldWrap
+      ? (shiftsBeforePage % this.playlist.length)
+      : Math.min(shiftsBeforePage, maxDirectTrackIndex);
+
+    return {
+      trackIndex,
+      shiftsBeforePage,
+      assignmentMode: shouldWrap ? 'wrapped' : 'direct'
+    };
+  }
+
+  _shouldLogPageTrackAssignment(pageNumber, trackIndex, shiftsBeforePage, assignmentMode) {
+    const chapterKey = Number.isFinite(this.currentChapter) ? this.currentChapter : this.playlistChapterIndex;
+    const previous = this._lastPageTrackAssignmentLog;
+    const shiftCountChanged = Boolean(previous) && previous.shiftsBeforePage !== shiftsBeforePage;
+    const shouldLog = !previous ||
+      previous.chapterKey !== chapterKey ||
+      previous.trackIndex !== trackIndex ||
+      previous.assignmentMode !== assignmentMode ||
+      pageNumber === 1 ||
+      (shiftCountChanged && trackIndex === previous.trackIndex);
+
+    this._lastPageTrackAssignmentLog = {
+      chapterKey,
+      pageNumber,
+      trackIndex,
+      shiftsBeforePage,
+      assignmentMode
+    };
+
+    return shouldLog;
   }
 
   /**
@@ -1111,7 +1155,8 @@ export class MusicPanelUI {
   }
   
   async handleForwardNavigation(newPage, oldPage, shiftInfo) {
-    const targetTrackIndex = this.determineTrackIndexForPage(newPage);
+    const assignment = this._resolveTrackAssignmentForPage(newPage);
+    const targetTrackIndex = assignment.trackIndex;
 
     // Check if this page is a designated shift point (based on content analysis)
     if (shiftInfo && this.playlist && this.playlist.length > 1) {
@@ -1128,7 +1173,10 @@ export class MusicPanelUI {
         shiftScore: shiftInfo?.shiftScore,
         confidence: shiftInfo?.confidence,
         currentTrackIndex: this.currentTrackIndex,
-        playlistSize: this.playlist.length
+        playlistSize: this.playlist.length,
+        targetTrackIndex,
+        assignmentMode: assignment.assignmentMode,
+        shiftsBeforePage: assignment.shiftsBeforePage
       });
       
       // Record current page with track before advancing
@@ -1143,9 +1191,19 @@ export class MusicPanelUI {
         forceShiftPlayback,
         shouldPlay
       });
-      const desiredIndex = Math.max(this.currentTrackIndex + 1, targetTrackIndex);
+      let desiredIndex = targetTrackIndex;
+      if (desiredIndex === this.currentTrackIndex) {
+        desiredIndex = assignment.assignmentMode === 'wrapped'
+          ? (this.currentTrackIndex + 1) % this.playlist.length
+          : Math.min(this.currentTrackIndex + 1, this.playlist.length - 1);
+      }
       await this._switchToTrackIndex(desiredIndex, shouldPlay, { reason: 'explicit-shift' });
-      this._debugShiftLog('Shift switch completed.', { resultingTrackIndex: this.currentTrackIndex });
+      this._debugShiftLog('Shift switch completed.', {
+        resultingTrackIndex: this.currentTrackIndex,
+        desiredIndex,
+        targetTrackIndex,
+        assignmentMode: assignment.assignmentMode
+      });
       
       // Record new page with new track
       this.pageTrackHistory.set(newPage, this.currentTrackIndex);
@@ -1154,14 +1212,19 @@ export class MusicPanelUI {
       this.playlist.length > 1 &&
       targetTrackIndex !== this.currentTrackIndex
     ) {
-      const direction = targetTrackIndex > this.currentTrackIndex ? 'forward' : 'backward-resync';
+      const wrappedForward = assignment.assignmentMode === 'wrapped' && newPage > oldPage;
+      const direction = (wrappedForward || targetTrackIndex > this.currentTrackIndex)
+        ? 'forward'
+        : 'backward-resync';
       this._debugShiftLog('Page-range re-sync detected without explicit shift payload.', {
         chapter: this.currentChapter,
         oldPage,
         newPage,
         currentTrackIndex: this.currentTrackIndex,
         targetTrackIndex,
-        direction
+        direction,
+        assignmentMode: assignment.assignmentMode,
+        shiftsBeforePage: assignment.shiftsBeforePage
       });
       this.pageTrackHistory.set(oldPage, this.currentTrackIndex);
       const wasPlaying = await this.isCurrentlyPlayingLive();
@@ -1179,7 +1242,10 @@ export class MusicPanelUI {
         oldPage,
         newPage,
         playlistSize: this.playlist?.length || 0,
-        currentTrackIndex: this.currentTrackIndex
+        currentTrackIndex: this.currentTrackIndex,
+        targetTrackIndex,
+        assignmentMode: assignment.assignmentMode,
+        shiftsBeforePage: assignment.shiftsBeforePage
       });
       this.pageTrackHistory.set(newPage, this.currentTrackIndex);
       // Update UI to highlight current track
@@ -1936,35 +2002,46 @@ export class MusicPanelUI {
       return;
     }
 
-    const shiftPages = this._normalizeShiftPoints(this.currentShiftPoints || [])
+    const normalizedShiftPoints = this._normalizeShiftPoints(this.currentShiftPoints || []);
+    const shiftPages = normalizedShiftPoints
       .map((shift) => Number(shift?.pageInChapter ?? shift?.page ?? NaN))
       .filter((page) => Number.isFinite(page) && page > 1);
     const totalPages = Number(window.app?.reader?.pagesPerChapter?.[chapterIndex]) || null;
-    const overflowShiftCount = Math.max(0, shiftPages.length - (this.playlist.length - 1));
+    const extraShiftCount = Math.max(0, shiftPages.length - (this.playlist.length - 1));
+    const assignmentMode = this.playlist.length > 1 && extraShiftCount > 0 ? 'wrapped' : 'direct';
 
     console.log(
       `🎼 Playlist assignment | chapter=${chapterIndex + 1} | tracks=${this.playlist.length} | ` +
-      `shiftPoints=${shiftPages.length} | currentPage=${currentPageInChapter} | startTrack=${this.currentTrackIndex}`
+      `shiftPoints=${shiftPages.length} | currentPage=${currentPageInChapter} | ` +
+      `startTrack=${this.currentTrackIndex} | mode=${assignmentMode}`
     );
-    if (overflowShiftCount > 0) {
-      console.warn(
-        `⚠️ Shift saturation: ${overflowShiftCount} extra shift point(s) beyond available tracks in chapter ${chapterIndex + 1}.`
+    if (extraShiftCount > 0) {
+      console.info(
+        `🌀 Shift wrap active: ${extraShiftCount} extra shift point(s) will cycle through ` +
+        `${this.playlist.length} track(s) in chapter ${chapterIndex + 1}.`
       );
     }
 
-    const rows = this.playlist.map((track, index) => {
-      const startPage = index === 0 ? 1 : (shiftPages[index - 1] || shiftPages[shiftPages.length - 1] || 1);
-      const nextShiftPage = shiftPages[index];
+    const segmentStartPages = [1, ...shiftPages];
+    const rows = segmentStartPages.map((startPage, segmentIndex) => {
+      const nextShiftPage = shiftPages[segmentIndex];
       const endPage = Number.isFinite(nextShiftPage)
         ? Math.max(startPage, nextShiftPage - 1)
         : (totalPages || 'end');
+      const trackIndex = assignmentMode === 'wrapped'
+        ? (segmentIndex % this.playlist.length)
+        : Math.min(segmentIndex, this.playlist.length - 1);
+      const track = this.playlist[trackIndex] || {};
+      const shiftPoint = segmentIndex > 0 ? normalizedShiftPoints[segmentIndex - 1] : null;
       const title = String(track?.title || 'Unknown').slice(0, 48);
       return {
-        track: index,
+        segment: segmentIndex,
+        track: trackIndex,
         pageFrom: startPage,
         pageTo: endPage,
+        shiftAt: Number.isFinite(nextShiftPage) ? nextShiftPage : '',
         targetPage: Number(track?.targetPage) || '',
-        targetMood: track?.targetMood || '',
+        targetMood: shiftPoint?.toMood || track?.targetMood || '',
         title
       };
     });

@@ -610,6 +610,11 @@ export class SpotifyMusicManager {
     if (mapping.tracksFetched && mapping.tracks.length > 0) {
       return; // Already have tracks
     }
+
+    // Skip noisy duplicate prefetch logs/calls while an existing fetch is in flight.
+    if (this._trackFetchPromises[nextChapterIndex]) {
+      return;
+    }
     
     console.log(`⏩ Pre-fetching tracks for next chapter ${nextChapterIndex}...`);
     
