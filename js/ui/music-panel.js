@@ -335,6 +335,15 @@ export class MusicPanelUI {
       
       // Determine starting track based on current page
       this.currentTrackIndex = this.determineTrackIndexForPage(currentPageInChapter);
+      this._debugShiftLog('Applied chapter shift map to playlist.', {
+        chapterIndex,
+        currentPageInChapter,
+        playlistSize: this.playlist.length,
+        startTrackIndex: this.currentTrackIndex,
+        shiftPages: (this.currentShiftPoints || [])
+          .map((shift) => Number(shift?.pageInChapter ?? shift?.page ?? NaN))
+          .filter((page) => Number.isFinite(page))
+      });
       this.renderPlaylist();
       return true;
     } catch (error) {
@@ -1105,20 +1114,24 @@ export class MusicPanelUI {
     } else if (
       this.playlist &&
       this.playlist.length > 1 &&
-      targetTrackIndex > this.currentTrackIndex
+      targetTrackIndex !== this.currentTrackIndex
     ) {
-      this._debugShiftLog('Forward page-range switch detected without explicit shift payload.', {
+      const direction = targetTrackIndex > this.currentTrackIndex ? 'forward' : 'backward-resync';
+      this._debugShiftLog('Page-range re-sync detected without explicit shift payload.', {
         chapter: this.currentChapter,
         oldPage,
         newPage,
         currentTrackIndex: this.currentTrackIndex,
-        targetTrackIndex
+        targetTrackIndex,
+        direction
       });
       this.pageTrackHistory.set(oldPage, this.currentTrackIndex);
       const wasPlaying = await this.isCurrentlyPlayingLive();
       const forceShiftPlayback = this._shouldForceShiftPlayback();
       const shouldPlay = wasPlaying || forceShiftPlayback;
-      await this._switchToTrackIndex(targetTrackIndex, shouldPlay, { reason: 'page-range-catchup' });
+      await this._switchToTrackIndex(targetTrackIndex, shouldPlay, {
+        reason: direction === 'forward' ? 'page-range-catchup' : 'page-range-resync'
+      });
       this.pageTrackHistory.set(newPage, this.currentTrackIndex);
     } else {
       // No shift, just record current page with current track
