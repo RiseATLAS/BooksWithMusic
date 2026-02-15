@@ -2032,7 +2032,12 @@ export class MusicPanelUI {
         : Math.min(segmentIndex, this.playlist.length - 1);
       const track = this.playlist[trackIndex] || {};
       const shiftPoint = segmentIndex > 0 ? normalizedShiftPoints[segmentIndex - 1] : null;
-      const title = String(track?.title || 'Unknown').slice(0, 48);
+      const fullTitle = String(track?.title || 'Unknown');
+      const artist = String(track?.artist || '').trim();
+      const music = artist ? `${fullTitle} — ${artist}` : fullTitle;
+      const sourceRef = track?.uri || track?.spotifyUri || (
+        track?.freesoundId ? `freesound:${track.freesoundId}` : String(track?.id || '')
+      );
       return {
         segment: segmentIndex,
         track: trackIndex,
@@ -2041,7 +2046,10 @@ export class MusicPanelUI {
         shiftAt: Number.isFinite(nextShiftPage) ? nextShiftPage : '',
         targetPage: Number(track?.targetPage) || '',
         targetMood: shiftPoint?.toMood || track?.targetMood || '',
-        title
+        music: music.slice(0, 84),
+        sourceRef: String(sourceRef).slice(0, 84),
+        title: fullTitle.slice(0, 48),
+        artist: artist.slice(0, 42)
       };
     });
 
