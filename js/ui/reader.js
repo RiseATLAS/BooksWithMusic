@@ -560,18 +560,69 @@ export class ReaderUI {
       try {
         persistedProgress = await this.db.getBook(book.id);
         if (persistedProgress) {
-          console.log(`📖 Resuming "${book.title}" at chapter ${persistedProgress.currentChapter + 1}, page ${persistedProgress.currentPageInChapter} (${(persistedProgress.progress || 0).toFixed(1)}%)`);
+          const nestedProgress = (persistedProgress.progress && typeof persistedProgress.progress === 'object')
+            ? persistedProgress.progress
+            : null;
+          const resumeChapter = Number.isFinite(Number(persistedProgress.currentChapter))
+            ? Number(persistedProgress.currentChapter)
+            : Number.isFinite(Number(nestedProgress?.currentChapter))
+              ? Number(nestedProgress.currentChapter)
+              : 0;
+          const resumePage = Number.isFinite(Number(persistedProgress.currentPageInChapter))
+            ? Number(persistedProgress.currentPageInChapter)
+            : Number.isFinite(Number(nestedProgress?.currentPageInChapter))
+              ? Number(nestedProgress.currentPageInChapter)
+              : 1;
+          const resumeProgress = Number.isFinite(Number(nestedProgress?.progress))
+            ? Number(nestedProgress.progress)
+            : Number.isFinite(Number(persistedProgress.progress))
+              ? Number(persistedProgress.progress)
+              : 0;
+
+          console.log(
+            `📖 Resuming "${book.title}" at chapter ${Math.max(0, Math.floor(resumeChapter)) + 1}, ` +
+            `page ${Math.max(1, Math.floor(resumePage))} (${resumeProgress.toFixed(1)}%)`
+          );
         }
       } catch (error) {
         console.error('❌ Failed to load progress from IndexedDB:', error);
       }
 
+      const persistedNestedProgress = (persistedProgress?.progress && typeof persistedProgress.progress === 'object')
+        ? persistedProgress.progress
+        : null;
+      const bookNestedProgress = (book?.progress && typeof book.progress === 'object')
+        ? book.progress
+        : null;
+
       this.currentChapterIndex =
-        persistedProgress?.currentChapter ?? book.currentChapter ?? 0;
+        (Number.isFinite(Number(persistedProgress?.currentChapter))
+          ? Number(persistedProgress.currentChapter)
+          : Number.isFinite(Number(persistedNestedProgress?.currentChapter))
+            ? Number(persistedNestedProgress.currentChapter)
+            : Number.isFinite(Number(book?.currentChapter))
+              ? Number(book.currentChapter)
+              : Number.isFinite(Number(bookNestedProgress?.currentChapter))
+                ? Number(bookNestedProgress.currentChapter)
+                : 0);
       
       // Use saved page number (will be corrected after pagination if block position exists)
       this.currentPageInChapter =
-        persistedProgress?.currentPageInChapter ?? book.currentPageInChapter ?? 1;
+        (Number.isFinite(Number(persistedProgress?.currentPageInChapter))
+          ? Number(persistedProgress.currentPageInChapter)
+          : Number.isFinite(Number(persistedNestedProgress?.currentPageInChapter))
+            ? Number(persistedNestedProgress.currentPageInChapter)
+            : Number.isFinite(Number(book?.currentPageInChapter))
+              ? Number(book.currentPageInChapter)
+              : Number.isFinite(Number(bookNestedProgress?.currentPageInChapter))
+                ? Number(bookNestedProgress.currentPageInChapter)
+                : 1);
+
+      this.currentChapterIndex = Math.max(
+        0,
+        Math.min(this.chapters.length - 1, Math.floor(this.currentChapterIndex))
+      );
+      this.currentPageInChapter = Math.max(1, Math.floor(this.currentPageInChapter));
 
       this.pagesPerChapter = {};
       this.currentPage = 1;

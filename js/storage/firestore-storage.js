@@ -308,11 +308,32 @@ export async function getUserBooks(userId) {
     const books = [];
     querySnapshot.forEach((doc) => {
       const bookData = doc.data();
+      const nestedProgress = (bookData.progress && typeof bookData.progress === 'object')
+        ? bookData.progress
+        : null;
+      const currentChapter = Number.isFinite(Number(bookData.currentChapter))
+        ? Number(bookData.currentChapter)
+        : Number.isFinite(Number(nestedProgress?.currentChapter))
+          ? Number(nestedProgress.currentChapter)
+          : 0;
+      const currentPageInChapter = Number.isFinite(Number(bookData.currentPageInChapter))
+        ? Number(bookData.currentPageInChapter)
+        : Number.isFinite(Number(nestedProgress?.currentPageInChapter))
+          ? Number(nestedProgress.currentPageInChapter)
+          : 1;
+      const progressPercent = Number.isFinite(Number(nestedProgress?.progress))
+        ? Number(nestedProgress.progress)
+        : Number.isFinite(Number(bookData.progress))
+          ? Number(bookData.progress)
+          : 0;
+
       books.push({
         id: doc.id,
         ...bookData,
-        // Extract progress percentage from nested progress object for easy display
-        progress: bookData.progress?.progress || 0
+        // Normalize progress to flat fields for local cache / reader resume.
+        currentChapter: Math.max(0, Math.floor(currentChapter)),
+        currentPageInChapter: Math.max(1, Math.floor(currentPageInChapter)),
+        progress: Math.max(0, Math.min(100, progressPercent))
       });
     });
     console.log(`📚 Loaded ${books.length} books from Firestore`);

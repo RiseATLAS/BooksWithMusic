@@ -48,6 +48,49 @@ export class BookLibrary {
         this.shownCacheMessage = false; // Track if we've shown the cache message
     }
 
+    _toFiniteNumber(value) {
+        const num = Number(value);
+        return Number.isFinite(num) ? num : null;
+    }
+
+    /**
+     * Normalize reading progress from mixed formats:
+     * - flat: { currentChapter, currentPageInChapter, progress }
+     * - nested: { progress: { currentChapter, currentPageInChapter, progress } }
+     */
+    _resolveReadingProgress(bookLike = {}, fallback = {}) {
+        const primaryNested = (bookLike && typeof bookLike.progress === 'object') ? bookLike.progress : null;
+        const fallbackNested = (fallback && typeof fallback.progress === 'object') ? fallback.progress : null;
+
+        const currentChapter = this._toFiniteNumber(bookLike.currentChapter) ??
+            this._toFiniteNumber(primaryNested?.currentChapter) ??
+            this._toFiniteNumber(fallback.currentChapter) ??
+            this._toFiniteNumber(fallbackNested?.currentChapter) ??
+            0;
+
+        const currentPageInChapter = this._toFiniteNumber(bookLike.currentPageInChapter) ??
+            this._toFiniteNumber(primaryNested?.currentPageInChapter) ??
+            this._toFiniteNumber(fallback.currentPageInChapter) ??
+            this._toFiniteNumber(fallbackNested?.currentPageInChapter) ??
+            1;
+
+        const primaryProgress = typeof bookLike.progress === 'number'
+            ? bookLike.progress
+            : primaryNested?.progress;
+        const fallbackProgress = typeof fallback.progress === 'number'
+            ? fallback.progress
+            : fallbackNested?.progress;
+        const progress = this._toFiniteNumber(primaryProgress) ??
+            this._toFiniteNumber(fallbackProgress) ??
+            0;
+
+        return {
+            currentChapter: Math.max(0, Math.floor(currentChapter)),
+            currentPageInChapter: Math.max(1, Math.floor(currentPageInChapter)),
+            progress: Math.max(0, Math.min(100, progress))
+        };
+    }
+
     async init() {
         // Initialize local IndexedDB cache
         await this.localDb.initialize();
@@ -118,12 +161,25 @@ export class BookLibrary {
         try {
             // Get current cached book IDs
             const cachedBooks = await this.localDb.getAllBooks();
-            const cachedIds = new Set(cachedBooks.map(b => b.id));
+            const cachedById = new Map(cachedBooks.map(book => [book.id, book]));
             const firestoreIds = new Set(firestoreBooks.map(b => b.id));
             
             // Add/update books from Firestore
             for (const book of firestoreBooks) {
-                await this.localDb.saveBook(book);
+                const cachedBook = cachedById.get(book.id) || {};
+                const progress = this._resolveReadingProgress(book, cachedBook);
+
+                // Preserve parsed chapter data when cloud metadata refreshes.
+                const mergedBook = {
+                    ...cachedBook,
+                    ...book,
+                    ...progress,
+                    chapters: book.chapters || cachedBook.chapters,
+                    images: book.images || cachedBook.images,
+                    parsedData: Boolean(book.parsedData || cachedBook.parsedData)
+                };
+
+                await this.localDb.saveBook(mergedBook);
             }
             
             // Remove books that no longer exist in Firestore
@@ -471,13 +527,15 @@ export class BookLibrary {
             
             // Store parsed book in IndexedDB for reader to access
             if (this.cacheInitialized) {
+                const progress = this._resolveReadingProgress(fullBook || {}, book || {});
                 await this.localDb.saveBook({
                     id: bookId,
                     title: book.title || 'Unknown Title',
                     author: book.author || 'Unknown Author',
                     chapters: parsed.chapters,
                     images: parsed.images ? Array.from(parsed.images.entries()) : [],
-                    parsedData: true // Flag to indicate this has parsed data
+                    parsedData: true, // Flag to indicate this has parsed data
+                    ...progress
                 });
             }
             
