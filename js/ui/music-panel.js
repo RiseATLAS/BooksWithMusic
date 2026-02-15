@@ -21,6 +21,7 @@ export class MusicPanelUI {
     this.currentShiftPoints = []; // Track mood shift points in current chapter
     this.pageTrackHistory = new Map(); // Track which track was playing at each page
     this.currentChapter = null;
+    this._chapterLoadRequestToken = 0;
     
     // Playback controls
     this.isToggling = false; // Prevent multiple simultaneous toggles
@@ -211,6 +212,13 @@ export class MusicPanelUI {
     
     // Listen for chapter music changes
     this.musicManager.on('chapterMusicChanged', async (data) => {
+      const reader = window.app?.reader || this.reader;
+      const activeReaderChapter = Number(reader?.currentChapterIndex);
+      if (Number.isFinite(activeReaderChapter) && activeReaderChapter !== data.chapterIndex) {
+        return;
+      }
+
+      const requestToken = ++this._chapterLoadRequestToken;
       
       // Reset page history when chapter changes
       this.currentChapter = data.chapterIndex;
@@ -220,7 +228,15 @@ export class MusicPanelUI {
       this.currentShiftPoints = this._normalizeShiftPoints(data.chapterShiftPoints?.shiftPoints || []);
       
       // Load playlist with recommended tracks (1-5 tracks in order)
-      await this.loadPlaylistForChapter(data.chapterIndex, data.recommendedTracks, data.currentPageInChapter || 1);
+      const playlistApplied = await this.loadPlaylistForChapter(
+        data.chapterIndex,
+        data.recommendedTracks,
+        data.currentPageInChapter || 1,
+        { requestToken }
+      );
+      if (!playlistApplied || requestToken !== this._chapterLoadRequestToken) {
+        return;
+      }
       
       // Check if auto-play enabled (default FALSE - requires API key)
       const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
@@ -245,12 +261,20 @@ export class MusicPanelUI {
     });
   }
 
-  async loadPlaylistForChapter(chapterIndex, recommendedTracks, currentPageInChapter = 1) {
+  async loadPlaylistForChapter(chapterIndex, recommendedTracks, currentPageInChapter = 1, { requestToken = null } = {}) {
     try {
+      const isStaleRequest = () => {
+        if (requestToken !== null && requestToken !== this._chapterLoadRequestToken) {
+          return true;
+        }
+        const reader = window.app?.reader || this.reader;
+        const activeReaderChapter = Number(reader?.currentChapterIndex);
+        return Number.isFinite(activeReaderChapter) && activeReaderChapter !== chapterIndex;
+      };
       
       if (!this.musicManager) {
         console.warn('⚠️ No music manager available');
-        return;
+        return false;
       }
       
       // Update auto-detected keywords display whenever playlist loads
@@ -271,12 +295,16 @@ export class MusicPanelUI {
           allTracks = await this.musicManager.getAllAvailableTracks();
         }
       }
+
+      if (isStaleRequest()) {
+        return false;
+      }
       
       if (allTracks.length === 0) {
         console.warn('⚠️ No tracks available - check if music is enabled and API key is set');
         this.playlist = [];
         this.renderPlaylist();
-        return;
+        return true;
       }
       
       // Build ordered playlist from recommended tracks
@@ -306,8 +334,10 @@ export class MusicPanelUI {
       // Determine starting track based on current page
       this.currentTrackIndex = this.determineTrackIndexForPage(currentPageInChapter);
       this.renderPlaylist();
+      return true;
     } catch (error) {
       console.error('Error loading playlist:', error);
+      return false;
     }
   }
 

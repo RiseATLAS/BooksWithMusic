@@ -2089,6 +2089,14 @@ export class ReaderUI {
     
     // Emit page change event that music panel can listen to
     if (this.musicManager) {
+      if (typeof this.musicManager.onPageChange === 'function') {
+        Promise.resolve(
+          this.musicManager.onPageChange(this.currentChapterIndex, newPage)
+        ).catch((error) => {
+          console.error('❌ Failed to sync music manager page context:', error);
+        });
+      }
+
       const event = new CustomEvent('reader:pageChanged', {
         detail: {
           chapterIndex: this.currentChapterIndex,

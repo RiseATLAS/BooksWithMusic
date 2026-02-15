@@ -43,6 +43,7 @@ export class SpotifyMusicManager {
     this._trackRetryStateByChapter = {};
     this._trackFetchPromises = {};
     this._chapterContextByIndex = {};
+    this._latestChapterChangeRequestId = 0;
   }
 
   /**
@@ -109,6 +110,7 @@ export class SpotifyMusicManager {
     this._trackRetryStateByChapter = {};
     this._trackFetchPromises = {};
     this._chapterContextByIndex = {};
+    this._latestChapterChangeRequestId = 0;
 
     // Create mappings but don't fetch tracks yet
     // Tracks will be fetched when chapter changes
@@ -676,6 +678,7 @@ export class SpotifyMusicManager {
    */
   async onChapterChange(chapterIndex, currentPageInChapter = 1, chapterShiftPoints = null) {
     console.log(`📖 Chapter changed to ${chapterIndex} (Spotify)`);
+    const requestId = ++this._latestChapterChangeRequestId;
     
     const mapping = this.chapterMappings[chapterIndex];
     if (!mapping) {
@@ -712,6 +715,11 @@ export class SpotifyMusicManager {
     
     // Fetch tracks for current chapter only
     const tracks = await this.getTracksForChapter(chapterIndex);
+
+    // Ignore stale async completions when chapter changes quickly.
+    if (requestId !== this._latestChapterChangeRequestId || this.currentChapterIndex !== chapterIndex) {
+      return;
+    }
     
     // Emit event for UI in the format music-panel expects
     this._emitChapterMusicChanged(chapterIndex, tracks);
