@@ -2058,14 +2058,9 @@ export class ReaderUI {
       return; // User disabled this feature
     }
     
-    // Check if this page is a shift point
-    let shiftInfo = null;
-    if (this.currentChapterShiftPoints && this.currentChapterShiftPoints.shiftPoints) {
-      shiftInfo = this.currentChapterShiftPoints.shiftPoints.find((sp) => {
-        const shiftPage = Number(sp?.pageInChapter ?? sp?.page ?? -1);
-        return Number.isFinite(shiftPage) && shiftPage === newPage;
-      });
-    }
+    // Check if this page is a shift point and normalize transition context.
+    // This keeps first-shift logs consistent with chapter opening mood.
+    const shiftInfo = this._getNormalizedShiftInfoForPage(newPage);
     
     // Emit page change event that music panel can listen to
     if (this.musicManager) {
@@ -2090,6 +2085,52 @@ export class ReaderUI {
       });
       window.dispatchEvent(event);
     }
+  }
+
+  _getNormalizedShiftInfoForPage(pageInChapter) {
+    const shiftPoints = Array.isArray(this.currentChapterShiftPoints?.shiftPoints)
+      ? this.currentChapterShiftPoints.shiftPoints.slice()
+      : [];
+    if (shiftPoints.length === 0) {
+      return null;
+    }
+
+    const sorted = shiftPoints.sort((a, b) => {
+      const pageA = Number(a?.pageInChapter ?? a?.page ?? Number.MAX_SAFE_INTEGER);
+      const pageB = Number(b?.pageInChapter ?? b?.page ?? Number.MAX_SAFE_INTEGER);
+      return pageA - pageB;
+    });
+
+    const targetShift = sorted.find((shift) => {
+      const shiftPage = Number(shift?.pageInChapter ?? shift?.page ?? NaN);
+      return Number.isFinite(shiftPage) && shiftPage === pageInChapter;
+    });
+    if (!targetShift) {
+      return null;
+    }
+
+    const chapterMappingMood = this.musicManager?.getMappingForChapter?.(this.currentChapterIndex)?.mood;
+    const chapterAnalysisMood = this.musicManager?.getChapterAnalysis?.(this.currentChapterIndex)?.primaryMood;
+    let previousMood = chapterMappingMood || chapterAnalysisMood || targetShift.fromMood || targetShift.mood || targetShift.toMood || 'peaceful';
+
+    for (const shift of sorted) {
+      const shiftPage = Number(shift?.pageInChapter ?? shift?.page ?? NaN);
+      if (!Number.isFinite(shiftPage) || shiftPage >= pageInChapter) {
+        break;
+      }
+      previousMood = shift?.toMood || shift?.mood || shift?.fromMood || previousMood;
+    }
+
+    const toMood = targetShift?.toMood || targetShift?.mood || previousMood;
+
+    return {
+      ...targetShift,
+      page: Number(targetShift?.pageInChapter ?? targetShift?.page ?? pageInChapter),
+      pageInChapter: Number(targetShift?.pageInChapter ?? targetShift?.page ?? pageInChapter),
+      fromMood: previousMood,
+      toMood,
+      mood: toMood
+    };
   }
 
   calculateCurrentPageNumber() {

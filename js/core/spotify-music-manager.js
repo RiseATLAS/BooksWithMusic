@@ -764,13 +764,6 @@ export class SpotifyMusicManager {
     const energyChanged = Math.abs((newShift.energy || 3) - (this.lastEnergy || 3)) >= 2;
     
     if (moodChanged || energyChanged) {
-      const shiftPage = Number(newShift?.pageInChapter ?? newShift?.page ?? pageInChapter);
-      console.log(
-        `🎵 Mood shift detected at page ${pageInChapter}` +
-        `${shiftPage !== pageInChapter ? ` (context from page ${shiftPage})` : ''}: ` +
-        `${this.lastMood || 'start'} → ${newShift.mood}`
-      );
-      
       // Fetch new tracks for the new mood if needed
       // For now, we'll just emit the shift event
       this.emit('moodShiftDetected', {

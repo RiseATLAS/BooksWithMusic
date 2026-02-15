@@ -1112,7 +1112,6 @@ export class MusicPanelUI {
     
     // Check if we changed chapters - reset history
     if (this.currentChapter !== chapterIndex) {
-      console.log(`Chapter changed to ${chapterIndex}, resetting page history`);
       this._debugShiftLog('Chapter changed during page event; resetting page track history.', {
         previousChapter: this.currentChapter,
         chapterIndex
