@@ -59,7 +59,6 @@ export class ReaderUI {
     this._underfillReflowAttempts = 0;
     this._autoAdjustingLayout = false;
     this._isRepaginating = false;
-    this._lastLayoutMetricsSignature = '';
     this._lastLayoutUsageLogKey = '';
 
     this._viewportEl = null;
@@ -1684,34 +1683,6 @@ export class ReaderUI {
       fontSize, 
       lineHeight: effectiveLineHeight
     };
-
-    const metricsSignature = [
-      window.innerWidth <= 768 ? 'm' : 'd',
-      Math.round(textWidth),
-      Math.round(availableHeight),
-      dimensions.maxLinesPerPage,
-      Math.round(effectiveLineHeight),
-      Math.round(linePackingBiasPx),
-      Math.round(this._layoutSafetyPaddingPx)
-    ].join('|');
-
-    if (metricsSignature !== this._lastLayoutMetricsSignature) {
-      this._lastLayoutMetricsSignature = metricsSignature;
-      const lineGridUsedHeightPx = dimensions.maxLinesPerPage * effectiveLineHeight;
-      this._logLayout('Layout dimensions', {
-        textWidthPx: Math.round(textWidth),
-        availableHeightPx: Math.round(availableHeight),
-        maxLinesPerPage: dimensions.maxLinesPerPage,
-        lineHeightPx: Number(effectiveLineHeight.toFixed(2)),
-        lineGridUsedHeightPx: Math.round(lineGridUsedHeightPx),
-        lineGridFillPercent: Number(
-          (lineGridUsedHeightPx / Math.max(1, availableHeight) * 100).toFixed(1)
-        ),
-        lineGridRemainderPx: Math.round(Math.max(0, availableHeight - lineGridUsedHeightPx)),
-        linePackingBiasPx: Number(linePackingBiasPx.toFixed(2)),
-        safetyPaddingPx: Math.round(this._layoutSafetyPaddingPx)
-      });
-    }
 
     return dimensions;
   }
