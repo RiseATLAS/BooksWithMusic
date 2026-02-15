@@ -810,6 +810,14 @@ export class ReaderUI {
           }
         }
       } else {
+        // Outside fullscreen, controls should always be visible.
+        if (controls) {
+          controls.classList.remove('mobile-controls-hidden');
+        }
+        if (pageIndicator) {
+          pageIndicator.classList.remove('mobile-controls-hidden');
+        }
+
         // EXITING fullscreen - restore page indicator
         if (pageIndicator) {
           pageIndicator.style.display = '';
@@ -1016,7 +1024,8 @@ export class ReaderUI {
               // iOS: Only toggle controls visibility (no fullscreen support)
               this.toggleControlsVisibility();
             } else {
-              // Android: Toggle fullscreen AND controls visibility
+              // Android: Enter/exit fullscreen.
+              // Only toggle controls manually while already in fullscreen.
               if (!document.fullscreenElement) {
                 // Enter fullscreen
                 document.documentElement.requestFullscreen().catch(err => {
@@ -1027,9 +1036,8 @@ export class ReaderUI {
                 document.exitFullscreen().catch(err => {
                   console.warn('Could not exit fullscreen:', err);
                 });
+                this.toggleControlsVisibility();
               }
-              // Also toggle controls visibility
-              this.toggleControlsVisibility();
             }
             return;
           }
