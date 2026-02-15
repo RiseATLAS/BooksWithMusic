@@ -18,6 +18,7 @@ export class MusicPanelUI {
     // Playlist state
     this.playlist = [];
     this.currentTrackIndex = 0;
+    this.playlistChapterIndex = null;
     this.currentShiftPoints = []; // Track mood shift points in current chapter
     this.pageTrackHistory = new Map(); // Track which track was playing at each page
     this.currentChapter = null;
@@ -221,6 +222,7 @@ export class MusicPanelUI {
       if (Number.isFinite(activeReaderChapter) && activeReaderChapter !== data.chapterIndex) {
         return;
       }
+      const effectivePageInChapter = Number(reader?.currentPageInChapter) || data.currentPageInChapter || 1;
 
       const requestToken = ++this._chapterLoadRequestToken;
       
@@ -235,7 +237,7 @@ export class MusicPanelUI {
       const playlistApplied = await this.loadPlaylistForChapter(
         data.chapterIndex,
         data.recommendedTracks,
-        data.currentPageInChapter || 1,
+        effectivePageInChapter,
         { requestToken }
       );
       if (!playlistApplied || requestToken !== this._chapterLoadRequestToken) {
@@ -251,7 +253,7 @@ export class MusicPanelUI {
         const mappedTrackIndex = Math.max(0, Math.min(this.currentTrackIndex, this.playlist.length - 1));
         this._debugShiftLog('Applying deferred playback sync after chapter tracks loaded.', {
           chapterIndex: data.chapterIndex,
-          currentPageInChapter: data.currentPageInChapter || 1,
+          currentPageInChapter: effectivePageInChapter,
           mappedTrackIndex,
           playlistSize: this.playlist.length
         });
@@ -274,7 +276,7 @@ export class MusicPanelUI {
       } else if (autoPlay && this.playlist.length > 0) {
         // Auto-play the appropriate track for the current page
         // (We just loaded a new playlist for this chapter, so start it regardless of previous playing state)
-        const startTrackIndex = this.determineTrackIndexForPage(data.currentPageInChapter || 1);
+        const startTrackIndex = this.determineTrackIndexForPage(effectivePageInChapter);
         setTimeout(async () => {
           await this.playTrack(startTrackIndex);
         }, 500);
@@ -324,6 +326,7 @@ export class MusicPanelUI {
       if (allTracks.length === 0) {
         console.warn('⚠️ No tracks available - check if music is enabled and API key is set');
         this.playlist = [];
+        this.playlistChapterIndex = chapterIndex;
         this.renderPlaylist();
         return true;
       }
@@ -353,6 +356,7 @@ export class MusicPanelUI {
       }
       
       // Determine starting track based on current page
+      this.playlistChapterIndex = chapterIndex;
       this.currentTrackIndex = this.determineTrackIndexForPage(currentPageInChapter);
       this._pendingSpotifySwitch = null;
       this._debugShiftLog('Applied chapter shift map to playlist.', {
@@ -1076,6 +1080,19 @@ export class MusicPanelUI {
     // Store shift points for display
     this.currentShiftPoints = this._normalizeShiftPoints(allShiftPoints || []);
     this.updateNextShiftDisplay(newPage);
+
+    const playlistReadyForChapter = this.playlistChapterIndex === chapterIndex && this.playlist.length > 0;
+    if (this.currentMusicSource === 'spotify' && !playlistReadyForChapter) {
+      this._debugShiftLog('Skipping page-based switch while chapter playlist is still loading.', {
+        chapterIndex,
+        oldPage,
+        newPage,
+        playlistChapterIndex: this.playlistChapterIndex,
+        playlistSize: this.playlist.length
+      });
+      this.pageTrackHistory.set(newPage, this.currentTrackIndex);
+      return;
+    }
     
     // Determine direction
     const isForward = newPage > oldPage;
@@ -2009,6 +2026,7 @@ export class MusicPanelUI {
     this._hasPlaybackStarted = false;
     this._userPausedPlayback = false;
     this._pendingSpotifySwitch = null;
+    this.playlistChapterIndex = null;
     this._syncSourceDependentControls();
     this.updatePlaybackSourceStatus();
 
