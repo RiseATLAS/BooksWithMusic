@@ -28,6 +28,8 @@ export class MusicPanelUI {
     this.lastKnownPlayState = false; // Source-agnostic UI play state cache
     this.spotifyPlayerListenersBound = false;
     this.currentVolume = 0.7;
+    this._hasPlaybackStarted = false;
+    this._userPausedPlayback = false;
   }
 
   /**
@@ -1085,9 +1087,15 @@ export class MusicPanelUI {
       
       // Advance to whichever track should be active for this page.
       const wasPlaying = await this.isCurrentlyPlayingLive();
-      this._debugShiftLog('Playback state resolved before shift switch.', { wasPlaying });
+      const forceShiftPlayback = this._shouldForceShiftPlayback();
+      const shouldPlay = wasPlaying || forceShiftPlayback;
+      this._debugShiftLog('Playback state resolved before shift switch.', {
+        wasPlaying,
+        forceShiftPlayback,
+        shouldPlay
+      });
       const desiredIndex = Math.max(this.currentTrackIndex + 1, targetTrackIndex);
-      await this._switchToTrackIndex(desiredIndex, wasPlaying, { reason: 'explicit-shift' });
+      await this._switchToTrackIndex(desiredIndex, shouldPlay, { reason: 'explicit-shift' });
       this._debugShiftLog('Shift switch completed.', { resultingTrackIndex: this.currentTrackIndex });
       
       // Record new page with new track
@@ -1495,6 +1503,8 @@ export class MusicPanelUI {
     // Play audio with appropriate player based on music source
     try {
       await this.playTrackWithCurrentSource(track);
+      this._hasPlaybackStarted = true;
+      this._userPausedPlayback = false;
     } catch (error) {
       console.error('❌ Error playing track:', error);
       console.log('⏭️ Skipping to next track...');
@@ -1564,6 +1574,7 @@ export class MusicPanelUI {
         // Currently playing - pause it
         console.log('Pausing current track...');
         await this.pauseCurrentSource();
+        this._userPausedPlayback = true;
         this.updatePlayPauseButton(false);
       } else {
         // Not playing - need to start or resume
@@ -1584,6 +1595,8 @@ export class MusicPanelUI {
           // Resume previously paused track
           console.log('Resuming paused track...');
           await this.resumeCurrentSource();
+          this._userPausedPlayback = false;
+          this._hasPlaybackStarted = true;
           this.updatePlayPauseButton(true);
         } else {
           // Start playing from current track index (fresh playback)
@@ -1940,6 +1953,8 @@ export class MusicPanelUI {
   async switchMusicSource(source) {
     this.currentMusicSource = source;
     localStorage.setItem('music_source', source);
+    this._hasPlaybackStarted = false;
+    this._userPausedPlayback = false;
     this._syncSourceDependentControls();
     this.updatePlaybackSourceStatus();
 
@@ -2249,6 +2264,21 @@ export class MusicPanelUI {
   }
 
   /**
+   * Decide when shift switches should still play even if SDK polling returns
+   * a temporary false/null state.
+   * @private
+   */
+  _shouldForceShiftPlayback() {
+    if (this.currentMusicSource !== 'spotify') {
+      return false;
+    }
+    if (!this._hasPlaybackStarted || this._userPausedPlayback) {
+      return false;
+    }
+    return Boolean(this.spotifyPlayer?.deviceId || this.spotifyPlayer?.currentTrack);
+  }
+
+  /**
    * Pause playback from the current source
    * @returns {Promise<void>}
    */
@@ -2258,6 +2288,7 @@ export class MusicPanelUI {
     } else {
       this.audioPlayer.pause();
     }
+    this._userPausedPlayback = true;
   }
 
   /**
@@ -2270,5 +2301,7 @@ export class MusicPanelUI {
     } else {
       await this.audioPlayer.resume();
     }
+    this._userPausedPlayback = false;
+    this._hasPlaybackStarted = true;
   }
 }
