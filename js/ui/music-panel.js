@@ -241,6 +241,23 @@ export class MusicPanelUI {
       if (!playlistApplied || requestToken !== this._chapterLoadRequestToken) {
         return;
       }
+
+      // If tracks arrived late while the user was already listening, immediately
+      // sync playback to the track that matches the CURRENT page in this chapter.
+      const shouldResumeWithMappedTrack = this.currentMusicSource === 'spotify' &&
+        this.playlist.length > 0 &&
+        (await this.isCurrentlyPlayingLive());
+      if (shouldResumeWithMappedTrack) {
+        const mappedTrackIndex = Math.max(0, Math.min(this.currentTrackIndex, this.playlist.length - 1));
+        this._debugShiftLog('Applying deferred playback sync after chapter tracks loaded.', {
+          chapterIndex: data.chapterIndex,
+          currentPageInChapter: data.currentPageInChapter || 1,
+          mappedTrackIndex,
+          playlistSize: this.playlist.length
+        });
+        await this.playTrack(mappedTrackIndex);
+        return;
+      }
       
       // Check if auto-play enabled (default FALSE - requires API key)
       const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
