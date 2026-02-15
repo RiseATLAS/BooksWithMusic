@@ -30,6 +30,8 @@ export class MusicPanelUI {
     this.currentVolume = 0.7;
     this._hasPlaybackStarted = false;
     this._userPausedPlayback = false;
+    this._pendingSpotifySwitch = null;
+    this._pendingSpotifySwitchTtlMs = 6000;
   }
 
   /**
@@ -335,6 +337,7 @@ export class MusicPanelUI {
       
       // Determine starting track based on current page
       this.currentTrackIndex = this.determineTrackIndexForPage(currentPageInChapter);
+      this._pendingSpotifySwitch = null;
       this._debugShiftLog('Applied chapter shift map to playlist.', {
         chapterIndex,
         currentPageInChapter,
@@ -1988,6 +1991,7 @@ export class MusicPanelUI {
     localStorage.setItem('music_source', source);
     this._hasPlaybackStarted = false;
     this._userPausedPlayback = false;
+    this._pendingSpotifySwitch = null;
     this._syncSourceDependentControls();
     this.updatePlaybackSourceStatus();
 
@@ -2143,10 +2147,41 @@ export class MusicPanelUI {
       if (this.currentMusicSource !== 'spotify') return;
 
       const uri = spotifyTrack?.uri;
+      const pending = this._pendingSpotifySwitch;
+      const pendingFresh = Boolean(
+        pending &&
+        (Date.now() - pending.createdAt) <= this._pendingSpotifySwitchTtlMs
+      );
+      if (pending && !pendingFresh) {
+        this._pendingSpotifySwitch = null;
+      }
+
+      // Spotify can briefly emit the previous track right after a manual switch.
+      // Ignore those stale events so playlist highlighting doesn't snap backward.
+      if (pendingFresh && uri && pending?.uri && uri !== pending.uri) {
+        this._debugShiftLog('Ignoring stale Spotify trackChanged during pending switch.', {
+          pendingUri: pending.uri,
+          receivedUri: uri,
+          pendingIndex: pending.index,
+          currentTrackIndex: this.currentTrackIndex
+        });
+        return;
+      }
+
+      if (pendingFresh && uri && pending?.uri && uri === pending.uri) {
+        this._debugShiftLog('Pending Spotify switch confirmed by SDK state.', {
+          uri,
+          index: pending.index
+        });
+        this._pendingSpotifySwitch = null;
+      }
+
       if (uri && Array.isArray(this.playlist) && this.playlist.length > 0) {
         const matchedIndex = this.playlist.findIndex(track => (track.spotifyUri || track.uri) === uri);
         if (matchedIndex >= 0) {
           this.currentTrackIndex = matchedIndex;
+        } else if (pendingFresh && pending?.uri === uri && Number.isInteger(pending.index)) {
+          this.currentTrackIndex = pending.index;
         }
       }
       this.renderPlaylist();
@@ -2154,6 +2189,7 @@ export class MusicPanelUI {
 
     this.spotifyPlayer.on('error', (error) => {
       if (this.currentMusicSource !== 'spotify') return;
+      this._pendingSpotifySwitch = null;
       this.updatePlayPauseButton(false);
       const message = error?.message || 'playback issue';
       this.updatePlaybackSourceStatus(`Spotify selected - ${message}`, 'error');
@@ -2217,6 +2253,13 @@ export class MusicPanelUI {
 
       // Play the track using Spotify Connect API
       const trackUri = track.spotifyUri || track.uri;
+      if (trackUri) {
+        this._pendingSpotifySwitch = {
+          uri: trackUri,
+          index: this.currentTrackIndex,
+          createdAt: Date.now()
+        };
+      }
       this._debugShiftLog('Sending Spotify play command.', {
         trackTitle: track?.title,
         trackUri,
@@ -2230,6 +2273,7 @@ export class MusicPanelUI {
       // Optional: Log for analytics only if user wants
       // Note: Skipping logging to avoid Firestore permission errors
     } catch (error) {
+      this._pendingSpotifySwitch = null;
       console.error('❌ Error playing Spotify track:', error);
       throw error;
     }
