@@ -718,9 +718,10 @@ export class SpotifyMusicManager {
       chapterShiftPoints: chapterShiftPoints || { shiftPoints: mapping?.shiftPoints || [] }
     };
     this.currentTrackIndex = 0;
-    this.lastMood = null;
-    this.lastEnergy = null;
-    this.lastKeywords = [];
+    const initialShift = this._getCurrentShiftPoint(chapterIndex, this.currentPageInChapter);
+    this.lastMood = initialShift?.mood || mapping?.mood || null;
+    this.lastEnergy = initialShift?.energy || mapping?.energy || null;
+    this.lastKeywords = initialShift?.keywords || mapping?.keywords || [];
     
     // Fetch tracks for current chapter only
     const tracks = await this.getTracksForChapter(chapterIndex);
@@ -758,7 +759,12 @@ export class SpotifyMusicManager {
     const energyChanged = Math.abs((newShift.energy || 3) - (this.lastEnergy || 3)) >= 2;
     
     if (moodChanged || energyChanged) {
-      console.log(`🎵 Mood shift detected at page ${pageInChapter}: ${this.lastMood || 'start'} → ${newShift.mood}`);
+      const shiftPage = Number(newShift?.pageInChapter ?? newShift?.page ?? pageInChapter);
+      console.log(
+        `🎵 Mood shift detected at page ${pageInChapter}` +
+        `${shiftPage !== pageInChapter ? ` (context from page ${shiftPage})` : ''}: ` +
+        `${this.lastMood || 'start'} → ${newShift.mood}`
+      );
       
       // Fetch new tracks for the new mood if needed
       // For now, we'll just emit the shift event
