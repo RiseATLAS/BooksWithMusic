@@ -1309,12 +1309,16 @@ export class MoodProcessor {
       shiftScore = 0;
     }
 
+    // Keep chapter music responsive: require a meaningful change, but avoid an
+    // overly strict threshold that produces zero shifts in long chapters.
+    const SHIFT_SCORE_THRESHOLD = 35;
+
     return {
       pageMood,
       currentMood,
       shiftScore,
       moodStrength,
-      shouldShift: shiftScore >= 50, // Threshold for music change
+      shouldShift: shiftScore >= SHIFT_SCORE_THRESHOLD,
       confidence: Math.min(100, moodStrength * 10)
     };
   }

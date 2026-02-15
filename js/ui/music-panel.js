@@ -1060,6 +1060,8 @@ export class MusicPanelUI {
   }
   
   async handleForwardNavigation(newPage, oldPage, shiftInfo) {
+    const targetTrackIndex = this.determineTrackIndexForPage(newPage);
+
     // Check if this page is a designated shift point (based on content analysis)
     if (shiftInfo && this.playlist && this.playlist.length > 1) {
       console.log(`📄 Mood shift | Page ${newPage} | ${shiftInfo.fromMood} → ${shiftInfo.toMood} | Confidence: ${shiftInfo.confidence}% | Score: ${shiftInfo.shiftScore}`);
@@ -1081,10 +1083,11 @@ export class MusicPanelUI {
       // Record current page with track before advancing
       this.pageTrackHistory.set(oldPage, this.currentTrackIndex);
       
-      // Advance to next track (will switch track or just update UI if not playing)
+      // Advance to whichever track should be active for this page.
       const wasPlaying = await this.isCurrentlyPlayingLive();
       this._debugShiftLog('Playback state resolved before shift switch.', { wasPlaying });
-      await this.nextTrack(wasPlaying);
+      const desiredIndex = Math.max(this.currentTrackIndex + 1, targetTrackIndex);
+      await this._switchToTrackIndex(desiredIndex, wasPlaying, { reason: 'explicit-shift' });
       this._debugShiftLog('Shift switch completed.', { resultingTrackIndex: this.currentTrackIndex });
       
       // Record new page with new track
@@ -1103,6 +1106,37 @@ export class MusicPanelUI {
       // Update UI to highlight current track
       this.renderPlaylist();
     }
+  }
+
+  async _switchToTrackIndex(targetTrackIndex, shouldPlay, { reason = 'unspecified' } = {}) {
+    if (!this.playlist || this.playlist.length === 0) {
+      this._debugShiftLog('switchToTrackIndex aborted: empty playlist.', { reason });
+      return;
+    }
+
+    const safeIndex = Math.max(0, Math.min(targetTrackIndex, this.playlist.length - 1));
+    if (safeIndex === this.currentTrackIndex) {
+      this._debugShiftLog('switchToTrackIndex skipped: already at target index.', {
+        reason,
+        targetTrackIndex: safeIndex
+      });
+      return;
+    }
+
+    this._debugShiftLog('switchToTrackIndex executing.', {
+      reason,
+      fromIndex: this.currentTrackIndex,
+      toIndex: safeIndex,
+      shouldPlay
+    });
+
+    if (shouldPlay) {
+      await this.playTrack(safeIndex);
+      return;
+    }
+
+    this.currentTrackIndex = safeIndex;
+    this.renderPlaylist();
   }
   
   async handleBackwardNavigation(newPage, oldPage) {
