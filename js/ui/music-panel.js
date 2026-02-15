@@ -1007,14 +1007,34 @@ export class MusicPanelUI {
     const pageBasedMusicSwitch = settings.pageBasedMusicSwitch !== false; // Default true
     
     if (!pageBasedMusicSwitch) {
+      this._debugShiftLog('Page-based switching disabled; skipping event.', {
+        chapterIndex: detail?.chapterIndex,
+        oldPage: detail?.oldPage,
+        newPage: detail?.newPage
+      });
       return; // Feature disabled
     }
     
     const { newPage, oldPage, shiftInfo, allShiftPoints, chapterIndex } = detail;
+    this._debugShiftLog('reader:pageChanged received.', {
+      chapterIndex,
+      oldPage,
+      newPage,
+      hasShiftInfo: Boolean(shiftInfo),
+      shiftPage: Number(shiftInfo?.pageInChapter ?? shiftInfo?.page ?? NaN),
+      playlistSize: this.playlist?.length || 0,
+      currentTrackIndex: this.currentTrackIndex,
+      source: this.currentMusicSource,
+      lastKnownPlayState: this.lastKnownPlayState
+    });
     
     // Check if we changed chapters - reset history
     if (this.currentChapter !== chapterIndex) {
       console.log(`Chapter changed to ${chapterIndex}, resetting page history`);
+      this._debugShiftLog('Chapter changed during page event; resetting page track history.', {
+        previousChapter: this.currentChapter,
+        chapterIndex
+      });
       this.currentChapter = chapterIndex;
       this.pageTrackHistory.clear();
       this.pageTrackHistory.set(1, 0); // Start at first track
@@ -1046,18 +1066,39 @@ export class MusicPanelUI {
       const fromMood = shiftInfo.fromMood || 'current mood';
       const toMood = shiftInfo.toMood || shiftInfo.mood || 'next mood';
       this.showToast(`🎵 Song change: ${fromMood} → ${toMood} (page ${newPage})`, 'info');
+      this._debugShiftLog('Forward mood shift detected; preparing switch.', {
+        chapter: this.currentChapter,
+        oldPage,
+        newPage,
+        fromMood,
+        toMood,
+        shiftScore: shiftInfo?.shiftScore,
+        confidence: shiftInfo?.confidence,
+        currentTrackIndex: this.currentTrackIndex,
+        playlistSize: this.playlist.length
+      });
       
       // Record current page with track before advancing
       this.pageTrackHistory.set(oldPage, this.currentTrackIndex);
       
       // Advance to next track (will switch track or just update UI if not playing)
       const wasPlaying = await this.isCurrentlyPlayingLive();
+      this._debugShiftLog('Playback state resolved before shift switch.', { wasPlaying });
       await this.nextTrack(wasPlaying);
+      this._debugShiftLog('Shift switch completed.', { resultingTrackIndex: this.currentTrackIndex });
       
       // Record new page with new track
       this.pageTrackHistory.set(newPage, this.currentTrackIndex);
     } else {
       // No shift, just record current page with current track
+      this._debugShiftLog('No forward switch triggered.', {
+        reason: !shiftInfo ? 'no-shift-info' : 'playlist-too-short',
+        chapter: this.currentChapter,
+        oldPage,
+        newPage,
+        playlistSize: this.playlist?.length || 0,
+        currentTrackIndex: this.currentTrackIndex
+      });
       this.pageTrackHistory.set(newPage, this.currentTrackIndex);
       // Update UI to highlight current track
       this.renderPlaylist();
@@ -1379,13 +1420,25 @@ export class MusicPanelUI {
   }
 
   async playTrack(index) {
+    this._debugShiftLog('playTrack requested.', {
+      index,
+      currentTrackIndex: this.currentTrackIndex,
+      playlistSize: this.playlist?.length || 0,
+      source: this.currentMusicSource
+    });
+
     if (!this.playlist || this.playlist.length === 0) {
       console.warn('No tracks in playlist');
+      this._debugShiftLog('playTrack aborted: empty playlist.');
       return;
     }
     
     if (index < 0 || index >= this.playlist.length) {
       console.warn('Invalid track index:', index);
+      this._debugShiftLog('playTrack aborted: invalid index.', {
+        index,
+        playlistSize: this.playlist.length
+      });
       return;
     }
 
@@ -1394,6 +1447,11 @@ export class MusicPanelUI {
     
     if (!track || !track.url) {
       console.error('Invalid track at index:', index);
+      this._debugShiftLog('playTrack aborted: invalid track object.', {
+        index,
+        hasTrack: Boolean(track),
+        hasUrl: Boolean(track?.url)
+      });
       return;
     }
 
@@ -1542,17 +1600,31 @@ export class MusicPanelUI {
 
   async nextTrack(shouldPlay = true) {
     if (!this.playlist || this.playlist.length === 0) {
+      this._debugShiftLog('nextTrack aborted: empty playlist.');
       return;
     }
     const newIndex = this.currentTrackIndex + 1;
     if (newIndex < this.playlist.length) {
       if (shouldPlay) {
+        this._debugShiftLog('nextTrack will trigger playback of next track.', {
+          fromIndex: this.currentTrackIndex,
+          toIndex: newIndex
+        });
         return await this.playTrack(newIndex);
       } else {
         // Just update the index and UI, don't play
+        this._debugShiftLog('nextTrack updated index only (playback is currently paused).', {
+          fromIndex: this.currentTrackIndex,
+          toIndex: newIndex
+        });
         this.currentTrackIndex = newIndex;
         this.renderPlaylist();
       }
+    } else {
+      this._debugShiftLog('nextTrack reached end of playlist; no advance possible.', {
+        currentTrackIndex: this.currentTrackIndex,
+        playlistSize: this.playlist.length
+      });
     }
   }
 
@@ -2057,11 +2129,17 @@ export class MusicPanelUI {
     try {
       // Ensure Spotify player is initialized (lazy-load if needed)
       if (!this.spotifyPlayer) {
+        this._debugShiftLog('Spotify player not initialized; initializing now.');
         await this.initializeSpotifyPlayer();
       }
 
       // Play the track using Spotify Connect API
       const trackUri = track.spotifyUri || track.uri;
+      this._debugShiftLog('Sending Spotify play command.', {
+        trackTitle: track?.title,
+        trackUri,
+        deviceId: this.spotifyPlayer?.deviceId || null
+      });
       await this.spotifyPlayer.play(trackUri);
       this.updatePlayPauseButton(true);
       console.log('🎵 Now playing (Spotify):', track.title);
@@ -2103,14 +2181,37 @@ export class MusicPanelUI {
         if (state) {
           const playing = !state.paused;
           this.lastKnownPlayState = playing;
+          this._debugShiftLog('Spotify live playback state resolved.', {
+            paused: state.paused,
+            positionMs: state.position,
+            playing
+          });
           return playing;
         }
+        this._debugShiftLog('Spotify live playback state is null; falling back.');
       } catch (error) {
         console.error('❌ Failed to read Spotify live playback state:', error);
       }
     }
 
+    this._debugShiftLog('Using cached playback-state fallback.', {
+      source: this.currentMusicSource,
+      fallbackPlaying: this.isCurrentlyPlaying()
+    });
     return this.isCurrentlyPlaying();
+  }
+
+  /**
+   * Debug logger for shift/playback flow.
+   * Uses console.error so logs remain visible while non-error logs are suppressed globally.
+   * @private
+   */
+  _debugShiftLog(message, payload = null) {
+    if (payload && typeof payload === 'object') {
+      console.error(`🎵[ShiftDebug] ${message}`, payload);
+      return;
+    }
+    console.error(`🎵[ShiftDebug] ${message}`);
   }
 
   /**
