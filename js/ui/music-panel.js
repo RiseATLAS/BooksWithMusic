@@ -368,6 +368,7 @@ export class MusicPanelUI {
           .map((shift) => Number(shift?.pageInChapter ?? shift?.page ?? NaN))
           .filter((page) => Number.isFinite(page))
       });
+      this._logPlaylistAssignmentMap(chapterIndex, currentPageInChapter);
       this.renderPlaylist();
       return true;
     } catch (error) {
@@ -1924,6 +1925,55 @@ export class MusicPanelUI {
         const pageB = Number(b?.pageInChapter ?? b?.page ?? Number.MAX_SAFE_INTEGER);
         return pageA - pageB;
       });
+  }
+
+  /**
+   * Log chapter playlist assignment map so long-running page shifts can be verified.
+   * @private
+   */
+  _logPlaylistAssignmentMap(chapterIndex, currentPageInChapter) {
+    if (!Array.isArray(this.playlist) || this.playlist.length === 0) {
+      return;
+    }
+
+    const shiftPages = this._normalizeShiftPoints(this.currentShiftPoints || [])
+      .map((shift) => Number(shift?.pageInChapter ?? shift?.page ?? NaN))
+      .filter((page) => Number.isFinite(page) && page > 1);
+    const totalPages = Number(window.app?.reader?.pagesPerChapter?.[chapterIndex]) || null;
+    const overflowShiftCount = Math.max(0, shiftPages.length - (this.playlist.length - 1));
+
+    console.log(
+      `🎼 Playlist assignment | chapter=${chapterIndex + 1} | tracks=${this.playlist.length} | ` +
+      `shiftPoints=${shiftPages.length} | currentPage=${currentPageInChapter} | startTrack=${this.currentTrackIndex}`
+    );
+    if (overflowShiftCount > 0) {
+      console.warn(
+        `⚠️ Shift saturation: ${overflowShiftCount} extra shift point(s) beyond available tracks in chapter ${chapterIndex + 1}.`
+      );
+    }
+
+    const rows = this.playlist.map((track, index) => {
+      const startPage = index === 0 ? 1 : (shiftPages[index - 1] || shiftPages[shiftPages.length - 1] || 1);
+      const nextShiftPage = shiftPages[index];
+      const endPage = Number.isFinite(nextShiftPage)
+        ? Math.max(startPage, nextShiftPage - 1)
+        : (totalPages || 'end');
+      const title = String(track?.title || 'Unknown').slice(0, 48);
+      return {
+        track: index,
+        pageFrom: startPage,
+        pageTo: endPage,
+        targetPage: Number(track?.targetPage) || '',
+        targetMood: track?.targetMood || '',
+        title
+      };
+    });
+
+    if (console.table) {
+      console.table(rows);
+    } else {
+      console.log(rows);
+    }
   }
 
   formatDuration(seconds) {

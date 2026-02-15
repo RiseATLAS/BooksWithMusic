@@ -212,6 +212,7 @@ export class ReaderUI {
 
   _logPageUsage(tag, metrics, extra = {}) {
     if (!this._isLayoutDebugEnabled() || !metrics) return;
+    if (tag === 'render') return;
     const signature = [
       tag,
       this.currentChapterIndex,
