@@ -1033,11 +1033,13 @@ export class MusicPanelUI {
       this.handleBackwardNavigation(newPage, oldPage);
     } else if (isForward) {
       // Going forward - check if we should advance to next track
-      this.handleForwardNavigation(newPage, oldPage, shiftInfo);
+      this.handleForwardNavigation(newPage, oldPage, shiftInfo).catch((error) => {
+        console.error('❌ Failed to process forward music navigation:', error);
+      });
     }
   }
   
-  handleForwardNavigation(newPage, oldPage, shiftInfo) {
+  async handleForwardNavigation(newPage, oldPage, shiftInfo) {
     // Check if this page is a designated shift point (based on content analysis)
     if (shiftInfo && this.playlist && this.playlist.length > 1) {
       console.log(`📄 Mood shift | Page ${newPage} | ${shiftInfo.fromMood} → ${shiftInfo.toMood} | Confidence: ${shiftInfo.confidence}% | Score: ${shiftInfo.shiftScore}`);
@@ -1049,8 +1051,8 @@ export class MusicPanelUI {
       this.pageTrackHistory.set(oldPage, this.currentTrackIndex);
       
       // Advance to next track (will switch track or just update UI if not playing)
-      const wasPlaying = this.isCurrentlyPlaying();
-      this.nextTrack(wasPlaying);
+      const wasPlaying = await this.isCurrentlyPlayingLive();
+      await this.nextTrack(wasPlaying);
       
       // Record new page with new track
       this.pageTrackHistory.set(newPage, this.currentTrackIndex);
@@ -1070,7 +1072,7 @@ export class MusicPanelUI {
       // If different from current track, switch back (update UI and play if music was playing)
       if (historicalTrackIndex !== this.currentTrackIndex && this.playlist.length > 0) {
         console.log(`⏮️ Restore | Page ${newPage} | Track ${this.currentTrackIndex} → ${historicalTrackIndex}`);
-        const wasPlaying = this.isCurrentlyPlaying();
+        const wasPlaying = await this.isCurrentlyPlayingLive();
         
         // Update track index and UI
         this.currentTrackIndex = historicalTrackIndex;
@@ -1091,7 +1093,7 @@ export class MusicPanelUI {
       if (crossedShiftPoint && this.currentTrackIndex > 0) {
         const shiftPage = Number(crossedShiftPoint?.pageInChapter ?? crossedShiftPoint?.page ?? newPage);
         console.log(`⏮️ Backward shift | Page ${newPage} | Shift at ${shiftPage} | ${crossedShiftPoint.toMood} → ${crossedShiftPoint.fromMood}`);
-        const wasPlaying = this.isCurrentlyPlaying();
+        const wasPlaying = await this.isCurrentlyPlayingLive();
         await this.previousTrack(wasPlaying);
       }
     }
@@ -1524,44 +1526,28 @@ export class MusicPanelUI {
     this.updatePlaybackSourceStatus();
   }
 
-  previousTrack(shouldPlay = true) {
+  async previousTrack(shouldPlay = true) {
     if (!this.playlist || this.playlist.length === 0) {
       return;
     }
     const newIndex = this.currentTrackIndex - 1;
     if (newIndex >= 0) {
       if (shouldPlay) {
-        return this.playTrack(newIndex);
+        return await this.playTrack(newIndex);
       }
       this.currentTrackIndex = newIndex;
       this.renderPlaylist();
     }
   }
 
-  nextTrack(shouldPlay = true) {
+  async nextTrack(shouldPlay = true) {
     if (!this.playlist || this.playlist.length === 0) {
       return;
     }
     const newIndex = this.currentTrackIndex + 1;
     if (newIndex < this.playlist.length) {
       if (shouldPlay) {
-        this.playTrack(newIndex);
-      } else {
-        // Just update the index and UI, don't play
-        this.currentTrackIndex = newIndex;
-        this.renderPlaylist();
-      }
-    }
-  }
-
-  previousTrack(shouldPlay = true) {
-    if (!this.playlist || this.playlist.length === 0) {
-      return;
-    }
-    const newIndex = this.currentTrackIndex - 1;
-    if (newIndex >= 0) {
-      if (shouldPlay) {
-        this.playTrack(newIndex);
+        return await this.playTrack(newIndex);
       } else {
         // Just update the index and UI, don't play
         this.currentTrackIndex = newIndex;
@@ -2095,10 +2081,36 @@ export class MusicPanelUI {
    */
   isCurrentlyPlaying() {
     if (this.currentMusicSource === 'spotify') {
+      const sdkPlaying = this.spotifyPlayer?.isPlaying?.();
+      if (typeof sdkPlaying === 'boolean') {
+        return sdkPlaying || this.lastKnownPlayState;
+      }
       return this.lastKnownPlayState;
     } else {
       return this.audioPlayer?.isPlaying() || false;
     }
+  }
+
+  /**
+   * Prefer live player state for shift decisions (especially Spotify).
+   * Falls back to cached state when live polling isn't available.
+   * @returns {Promise<boolean>}
+   */
+  async isCurrentlyPlayingLive() {
+    if (this.currentMusicSource === 'spotify' && this.spotifyPlayer?.getState) {
+      try {
+        const state = await this.spotifyPlayer.getState();
+        if (state) {
+          const playing = !state.paused;
+          this.lastKnownPlayState = playing;
+          return playing;
+        }
+      } catch (error) {
+        console.error('❌ Failed to read Spotify live playback state:', error);
+      }
+    }
+
+    return this.isCurrentlyPlaying();
   }
 
   /**
