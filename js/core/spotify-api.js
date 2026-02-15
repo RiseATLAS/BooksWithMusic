@@ -92,6 +92,29 @@ export class SpotifyAPI {
   }
 
   /**
+   * Resolve Spotify search market.
+   * Defaults to US to avoid over-localized catalog bias from account country.
+   * Set `spotifySearchMarket` to `AUTO` in settings to let Spotify decide.
+   * @private
+   */
+  _getPreferredSearchMarket(settings = null) {
+    const effectiveSettings = settings || this._getSettings();
+    const rawMarket = String(
+      effectiveSettings.spotifySearchMarket ||
+      effectiveSettings.spotifyMarket ||
+      'US'
+    )
+      .trim()
+      .toUpperCase();
+
+    if (rawMarket === 'AUTO') {
+      return '';
+    }
+
+    return /^[A-Z]{2}$/.test(rawMarket) ? rawMarket : 'US';
+  }
+
+  /**
    * Check if verbose logging is enabled in UI settings.
    * @private
    */
@@ -233,12 +256,20 @@ export class SpotifyAPI {
     const query = keywords.join(' ');
     let searchQuery = `track:${query}`;
     const safeLimit = Math.max(1, Math.min(20, Math.floor(limit) || 10));
+    const market = this._getPreferredSearchMarket(this._getSettings());
     
     if (instrumentalOnly) {
       searchQuery += ' genre:instrumental OR genre:ambient OR genre:classical';
     }
 
-    const endpoint = `/search?q=${encodeURIComponent(searchQuery)}&type=track`;
+    const params = new URLSearchParams({
+      q: searchQuery,
+      type: 'track'
+    });
+    if (market) {
+      params.set('market', market);
+    }
+    const endpoint = `/search?${params.toString()}`;
 
     try {
       const data = await this._makeRequest(endpoint);
@@ -300,6 +331,7 @@ export class SpotifyAPI {
     const preferCinematicScores = settings.preferCinematicScores === true;
     const preferCinematic = preferCinematicScores &&
       this._shouldPreferCinematicMood(effectiveMood, uniqueTerms);
+    const preferredSearchMarket = this._getPreferredSearchMarket(settings);
     const avoidGameMusic = options?.avoidGameMusic !== undefined
       ? options.avoidGameMusic !== false
       : !this._hasExplicitGameMusicIntent([...uniqueTerms, ...contextKeywords], effectiveMood);
@@ -350,7 +382,8 @@ export class SpotifyAPI {
         const tracks = await this._searchTracksByQueryString(
           query,
           i === 0 ? Math.max(limit, 10) : Math.max(6, Math.min(10, limit)),
-          `base-${i + 1}`
+          `base-${i + 1}`,
+          { market: preferredSearchMarket }
         );
         addTracks(tracks);
 
@@ -396,7 +429,8 @@ export class SpotifyAPI {
           const tracks = await this._searchTracksByQueryString(
             query,
             i === 0 ? Math.max(limit, 10) : Math.max(6, Math.min(10, limit)),
-            `fallback-${i + 1}`
+            `fallback-${i + 1}`,
+            { market: preferredSearchMarket }
           );
           addTracks(tracks);
 
@@ -429,15 +463,23 @@ export class SpotifyAPI {
    * Execute one Spotify query-string search request.
    * @private
    */
-  async _searchTracksByQueryString(searchQuery, limit, label = 'query') {
+  async _searchTracksByQueryString(searchQuery, limit, label = 'query', options = {}) {
     const safeLimit = Math.max(1, Math.min(20, Math.floor(limit) || 10));
+    const market = typeof options.market === 'string'
+      ? options.market
+      : this._getPreferredSearchMarket(this._getSettings());
     const params = new URLSearchParams({
       q: searchQuery,
       type: 'track'
     });
+    if (market) {
+      params.set('market', market);
+    }
     const endpoint = `/search?${params.toString()}`;
 
-    this._debugLog(`🔍 Spotify search (${label}): "${searchQuery}" (api limit=default, client limit=${safeLimit})`);
+    this._debugLog(
+      `🔍 Spotify search (${label}): "${searchQuery}" (market=${market || 'AUTO'}, api limit=default, client limit=${safeLimit})`
+    );
 
     const data = await this._makeRequest(endpoint);
     if (!data?.tracks?.items) {
