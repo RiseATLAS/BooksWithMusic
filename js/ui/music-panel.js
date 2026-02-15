@@ -354,10 +354,12 @@ export class MusicPanelUI {
       return 0;
     }
     
-    // Count how many shift points occur before this page
+    // Count how many shift points are active at this page.
+    // Include shifts that start on the current page, so opening/seek-to-page
+    // behavior matches forward-navigation shift events.
     const shiftsBeforePage = this.currentShiftPoints
       .map(sp => Number(sp.pageInChapter ?? sp.page ?? 0))
-      .filter(shiftPage => Number.isFinite(shiftPage) && shiftPage < pageNumber)
+      .filter(shiftPage => Number.isFinite(shiftPage) && shiftPage > 1 && shiftPage <= pageNumber)
       .length;
     
     // Track index is the number of shifts that have occurred (clamped to playlist length)
@@ -1099,6 +1101,24 @@ export class MusicPanelUI {
       this._debugShiftLog('Shift switch completed.', { resultingTrackIndex: this.currentTrackIndex });
       
       // Record new page with new track
+      this.pageTrackHistory.set(newPage, this.currentTrackIndex);
+    } else if (
+      this.playlist &&
+      this.playlist.length > 1 &&
+      targetTrackIndex > this.currentTrackIndex
+    ) {
+      this._debugShiftLog('Forward page-range switch detected without explicit shift payload.', {
+        chapter: this.currentChapter,
+        oldPage,
+        newPage,
+        currentTrackIndex: this.currentTrackIndex,
+        targetTrackIndex
+      });
+      this.pageTrackHistory.set(oldPage, this.currentTrackIndex);
+      const wasPlaying = await this.isCurrentlyPlayingLive();
+      const forceShiftPlayback = this._shouldForceShiftPlayback();
+      const shouldPlay = wasPlaying || forceShiftPlayback;
+      await this._switchToTrackIndex(targetTrackIndex, shouldPlay, { reason: 'page-range-catchup' });
       this.pageTrackHistory.set(newPage, this.currentTrackIndex);
     } else {
       // No shift, just record current page with current track
