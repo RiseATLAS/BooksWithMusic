@@ -1917,10 +1917,19 @@ export class ReaderUI {
     if (!chapter) return;
     
     const totalPages = this.pagesPerChapter[chapterIndex] || 1;
+    const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
     
     // Get chapter mood from music manager
     const chapterAnalysis = this.musicManager?.getChapterAnalysis(chapterIndex);
     const chapterMood = chapterAnalysis?.primaryMood || 'peaceful';
+
+    // Keep shift density aligned with music settings (same intent as Spotify track count),
+    // instead of a fixed max of 5 shifts for every chapter.
+    const songsPerChapter = Math.max(1, Math.min(20, Math.floor(Number(settings.songsPerChapter) || 5)));
+    const minSongsPerPages = Math.max(1, Math.min(10, Math.floor(Number(settings.minSongsPerPages) || 1)));
+    const minTracksForPages = Math.ceil(totalPages / minSongsPerPages);
+    const desiredTrackCount = Math.min(20, Math.max(songsPerChapter, minTracksForPages));
+    const maxShifts = Math.max(1, desiredTrackCount - 1);
     
     // Strip HTML to get plain text
     const tempDiv = document.createElement('div');
@@ -1932,7 +1941,7 @@ export class ReaderUI {
       plainText,
       chapterMood,
       totalPages,
-      5 // Max 5 shifts per chapter
+      maxShifts
     );
     
     // Store shift points for this chapter
