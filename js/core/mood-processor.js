@@ -1335,6 +1335,7 @@ export class MoodProcessor {
     const sections = [];
     const potentialShifts = []; // Collect all potential shifts first
     let currentSectionMood = chapterMood;
+    const MIN_WEAK_SHIFT_SCORE = 22;
 
     // PASS 1: Analyze each page and collect potential shifts.
     // We keep both strong (threshold-passing) and weaker candidates so
@@ -1349,15 +1350,19 @@ export class MoodProcessor {
 
       const analysis = this.analyzePageMoodShift(pageText, currentSectionMood);
 
-      // Collect potential shift points with their scores
-      if (page > 1 && analysis.pageMood !== currentSectionMood && analysis.shiftScore > 0) {
+      // Collect potential shift points with their scores.
+      // Strong candidates always qualify; weaker ones need a floor to avoid
+      // noisy rapid-fire shifting.
+      const isStrongCandidate = analysis.shouldShift;
+      const isWeakCandidate = !isStrongCandidate && analysis.shiftScore >= MIN_WEAK_SHIFT_SCORE;
+      if (page > 1 && analysis.pageMood !== currentSectionMood && (isStrongCandidate || isWeakCandidate)) {
         potentialShifts.push({
           page,
           fromMood: currentSectionMood,
           toMood: analysis.pageMood,
           confidence: analysis.confidence,
           shiftScore: analysis.shiftScore,
-          isStrong: analysis.shouldShift
+          isStrong: isStrongCandidate
         });
       }
     }
@@ -1415,12 +1420,24 @@ export class MoodProcessor {
 
       // Rebuild from/to mood chain in page order so labels stay coherent
       // (e.g. epic -> romantic -> mysterious, not epic -> romantic then epic -> mysterious).
+      // Drop no-op transitions where mood doesn't actually change.
       let chainMood = chapterMood;
+      const chainedShifts = [];
       selectedShifts.forEach((shift) => {
-        shift.fromMood = chainMood;
-        shift.toMood = shift.toMood || chainMood;
-        chainMood = shift.toMood;
+        const nextMood = shift.toMood || chainMood;
+        if (nextMood === chainMood) {
+          return;
+        }
+        chainedShifts.push({
+          ...shift,
+          fromMood: chainMood,
+          toMood: nextMood
+        });
+        chainMood = nextMood;
       });
+
+      selectedShifts.length = 0;
+      selectedShifts.push(...chainedShifts);
     }
 
     // PASS 3: Build sections with selected shifts

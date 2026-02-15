@@ -397,7 +397,13 @@ export class SpotifyMusicManager {
     const minSongsPerPages = Math.max(1, Math.min(10, Math.floor(Number(settings.minSongsPerPages) || 1)));
     const estimatedPages = Math.max(1, Math.floor(Number(mapping?.estimatedPages) || 1));
     const minTracksForPages = Math.ceil(estimatedPages / minSongsPerPages);
-    return Math.min(20, Math.max(songsPerChapter, minTracksForPages));
+    const shiftPoints = Array.isArray(mapping?.shiftPoints) ? mapping.shiftPoints : [];
+    const validShiftCount = shiftPoints.filter((shift) => {
+      const page = Number(shift?.pageInChapter ?? shift?.page ?? NaN);
+      return Number.isFinite(page) && page > 1;
+    }).length;
+    const minTracksForShifts = validShiftCount + 1;
+    return Math.min(20, Math.max(songsPerChapter, minTracksForPages, minTracksForShifts));
   }
 
   /**
@@ -475,6 +481,9 @@ export class SpotifyMusicManager {
       if (!Number.isFinite(page) || page < 1) continue;
 
       const toMood = shift?.toMood || shift?.mood || previousMood;
+      if (String(toMood).toLowerCase().trim() === String(previousMood).toLowerCase().trim()) {
+        continue; // Skip no-op shifts (e.g. dark -> dark)
+      }
       const fromMood = shift?.fromMood || previousMood;
       const keywords = Array.isArray(shift?.keywords)
         ? shift.keywords
