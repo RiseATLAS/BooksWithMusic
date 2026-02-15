@@ -1041,6 +1041,9 @@ export class MusicPanelUI {
     // Check if this page is a designated shift point (based on content analysis)
     if (shiftInfo && this.playlist && this.playlist.length > 1) {
       console.log(`📄 Mood shift | Page ${newPage} | ${shiftInfo.fromMood} → ${shiftInfo.toMood} | Confidence: ${shiftInfo.confidence}% | Score: ${shiftInfo.shiftScore}`);
+      const fromMood = shiftInfo.fromMood || 'current mood';
+      const toMood = shiftInfo.toMood || shiftInfo.mood || 'next mood';
+      this.showToast(`🎵 Song change: ${fromMood} → ${toMood} (page ${newPage})`, 'info');
       
       // Record current page with track before advancing
       this.pageTrackHistory.set(oldPage, this.currentTrackIndex);
@@ -1080,12 +1083,14 @@ export class MusicPanelUI {
       }
     } else {
       // No history - check if we crossed a shift point going backward
-      const crossedShiftPoint = this.currentShiftPoints.find(sp => 
-        sp.page > newPage && sp.page <= oldPage
-      );
+      const crossedShiftPoint = this.currentShiftPoints.find((sp) => {
+        const shiftPage = Number(sp?.pageInChapter ?? sp?.page ?? -1);
+        return Number.isFinite(shiftPage) && shiftPage > newPage && shiftPage <= oldPage;
+      });
       
       if (crossedShiftPoint && this.currentTrackIndex > 0) {
-        console.log(`⏮️ Backward shift | Page ${newPage} | Shift at ${crossedShiftPoint.page} | ${crossedShiftPoint.toMood} → ${crossedShiftPoint.fromMood}`);
+        const shiftPage = Number(crossedShiftPoint?.pageInChapter ?? crossedShiftPoint?.page ?? newPage);
+        console.log(`⏮️ Backward shift | Page ${newPage} | Shift at ${shiftPage} | ${crossedShiftPoint.toMood} → ${crossedShiftPoint.fromMood}`);
         const wasPlaying = this.isCurrentlyPlaying();
         await this.previousTrack(wasPlaying);
       }
@@ -1214,7 +1219,9 @@ export class MusicPanelUI {
     
     const isPlaying = this.isCurrentlyPlaying();
     playlistEl.innerHTML = this.playlist.map((track, index) => {
-      const isShiftTrack = index < shiftPoints.length && shiftPoints[index]?.page;
+      const shiftPoint = shiftPoints[index];
+      const shiftPage = Number(shiftPoint?.pageInChapter ?? shiftPoint?.page ?? NaN);
+      const isShiftTrack = Number.isFinite(shiftPage);
       const isCurrent = index === this.currentTrackIndex;
       const playState = isCurrent ? (isPlaying ? 'playing' : 'paused') : 'queued';
       const playIcon = isCurrent ? (isPlaying ? '⏸' : '▶') : '•';
@@ -1222,8 +1229,7 @@ export class MusicPanelUI {
       // Concise shift info
       let shiftInfo = '';
       if (isShiftTrack) {
-        const sp = shiftPoints[index];
-        shiftInfo = `Page ${sp.page}: ${sp.fromMood} → ${sp.toMood}`;
+        shiftInfo = `Page ${shiftPage}: ${shiftPoint.fromMood} → ${shiftPoint.toMood}`;
       } else if (index === 0) {
         shiftInfo = 'Chapter start';
       }

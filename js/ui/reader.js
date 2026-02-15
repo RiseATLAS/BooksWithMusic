@@ -2084,7 +2084,10 @@ export class ReaderUI {
     // Check if this page is a shift point
     let shiftInfo = null;
     if (this.currentChapterShiftPoints && this.currentChapterShiftPoints.shiftPoints) {
-      shiftInfo = this.currentChapterShiftPoints.shiftPoints.find(sp => sp.page === newPage);
+      shiftInfo = this.currentChapterShiftPoints.shiftPoints.find((sp) => {
+        const shiftPage = Number(sp?.pageInChapter ?? sp?.page ?? -1);
+        return Number.isFinite(shiftPage) && shiftPage === newPage;
+      });
     }
     
     // Emit page change event that music panel can listen to

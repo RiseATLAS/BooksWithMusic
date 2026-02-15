@@ -101,14 +101,14 @@ export class SpotifyAPI {
     const effectiveSettings = settings || this._getSettings();
     const rawMarket = String(
       effectiveSettings.spotifySearchMarket ||
-      effectiveSettings.spotifyMarket ||
       'US'
     )
       .trim()
       .toUpperCase();
 
     if (rawMarket === 'AUTO') {
-      return '';
+      // Keep US as default unless user explicitly opts into locale-driven catalogs.
+      return effectiveSettings.spotifyUseAutoMarket === true ? '' : 'US';
     }
 
     return /^[A-Z]{2}$/.test(rawMarket) ? rawMarket : 'US';
@@ -538,6 +538,7 @@ export class SpotifyAPI {
     const instrumentalOnly = options.instrumentalOnly !== false;
     const avoidGameMusic = options.avoidGameMusic !== false;
     const lowVocalPreference = options.lowVocalPreference !== false;
+    const preferEnglishMetadata = options.preferEnglishMetadata !== false;
     let candidateTracks = tracks.slice();
 
     if (instrumentalOnly) {
@@ -558,7 +559,8 @@ export class SpotifyAPI {
       score: this._scoreTrackForSelection(track, {
         instrumentalOnly,
         avoidGameMusic,
-        lowVocalPreference
+        lowVocalPreference,
+        preferEnglishMetadata
       })
     }));
 
@@ -574,6 +576,7 @@ export class SpotifyAPI {
     const avoidGameMusic = options.avoidGameMusic !== false;
     const lowVocalPreference = options.lowVocalPreference !== false;
     const instrumentalOnly = options.instrumentalOnly !== false;
+    const preferEnglishMetadata = options.preferEnglishMetadata !== false;
     let score = Number(track?.popularity || 0);
     const instrumentalness = Number(track?.instrumentalness);
 
@@ -595,7 +598,67 @@ export class SpotifyAPI {
       score -= 30;
     }
 
+    if (preferEnglishMetadata) {
+      score += this._scoreLanguageAndMarketBias(track, { instrumentalness });
+    }
+
     return score;
+  }
+
+  /**
+   * Bias away from heavily localized/non-English metadata to keep results broadly readable.
+   * Helps avoid overfitting to account-country catalogs.
+   * @private
+   */
+  _scoreLanguageAndMarketBias(track, options = {}) {
+    const title = String(track?.title || '');
+    const artist = String(track?.artist || '');
+    const combined = `${title} ${artist}`;
+    const normalized = ` ${combined.toLowerCase()} `;
+    let scoreDelta = 0;
+
+    // Norwegian/Nordic character hints.
+    if (/[æøåäö]/i.test(combined)) {
+      scoreDelta -= 14;
+    }
+
+    // Common Norwegian words/phrases in track metadata.
+    const norwegianMarkers = [
+      ' og ',
+      ' ikke ',
+      ' jeg ',
+      ' deg ',
+      ' kjærlighet ',
+      ' hjerte ',
+      ' natt ',
+      ' norsk ',
+      ' norge ',
+      ' med deg ',
+      ' for alltid '
+    ];
+    const norwegianHits = norwegianMarkers.reduce(
+      (count, marker) => count + (normalized.includes(marker) ? 1 : 0),
+      0
+    );
+    scoreDelta -= Math.min(24, norwegianHits * 8);
+
+    // Market availability bias.
+    const markets = Array.isArray(track?.availableMarkets) ? track.availableMarkets : [];
+    if (markets.length > 0) {
+      if (markets.includes('US') || markets.includes('GB')) {
+        scoreDelta += 4;
+      } else {
+        scoreDelta -= 6;
+      }
+    }
+
+    // If a track is highly instrumental, language matters less.
+    const instrumentalness = Number(options.instrumentalness ?? track?.instrumentalness);
+    if (Number.isFinite(instrumentalness) && instrumentalness >= 0.8 && scoreDelta < 0) {
+      scoreDelta = Math.round(scoreDelta * 0.5);
+    }
+
+    return scoreDelta;
   }
 
   /**
