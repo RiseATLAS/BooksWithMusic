@@ -203,6 +203,23 @@ export class SpotifyAPI {
   }
 
   /**
+   * Build a Spotify-safe genre clause using OR across multiple candidate genres.
+   * Example: "(genre:ambient OR genre:new-age)"
+   * @private
+   */
+  _buildGenreQueryClause(genres = []) {
+    const cleaned = [...new Set(
+      (Array.isArray(genres) ? genres : [])
+        .map((genre) => String(genre || '').toLowerCase().trim())
+        .filter((genre) => /^[a-z0-9-]+$/.test(genre))
+    )];
+
+    if (cleaned.length === 0) return '';
+    if (cleaned.length === 1) return `genre:${cleaned[0]}`;
+    return `(${cleaned.map((genre) => `genre:${genre}`).join(' OR ')})`;
+  }
+
+  /**
    * Search for tracks using Spotify Search API (keyword-based)
    * NOTE: Recommendations API is deprecated (Nov 2024) and unavailable for new apps
    * 
@@ -353,25 +370,63 @@ export class SpotifyAPI {
     };
 
     try {
-      const baseQueries = candidateGenres.slice(0, 3).map((genre, index) => {
-        const core = index === 0 ? strictQueryCore : relaxedQueryCore;
-        return [core, instrumentalOnly ? 'instrumental' : null, `genre:${genre}`, negativeSuffix]
+      const primaryGenre = candidateGenres[0];
+      const secondaryGenre = candidateGenres[1];
+      const tertiaryGenre = candidateGenres[2];
+      const queryPlans = [
+        {
+          label: 'base-1',
+          core: strictQueryCore,
+          genres: [primaryGenre, secondaryGenre]
+        },
+        {
+          label: 'base-2',
+          core: relaxedQueryCore,
+          genres: [secondaryGenre, primaryGenre, tertiaryGenre]
+        },
+        {
+          label: 'base-3',
+          core: relaxedQueryCore,
+          genres: [tertiaryGenre, primaryGenre]
+        }
+      ].filter((plan) => Boolean(plan.core) && plan.genres.some(Boolean));
+
+      const baseQueries = queryPlans.map((plan) => ({
+        label: plan.label,
+        query: [
+          plan.core,
+          instrumentalOnly ? 'instrumental' : null,
+          this._buildGenreQueryClause(plan.genres),
+          negativeSuffix
+        ]
           .filter(Boolean)
-          .join(' ');
-      });
+          .join(' ')
+      }));
 
       if (baseQueries.length === 0) {
-        baseQueries.push([strictQueryCore, instrumentalOnly ? 'instrumental' : null, 'genre:classical', negativeSuffix]
-          .filter(Boolean)
-          .join(' '));
+        baseQueries.push({
+          label: 'base-fallback',
+          query: [
+            strictQueryCore,
+            instrumentalOnly ? 'instrumental' : null,
+            this._buildGenreQueryClause(['classical', 'ambient']),
+            negativeSuffix
+          ]
+            .filter(Boolean)
+            .join(' ')
+        });
       }
 
+      this._debugLog(
+        `🧭 Spotify query plan: ${baseQueries.length} base query(ies), candidateGenres=[${candidateGenres.join(', ')}]`
+      );
+
       for (let i = 0; i < baseQueries.length; i++) {
-        const query = baseQueries[i];
+        const { query, label } = baseQueries[i];
         const tracks = await this._searchTracksByQueryString(
           query,
           i === 0 ? Math.max(limit, 10) : Math.max(6, Math.min(10, limit)),
-          `base-${i + 1}`,
+          label,
           { market: preferredSearchMarket }
         );
         addTracks(tracks);
