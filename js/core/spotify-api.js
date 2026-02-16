@@ -63,6 +63,7 @@ export class SpotifyAPI {
     this.minRequestInterval = 100; // 100ms between requests
     this.rateLimitedUntil = 0;
     this._lastRateLimitLogUntil = 0;
+    this._hasLoggedMoodAlignmentScoring = false;
     
     // Hardcoded list of KNOWN VALID Spotify genre seeds
     // NOTE: Spotify removed the /available-genre-seeds endpoint in Dec 2024
@@ -218,6 +219,115 @@ export class SpotifyAPI {
     if (cleaned.length === 0) return '';
     if (cleaned.length === 1) return `genre:${cleaned[0]}`;
     return `(${cleaned.map((genre) => `genre:${genre}`).join(' OR ')})`;
+  }
+
+  /**
+   * Resolve mood proxy genres/terms used for ranking.
+   * @private
+   */
+  _getMoodProxyGenres(mood) {
+    const normalizedMood = String(mood || '').toLowerCase().trim();
+    if (!normalizedMood) return [];
+
+    const mapperGenres = Array.isArray(this.mapper?.moodToGenres?.[normalizedMood])
+      ? this.mapper.moodToGenres[normalizedMood]
+      : [];
+
+    const moodKeywordMap = {
+      peaceful: ['calm', 'meditative', 'sleep', 'relaxing', 'soft'],
+      dark: ['dark', 'brooding', 'shadow', 'ominous'],
+      mysterious: ['mysterious', 'enigmatic', 'noir', 'suspense'],
+      romantic: ['romantic', 'love', 'warm', 'tender'],
+      sad: ['sad', 'melancholic', 'emotional', 'piano'],
+      epic: ['epic', 'cinematic', 'orchestral', 'anthemic'],
+      tense: ['tense', 'suspense', 'thriller', 'pulse'],
+      joyful: ['joyful', 'happy', 'uplifting', 'cheerful'],
+      adventure: ['adventure', 'journey', 'heroic', 'exploration'],
+      magical: ['magical', 'dreamy', 'ethereal', 'fantasy']
+    };
+
+    return [...new Set(
+      [...mapperGenres, ...(moodKeywordMap[normalizedMood] || [])]
+        .map((item) => String(item || '').toLowerCase().trim())
+        .filter(Boolean)
+    )];
+  }
+
+  /**
+   * Resolve opposing proxies to penalize mismatched mood tracks.
+   * @private
+   */
+  _getMoodMismatchGenres(mood) {
+    const normalizedMood = String(mood || '').toLowerCase().trim();
+    if (!normalizedMood) return [];
+
+    const mismatchMap = {
+      peaceful: ['metal', 'industrial', 'hardstyle', 'drum-and-bass', 'aggressive'],
+      dark: ['happy', 'summer', 'party', 'joyful', 'cheerful'],
+      mysterious: ['kids', 'party', 'dance', 'happy'],
+      romantic: ['metal', 'industrial', 'hard-rock', 'horror'],
+      sad: ['party', 'summer', 'work-out', 'edm'],
+      epic: ['sleep', 'study', 'soft', 'lullaby'],
+      tense: ['sleep', 'meditation', 'calm', 'lofi'],
+      joyful: ['dark', 'goth', 'sad', 'funeral'],
+      adventure: ['sleep', 'minimal', 'lullaby', 'ambient'],
+      magical: ['hardcore', 'industrial', 'heavy-metal', 'dark']
+    };
+
+    return (mismatchMap[normalizedMood] || [])
+      .map((item) => String(item || '').toLowerCase().trim())
+      .filter(Boolean);
+  }
+
+  /**
+   * Score track mood alignment using genre/tag proxies, with metadata fallback.
+   * @private
+   */
+  _scoreMoodAlignment(track, targetMood) {
+    const mood = String(targetMood || '').toLowerCase().trim();
+    if (!mood) return 0;
+
+    const targetProxies = this._getMoodProxyGenres(mood);
+    if (targetProxies.length === 0) return 0;
+
+    const opposingProxies = this._getMoodMismatchGenres(mood);
+    const normalizedTags = Array.isArray(track?.tags)
+      ? track.tags.map((tag) => String(tag || '').toLowerCase())
+      : [];
+    const metadata = `${track?.title || ''} ${track?.artist || ''} ${track?.album || ''}`.toLowerCase();
+    const hasTagData = normalizedTags.length > 0;
+
+    const positivePerHit = 16; // strong boost for aligned mood proxies
+    const negativePerHit = 18; // strong penalty for mood mismatch
+    const metadataPositivePerHit = 4; // weaker fallback when genre tags are unavailable
+    const metadataNegativePerHit = 6;
+
+    let scoreDelta = 0;
+
+    for (const proxy of targetProxies) {
+      if (hasTagData && normalizedTags.some((tag) => tag.includes(proxy))) {
+        scoreDelta += positivePerHit;
+      } else if (!hasTagData && metadata.includes(proxy)) {
+        scoreDelta += metadataPositivePerHit;
+      }
+    }
+
+    for (const proxy of opposingProxies) {
+      if (hasTagData && normalizedTags.some((tag) => tag.includes(proxy))) {
+        scoreDelta -= negativePerHit;
+      } else if (!hasTagData && metadata.includes(proxy)) {
+        scoreDelta -= metadataNegativePerHit;
+      }
+    }
+
+    if (hasTagData && normalizedTags.some((tag) => tag.includes(mood))) {
+      scoreDelta += 10;
+    } else if (!hasTagData && metadata.includes(mood)) {
+      scoreDelta += 3;
+    }
+
+    // Keep mood adjustment bounded so popularity/instrumental signals still matter.
+    return Math.max(-55, Math.min(55, scoreDelta));
   }
 
   /**
@@ -408,6 +518,13 @@ export class SpotifyAPI {
     const relaxedQueryCore = effectiveMood;
     const collectedTracks = new Map();
 
+    if (!this._hasLoggedMoodAlignmentScoring) {
+      console.info(
+        '🎯 Spotify mood-alignment scoring enabled (strong proxy boost + mismatch penalty, tags-first).'
+      );
+      this._hasLoggedMoodAlignmentScoring = true;
+    }
+
     const addTracks = (tracks) => {
       for (const track of tracks) {
         if (track?.id && !collectedTracks.has(track.id)) {
@@ -482,7 +599,8 @@ export class SpotifyAPI {
           instrumentalOnly,
           avoidGameMusic,
           lowVocalPreference: true,
-          preferredGenres: candidateGenres
+          preferredGenres: candidateGenres,
+          targetMood: effectiveMood
         });
         if (provisional.length >= limit) {
           break;
@@ -537,7 +655,8 @@ export class SpotifyAPI {
         instrumentalOnly,
         avoidGameMusic,
         lowVocalPreference: true,
-        preferredGenres: candidateGenres
+        preferredGenres: candidateGenres,
+        targetMood: effectiveMood
       });
       const selectionLabel = instrumentalOnly ? 'low-vocal tracks' : 'tracks';
 
@@ -573,6 +692,7 @@ export class SpotifyAPI {
     }
     const endpoint = `/search?${params.toString()}`;
 
+    console.info(`🔎 Spotify search query [${label}] q="${searchQuery}" (market=${market || 'AUTO'}, limit=${safeLimit})`);
     this._debugLog(
       `🔍 Spotify search (${label}): "${searchQuery}" (market=${market || 'AUTO'}, api limit=default, client limit=${safeLimit})`
     );
@@ -657,7 +777,8 @@ export class SpotifyAPI {
         avoidGameMusic,
         lowVocalPreference,
         preferEnglishMetadata,
-        preferredGenres: options.preferredGenres
+        preferredGenres: options.preferredGenres,
+        targetMood: options.targetMood
       })
     }));
 
@@ -697,6 +818,11 @@ export class SpotifyAPI {
 
     if (preferEnglishMetadata) {
       score += this._scoreLanguageAndMarketBias(track, { instrumentalness });
+    }
+
+    const targetMood = String(options.targetMood || '').toLowerCase().trim();
+    if (targetMood) {
+      score += this._scoreMoodAlignment(track, targetMood);
     }
 
     const preferredGenres = Array.isArray(options.preferredGenres)
