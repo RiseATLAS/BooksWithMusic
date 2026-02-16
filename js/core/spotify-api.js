@@ -221,31 +221,19 @@ export class SpotifyAPI {
     const settings = this._getSettings();
     const instrumentalOnly = settings.instrumentalOnly !== false;
 
-    // Build search terms from chapter analysis and keywords
-    const queryTerms = [];
-    
-    if (chapterAnalysis) {
-      if (chapterAnalysis.mood) queryTerms.push(chapterAnalysis.mood);
-      if (chapterAnalysis.genres && chapterAnalysis.genres.length > 0) {
-        queryTerms.push(...chapterAnalysis.genres.slice(0, 2));
-      }
-    }
-    
-    // Add keywords
-    if (keywords && keywords.length > 0) {
-      queryTerms.push(...keywords.slice(0, 2));
-    }
-    
-    // Default fallback
-    if (queryTerms.length === 0) {
-      queryTerms.push('background', 'ambient');
-    }
-    
-    if (instrumentalOnly) {
-      queryTerms.push('instrumental');
-    }
+    // Keep free-text query centered on mood; feed detailed keywords as
+    // genre-mapping context instead of title-matching terms.
+    const moodTerm = String(chapterAnalysis?.mood || keywords?.[0] || 'ambient').trim() || 'ambient';
+    const keywordContext = []
+      .concat(Array.isArray(chapterAnalysis?.genres) ? chapterAnalysis.genres.slice(0, 2) : [])
+      .concat(Array.isArray(keywords) ? keywords.slice(0, 3) : [])
+      .filter(Boolean);
 
-    return await this.searchByQuery(queryTerms, Math.min(20, limit));
+    return await this.searchByQuery([moodTerm], Math.min(20, limit), {
+      mood: moodTerm,
+      keywords: keywordContext,
+      instrumentalOnly
+    });
   }
 
   /**
@@ -320,12 +308,10 @@ export class SpotifyAPI {
       .map(term => (term || '').trim())
       .filter(Boolean);
     const normalizedTerms = safeTerms.length > 0 ? safeTerms : ['ambient'];
-    const combinedTerms = [...normalizedTerms, ...contextKeywords];
-    const termsWithoutInstrumental = combinedTerms.filter(term => term.toLowerCase() !== 'instrumental');
-    const uniqueTerms = [...new Map(termsWithoutInstrumental.map(term => [term.toLowerCase(), term])).values()];
-    const primaryTerms = (uniqueTerms.length > 0 ? uniqueTerms : ['ambient']).slice(0, 2);
-    const termsText = primaryTerms.join(' ');
     const effectiveMood = String(options?.mood || normalizedTerms[0] || 'peaceful').toLowerCase();
+    const termsForGenreMapping = [...normalizedTerms, ...contextKeywords]
+      .filter(term => term.toLowerCase() !== 'instrumental');
+    const uniqueTerms = [...new Map(termsForGenreMapping.map(term => [term.toLowerCase(), term])).values()];
     const effectiveEnergy = this._normalizeEnergyLevel(options?.energy);
     const energyProfile = this._getEnergySearchProfile(effectiveEnergy);
     const preferCinematicScores = settings.preferCinematicScores === true;
@@ -337,7 +323,9 @@ export class SpotifyAPI {
       : !this._hasExplicitGameMusicIntent([...uniqueTerms, ...contextKeywords], effectiveMood);
     const negativeSuffix = this._buildNegativeQuerySuffix({ avoidGameMusic });
     const mappedGenres = this.validateGenres(
-      this.mapper.mapKeywordsToGenres(uniqueTerms, effectiveMood).map(genre => String(genre).toLowerCase())
+      this.mapper
+        .mapKeywordsToGenres(uniqueTerms.length > 0 ? uniqueTerms : [effectiveMood], effectiveMood)
+        .map(genre => String(genre).toLowerCase())
     );
     const filteredMappedGenres = preferCinematic
       ? mappedGenres
@@ -351,8 +339,9 @@ export class SpotifyAPI {
         ...(preferCinematic ? ['soundtrack'] : [])
       ])
     ].slice(0, 5);
-    const strictQueryCore = [termsText, energyProfile.queryHint].filter(Boolean).join(' ');
-    const relaxedQueryCore = termsText;
+    // Keep query text mood-centric so genre filters do most of the relevance work.
+    const strictQueryCore = [effectiveMood, energyProfile.queryHint].filter(Boolean).join(' ');
+    const relaxedQueryCore = effectiveMood;
     const collectedTracks = new Map();
 
     const addTracks = (tracks) => {
@@ -390,7 +379,8 @@ export class SpotifyAPI {
         const provisional = this._filterAndSortTracks(Array.from(collectedTracks.values()), limit, {
           instrumentalOnly,
           avoidGameMusic,
-          lowVocalPreference: true
+          lowVocalPreference: true,
+          preferredGenres: candidateGenres
         });
         if (provisional.length >= limit) {
           break;
@@ -444,7 +434,8 @@ export class SpotifyAPI {
       const filteredTracks = this._filterAndSortTracks(allTracks, limit, {
         instrumentalOnly,
         avoidGameMusic,
-        lowVocalPreference: true
+        lowVocalPreference: true,
+        preferredGenres: candidateGenres
       });
       const selectionLabel = instrumentalOnly ? 'low-vocal tracks' : 'tracks';
 
@@ -560,7 +551,8 @@ export class SpotifyAPI {
         instrumentalOnly,
         avoidGameMusic,
         lowVocalPreference,
-        preferEnglishMetadata
+        preferEnglishMetadata,
+        preferredGenres: options.preferredGenres
       })
     }));
 
@@ -600,6 +592,19 @@ export class SpotifyAPI {
 
     if (preferEnglishMetadata) {
       score += this._scoreLanguageAndMarketBias(track, { instrumentalness });
+    }
+
+    const preferredGenres = Array.isArray(options.preferredGenres)
+      ? options.preferredGenres.map((genre) => String(genre || '').toLowerCase()).filter(Boolean)
+      : [];
+    const tags = Array.isArray(track?.tags)
+      ? track.tags.map((tag) => String(tag || '').toLowerCase())
+      : [];
+    if (preferredGenres.length > 0 && tags.length > 0) {
+      const genreHits = preferredGenres.reduce((count, genre) => {
+        return count + (tags.some((tag) => tag.includes(genre)) ? 1 : 0);
+      }, 0);
+      score += Math.min(20, genreHits * 6);
     }
 
     return score;
@@ -707,7 +712,7 @@ export class SpotifyAPI {
     // Search API supports max 20 results (reduced from 50 as of Feb 2026)
     limit = Math.max(1, Math.min(20, Math.floor(limit) || 20));
     
-    // Build search query from mood and keywords
+    // Keep text query mood-centric; use keywords as genre context only.
     const queryTerms = [mood];
     
     // Get settings
@@ -719,13 +724,8 @@ export class SpotifyAPI {
       : 5;
     const effectiveEnergy = Math.min(energy, maxEnergyLevel);
     
-    // Add keywords for variety
-    if (keywords && keywords.length > 0) {
-      queryTerms.push(...keywords.slice(0, 2));
-    }
-    
     this._debugLog(
-      `🔍 Spotify Search: mood="${mood}", energy=${effectiveEnergy}${effectiveEnergy !== energy ? ` (capped from ${energy})` : ''}, keywords=[${keywords.slice(0, 2).join(', ')}]`
+      `🔍 Spotify Search: mood="${mood}", energy=${effectiveEnergy}${effectiveEnergy !== energy ? ` (capped from ${energy})` : ''}, genre-context=[${keywords.slice(0, 3).join(', ')}]`
     );
     
     return await this.searchByQuery(queryTerms, limit, {
@@ -838,14 +838,7 @@ export class SpotifyAPI {
     if (track.artists && track.artists[0]?.genres) {
       tags.push(...track.artists[0].genres);
     }
-    
-    // Infer from track name
-    const nameLower = track.name.toLowerCase();
-    if (nameLower.includes('instrumental')) tags.push('instrumental');
-    if (nameLower.includes('piano')) tags.push('piano');
-    if (nameLower.includes('acoustic')) tags.push('acoustic');
-    if (nameLower.includes('orchestra')) tags.push('orchestral');
-    
+
     return tags;
   }
 
