@@ -62,6 +62,7 @@ export class SpotifyAPI {
     this.lastRequestTime = 0;
     this.minRequestInterval = 100; // 100ms between requests
     this.rateLimitedUntil = 0;
+    this._lastRateLimitLogUntil = 0;
     
     // Hardcoded list of KNOWN VALID Spotify genre seeds
     // NOTE: Spotify removed the /available-genre-seeds endpoint in Dec 2024
@@ -217,6 +218,52 @@ export class SpotifyAPI {
     if (cleaned.length === 0) return '';
     if (cleaned.length === 1) return `genre:${cleaned[0]}`;
     return `(${cleaned.map((genre) => `genre:${genre}`).join(' OR ')})`;
+  }
+
+  /**
+   * Build normalized rate-limit error object.
+   * @private
+   */
+  _createRateLimitError(retryAfterSeconds = 60, source = 'response') {
+    const safeSeconds = Math.max(1, Math.ceil(Number(retryAfterSeconds) || 60));
+    const retryAfterMs = safeSeconds * 1000;
+    const error = new Error(`Spotify API rate limit reached. Retry after ${safeSeconds} seconds.`);
+    error.code = 'SPOTIFY_RATE_LIMIT';
+    error.source = source;
+    error.retryAfterSeconds = safeSeconds;
+    error.retryAfterMs = retryAfterMs;
+    error.rateLimitedUntil = Date.now() + retryAfterMs;
+    return error;
+  }
+
+  /**
+   * Build normalized auth error object.
+   * @private
+   */
+  _createAuthError(message) {
+    const error = new Error(message || 'Spotify authentication unavailable.');
+    error.code = 'SPOTIFY_AUTH';
+    return error;
+  }
+
+  /**
+   * @private
+   */
+  _isRateLimitError(error) {
+    return error?.code === 'SPOTIFY_RATE_LIMIT' ||
+      /rate limit/i.test(String(error?.message || ''));
+  }
+
+  /**
+   * @private
+   */
+  _isAuthError(error) {
+    const message = String(error?.message || '').toLowerCase();
+    return error?.code === 'SPOTIFY_AUTH' ||
+      message.includes('no spotify access token') ||
+      message.includes('no token provided') ||
+      message.includes('re-authenticate') ||
+      message.includes('authorization failed');
   }
 
   /**
@@ -500,6 +547,9 @@ export class SpotifyAPI {
 
       return filteredTracks;
     } catch (error) {
+      if (this._isRateLimitError(error) || this._isAuthError(error)) {
+        throw error;
+      }
       console.error('❌ Spotify searchByQuery error:', error);
       return [];
     }
@@ -983,7 +1033,10 @@ export class SpotifyAPI {
     // Check rate limit
     const now = Date.now();
     if (now < this.rateLimitedUntil) {
-      throw new Error('Rate limited by Spotify API. Please wait.');
+      const retryAfterSeconds = Math.max(1, Math.ceil((this.rateLimitedUntil - now) / 1000));
+      const error = this._createRateLimitError(retryAfterSeconds, 'cooldown');
+      error.rateLimitedUntil = this.rateLimitedUntil;
+      throw error;
     }
 
     // Enforce minimum interval between requests
@@ -995,15 +1048,16 @@ export class SpotifyAPI {
 
     // Get access token (will auto-refresh if expired)
     const token = await this.auth.getAccessToken();
-    if (!token) {
-      throw new Error('No Spotify access token available. Please authenticate.');
+    const normalizedToken = String(token || '').trim();
+    if (!normalizedToken || normalizedToken === 'null' || normalizedToken === 'undefined') {
+      throw this._createAuthError('No Spotify access token available. Please authenticate.');
     }
 
     const url = `${this.baseURL}${endpoint}`;
     const fetchOptions = {
       method,
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${normalizedToken}`,
         'Content-Type': 'application/json'
       }
     };
@@ -1021,16 +1075,28 @@ export class SpotifyAPI {
       if (response.status === 429) {
         const retryAfter = parseInt(response.headers.get('Retry-After') || '60');
         this.rateLimitedUntil = Date.now() + (retryAfter * 1000);
-        throw new Error(`Spotify API rate limit reached. Retry after ${retryAfter} seconds.`);
+        const error = this._createRateLimitError(retryAfter, 'response');
+        error.rateLimitedUntil = this.rateLimitedUntil;
+        throw error;
       }
 
       // Handle authentication errors
       if (response.status === 401) {
-        // Token might be invalid, try refreshing
+        const authPayload = await response.json().catch(() => ({}));
+        const authMessage = authPayload?.error?.message || authPayload?.error || 'Unauthorized';
+
+        if (requestOptions?._hasRetried401) {
+          const authError = this._createAuthError(`Spotify authorization failed: ${authMessage}`);
+          authError.status = 401;
+          throw authError;
+        }
+
         console.warn('⚠️ Spotify token invalid, attempting refresh...');
         await this.auth.refreshAccessToken();
-        // Retry the request (but only once to avoid infinite loop)
-        throw new Error('Token refreshed, please retry request');
+        return await this._makeRequest(endpoint, method, body, {
+          ...requestOptions,
+          _hasRetried401: true
+        });
       }
 
       if (!response.ok) {
@@ -1058,6 +1124,21 @@ export class SpotifyAPI {
 
       return await response.json();
     } catch (error) {
+      if (this._isRateLimitError(error)) {
+        const rateLimitedUntil = Number(error?.rateLimitedUntil || this.rateLimitedUntil || 0);
+        if (rateLimitedUntil > this._lastRateLimitLogUntil) {
+          const retryAfterSeconds = Math.max(1, Math.ceil((rateLimitedUntil - Date.now()) / 1000));
+          console.warn(`⏳ Spotify API rate-limited. Pausing requests for ~${retryAfterSeconds}s.`);
+          this._lastRateLimitLogUntil = rateLimitedUntil;
+        }
+        throw error;
+      }
+
+      if (this._isAuthError(error)) {
+        this._debugWarn(`⚠️ Spotify auth request blocked: ${error.message}`);
+        throw error;
+      }
+
       console.error('❌ Spotify API request failed:', error);
       throw error;
     }

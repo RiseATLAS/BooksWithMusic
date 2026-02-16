@@ -322,10 +322,14 @@ export class SpotifySDKPlayer {
 
     try {
       const token = await this.auth.getAccessToken();
+      const normalizedToken = String(token || '').trim();
+      if (!normalizedToken || normalizedToken === 'null' || normalizedToken === 'undefined') {
+        throw new Error('No Spotify access token available. Please reconnect Spotify.');
+      }
       const response = await fetch(`${this.baseURL}/me/player/play?device_id=${this.deviceId}`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${normalizedToken}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ uris })

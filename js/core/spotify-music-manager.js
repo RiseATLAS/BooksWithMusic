@@ -204,11 +204,13 @@ export class SpotifyMusicManager {
     };
   }
 
-  _scheduleTrackRetry(chapterIndex, reason = 'fetch-failed') {
+  _scheduleTrackRetry(chapterIndex, reason = 'fetch-failed', delayMs = this._trackRetryDelayMs) {
     const state = this._getTrackRetryState(chapterIndex);
-    if (state.timerId) {
-      return;
-    }
+    const normalizedDelayMs = Math.max(
+      this._trackRetryDelayMs,
+      Math.floor(Number(delayMs) || this._trackRetryDelayMs)
+    );
+    const requestedNextRetryAt = Date.now() + normalizedDelayMs;
 
     if (state.attempts >= this._maxTrackRetryAttempts) {
       console.error(
@@ -218,18 +220,27 @@ export class SpotifyMusicManager {
       return;
     }
 
+    if (state.timerId) {
+      // Keep the existing timer when it already waits long enough.
+      if (state.nextRetryAt >= requestedNextRetryAt - 500) {
+        return;
+      }
+      window.clearTimeout(state.timerId);
+      state.timerId = null;
+    }
+
     const nextAttempt = state.attempts + 1;
-    state.nextRetryAt = Date.now() + this._trackRetryDelayMs;
+    state.nextRetryAt = requestedNextRetryAt;
     state.timerId = window.setTimeout(() => {
       state.timerId = null;
       this._runTrackRetry(chapterIndex).catch((error) => {
         console.error(`❌ Scheduled Spotify retry failed for chapter ${chapterIndex}:`, error);
       });
-    }, this._trackRetryDelayMs);
+    }, normalizedDelayMs);
 
     console.warn(
       `⏳ Scheduling Spotify retry ${nextAttempt}/${this._maxTrackRetryAttempts} ` +
-      `for chapter ${chapterIndex} in 30s (${reason}).`
+      `for chapter ${chapterIndex} in ${Math.round(normalizedDelayMs / 1000)}s (${reason}).`
     );
   }
 
@@ -254,6 +265,31 @@ export class SpotifyMusicManager {
         this._emitChapterMusicChanged(chapterIndex, tracks);
       }
     }
+  }
+
+  _isRateLimitError(error) {
+    return error?.code === 'SPOTIFY_RATE_LIMIT' ||
+      /rate limit/i.test(String(error?.message || ''));
+  }
+
+  _isAuthError(error) {
+    const message = String(error?.message || '').toLowerCase();
+    return error?.code === 'SPOTIFY_AUTH' ||
+      message.includes('no spotify access token') ||
+      message.includes('no token provided') ||
+      message.includes('re-authenticate') ||
+      message.includes('authorization failed');
+  }
+
+  _getRetryDelayMsFromError(error) {
+    if (Number.isFinite(Number(error?.retryAfterMs))) {
+      return Math.max(this._trackRetryDelayMs, Math.floor(Number(error.retryAfterMs)));
+    }
+    const match = String(error?.message || '').match(/retry after\s+(\d+)/i);
+    if (match && Number.isFinite(Number(match[1]))) {
+      return Math.max(this._trackRetryDelayMs, Number(match[1]) * 1000);
+    }
+    return this._trackRetryDelayMs;
   }
 
   /**
@@ -380,8 +416,28 @@ export class SpotifyMusicManager {
     } catch (error) {
       mapping.tracks = [];
       mapping.tracksFetched = false;
+      if (this._isAuthError(error)) {
+        console.error(
+          `❌ Spotify auth error while fetching chapter ${chapterIndex}. ` +
+          'Reconnect Spotify to resume chapter music.',
+          error
+        );
+        this._clearTrackRetryState(chapterIndex);
+        return [];
+      }
+
+      if (this._isRateLimitError(error)) {
+        const retryDelayMs = this._getRetryDelayMsFromError(error);
+        console.warn(
+          `⏳ Spotify rate limit hit for chapter ${chapterIndex}. ` +
+          `Retrying in ${Math.round(retryDelayMs / 1000)}s.`
+        );
+        this._scheduleTrackRetry(chapterIndex, 'rate-limited', retryDelayMs);
+        return [];
+      }
+
       console.error(`❌ Failed to fetch Spotify tracks for chapter ${chapterIndex}:`, error);
-      this._scheduleTrackRetry(chapterIndex, 'request-failed');
+      this._scheduleTrackRetry(chapterIndex, 'request-failed', this._trackRetryDelayMs);
       return [];
     }
   }

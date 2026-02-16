@@ -388,7 +388,12 @@ export class SpotifyAuth {
    * @private
    */
   async _getAccessToken() {
-    return localStorage.getItem(this.STORAGE_KEYS.ACCESS_TOKEN);
+    const token = localStorage.getItem(this.STORAGE_KEYS.ACCESS_TOKEN);
+    const normalized = String(token || '').trim();
+    if (!normalized || normalized === 'null' || normalized === 'undefined') {
+      return null;
+    }
+    return normalized;
   }
 
   /**
@@ -396,7 +401,12 @@ export class SpotifyAuth {
    * @private
    */
   async _getRefreshToken() {
-    return localStorage.getItem(this.STORAGE_KEYS.REFRESH_TOKEN);
+    const token = localStorage.getItem(this.STORAGE_KEYS.REFRESH_TOKEN);
+    const normalized = String(token || '').trim();
+    if (!normalized || normalized === 'null' || normalized === 'undefined') {
+      return null;
+    }
+    return normalized;
   }
 
   /**
