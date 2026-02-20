@@ -2302,20 +2302,22 @@ export class MusicPanelUI {
    * @private
    */
   _syncSourceDependentControls() {
+    const isSpotify = this.currentMusicSource === 'spotify';
+
+    document.querySelectorAll('[data-music-provider]').forEach((element) => {
+      const provider = element.getAttribute('data-music-provider');
+      const shouldShow = (provider === 'spotify' && isSpotify) || (provider === 'freesound' && !isSpotify);
+      element.style.display = shouldShow ? '' : 'none';
+    });
+
     const crossfadeInput = document.getElementById('crossfade-duration-panel');
     const crossfadeValue = document.getElementById('crossfade-value-panel');
-    if (!crossfadeInput) return;
-
-    const isSpotify = this.currentMusicSource === 'spotify';
-    crossfadeInput.disabled = isSpotify;
-    crossfadeInput.title = isSpotify ? 'Crossfade is currently available only for Freesound playback.' : '';
-
-    const group = crossfadeInput.closest('.setting-group');
-    if (group) {
-      group.style.opacity = isSpotify ? '0.65' : '';
+    if (crossfadeInput) {
+      crossfadeInput.disabled = isSpotify;
+      crossfadeInput.title = isSpotify ? 'Crossfade is currently available only for Freesound playback.' : '';
     }
 
-    if (crossfadeValue) {
+    if (crossfadeInput && crossfadeValue) {
       const baseValue = `${Math.max(1, Math.min(10, parseInt(crossfadeInput.value, 10) || 3))}s`;
       crossfadeValue.textContent = isSpotify ? `${baseValue} (Freesound only)` : baseValue;
     }

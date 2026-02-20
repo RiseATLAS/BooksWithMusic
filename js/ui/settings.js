@@ -688,6 +688,14 @@ export class SettingsUI {
     this.syncPageIndicatorSettings();
   }
 
+  _syncMusicProviderSettingsUI(source) {
+    const activeProvider = source === 'spotify' ? 'spotify' : 'freesound';
+    document.querySelectorAll('[data-music-provider]').forEach((element) => {
+      const provider = element.getAttribute('data-music-provider');
+      element.style.display = provider === activeProvider ? '' : 'none';
+    });
+  }
+
   // Spotify integration methods
   /**
    * Handle music source change between Freesound and Spotify
@@ -695,11 +703,7 @@ export class SettingsUI {
    */
   async handleMusicSourceChange(source) {
     try {
-      // Show/hide Spotify authentication section based on selected source
-      const spotifyAuthSection = document.getElementById('spotify-auth-section');
-      if (spotifyAuthSection) {
-        spotifyAuthSection.style.display = source === 'spotify' ? 'block' : 'none';
-      }
+      this._syncMusicProviderSettingsUI(source);
 
       // Switch the music source in the music manager (stops current playback and updates API)
       if (window.musicManager) {
@@ -806,13 +810,6 @@ export class SettingsUI {
     if (musicSourceSelect) {
       musicSourceSelect.value = savedSource;
     }
-
-    // Show/hide Spotify authentication section based on selected source
-    // (Only visible when Spotify is selected as the music source)
-    const spotifyAuthSection = document.getElementById('spotify-auth-section');
-    if (spotifyAuthSection) {
-      const shouldShowSpotifyAuth = savedSource === 'spotify';
-      spotifyAuthSection.style.display = shouldShowSpotifyAuth ? 'block' : 'none';
-    }
+    this._syncMusicProviderSettingsUI(savedSource);
   }
 }

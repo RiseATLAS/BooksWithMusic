@@ -164,7 +164,7 @@
                         </small>
                     </div>
 
-                    <div class="setting-group">
+                    <div class="setting-group" data-music-provider="spotify">
                         <label for="instrumental-only">
                             <input type="checkbox" id="instrumental-only" checked>
                             Background Music Only (instrumental/ambient)
@@ -174,7 +174,7 @@
                         </small>
                     </div>
 
-                    <div class="setting-group">
+                    <div class="setting-group" data-music-provider="spotify">
                         <label for="prefer-cinematic-scores">
                             <input type="checkbox" id="prefer-cinematic-scores">
                             Prefer Cinematic Scores (soundtrack bias)
@@ -218,7 +218,7 @@
                         </small>
                     </div>
 
-                    <div id="spotify-auth-section" class="setting-group" style="display: none;">
+                    <div id="spotify-auth-section" class="setting-group" style="display: none;" data-music-provider="spotify">
                         <button id="spotify-connect-btn" class="btn btn-primary">
                             <span class="icon">🔐</span> Connect Spotify
                         </button>
@@ -235,7 +235,7 @@
 
                     <h4 class="settings-section-title">Playlist Settings</h4>
 
-                    <div class="setting-group">
+                    <div class="setting-group" data-music-provider="spotify">
                         <label for="max-energy-level">
                             Maximum Energy Level (1=calm, 5=intense)
                         </label>
@@ -268,7 +268,7 @@
                         </small>
                     </div>
 
-                    <div class="setting-group">
+                    <div class="setting-group" data-music-provider="freesound">
                         <label for="crossfade-duration-panel">Crossfade Duration</label>
                         <input type="range" id="crossfade-duration-panel" min="1" max="10" value="3">
                         <span id="crossfade-value-panel">3s</span>
@@ -304,7 +304,7 @@
 
                     <h4 class="settings-section-title">Music API</h4>
 
-                    <div class="setting-group">
+                    <div class="setting-group" data-music-provider="spotify">
                         <label for="lastfm-key-panel">Last.fm API Key (Spotify discovery)</label>
                         <input type="password" id="lastfm-key-panel" placeholder="Paste your Last.fm API key" autocomplete="off">
                         <button id="save-lastfm-key-panel" class="btn btn-primary save-key-button">Save Key</button>
@@ -313,7 +313,7 @@
                         </small>
                     </div>
 
-                    <div class="setting-group">
+                    <div class="setting-group" data-music-provider="freesound">
                         <label for="freesound-key-panel">Freesound API Key</label>
                         <input type="text" id="freesound-key-panel" placeholder="Enter your API key">
                         <button id="save-freesound-key-panel" class="btn btn-primary save-key-button">Save Key</button>
