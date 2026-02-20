@@ -342,6 +342,77 @@ export class SpotifyMusicManager {
     return Math.min(requestedEnergy, maxEnergyLevel);
   }
 
+  _normalizeTrackIdentityText(value) {
+    return String(value || '')
+      .toLowerCase()
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/['"`]/g, '')
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim()
+      .replace(/\s+/g, ' ');
+  }
+
+  _extractPrimaryArtistName(track) {
+    const artistText = String(track?.artist || '').trim();
+    if (!artistText) return '';
+
+    const split = artistText.split(/,|&|\bfeat\.?\b|\bft\.?\b/i);
+    return String(split[0] || '').trim();
+  }
+
+  _canonicalizeTrackTitle(title) {
+    const raw = String(title || '').trim();
+    if (!raw) return '';
+
+    const withoutBrackets = raw.replace(/[\(\[\{].*?[\)\]\}]/g, ' ');
+    const normalized = withoutBrackets.replace(/\s+/g, ' ').trim();
+    const separatorMatch = normalized.match(/^(.+?)\s[-:|]\s(.+)$/);
+    const qualifierRegex = /\b(instrumental|version|remix|remaster|edit|mix|score|theme|soundtrack|ost|bgm|live|karaoke|radio|extended|demo|acoustic|lofi|slowed|reverb|tv|trailer)\b/i;
+    const maybeReduced = separatorMatch && qualifierRegex.test(separatorMatch[2])
+      ? separatorMatch[1]
+      : normalized;
+
+    return this._normalizeTrackIdentityText(maybeReduced);
+  }
+
+  _getTrackIdentityKeys(track) {
+    const title = String(track?.title || '').trim();
+    if (!title) return [];
+
+    const primaryArtist = this._extractPrimaryArtistName(track);
+    const normalizedTitle = this._normalizeTrackIdentityText(title);
+    const canonicalTitle = this._canonicalizeTrackTitle(title);
+    const normalizedArtist = this._normalizeTrackIdentityText(primaryArtist);
+    const keys = new Set();
+
+    if (normalizedArtist && normalizedTitle) {
+      keys.add(`artist-title:${normalizedArtist}|${normalizedTitle}`);
+    }
+
+    if (normalizedArtist && canonicalTitle) {
+      keys.add(`artist-canonical:${normalizedArtist}|${canonicalTitle}`);
+    }
+
+    return [...keys];
+  }
+
+  _registerTrackIdentity(track, identitySet) {
+    if (!(identitySet instanceof Set)) return;
+    this._getTrackIdentityKeys(track).forEach((key) => identitySet.add(key));
+  }
+
+  _hasTrackIdentityCollision(track, localIdentitySet, excludedIdentitySet = null) {
+    const identityKeys = this._getTrackIdentityKeys(track);
+    if (identityKeys.length === 0) {
+      return false;
+    }
+
+    return identityKeys.some((key) =>
+      localIdentitySet?.has(key) || excludedIdentitySet?.has(key)
+    );
+  }
+
   _extractSearchKeywordsFromProfile(keywordProfile = []) {
     const genericTerms = new Set([
       'instrumental',
@@ -418,12 +489,17 @@ export class SpotifyMusicManager {
     const excludedTrackIds = runtimeOptions.excludedTrackIds instanceof Set
       ? runtimeOptions.excludedTrackIds
       : new Set();
+    const excludedTrackSignatures = runtimeOptions.excludedTrackSignatures instanceof Set
+      ? runtimeOptions.excludedTrackSignatures
+      : new Set();
 
     const orderedResolvedTracks = [];
     const usedSpotifyTrackIds = new Set();
+    const usedTrackSignatures = new Set();
     const querySearchKeywords = this._extractSearchKeywordsFromProfile(keywordProfile);
     const maxFreshResolveLookups = Math.max(4, Math.min(candidateLimit, perProfileLimit + 2));
     let freshResolveLookups = 0;
+    let identitySkips = 0;
 
     for (const candidate of candidatesToResolve) {
       const title = String(candidate?.title || '').trim();
@@ -452,8 +528,13 @@ export class SpotifyMusicManager {
       if (!resolved) continue;
       if (usedSpotifyTrackIds.has(resolved.id)) continue;
       if (excludedTrackIds.has(resolved.id)) continue;
+      if (this._hasTrackIdentityCollision(resolved, usedTrackSignatures, excludedTrackSignatures)) {
+        identitySkips += 1;
+        continue;
+      }
 
       usedSpotifyTrackIds.add(resolved.id);
+      this._registerTrackIdentity(resolved, usedTrackSignatures);
       orderedResolvedTracks.push({
         ...resolved,
         lastFmConfidence: candidate.confidence,
@@ -489,8 +570,13 @@ export class SpotifyMusicManager {
         if (!track?.id) continue;
         if (usedSpotifyTrackIds.has(track.id)) continue;
         if (excludedTrackIds.has(track.id)) continue;
+        if (this._hasTrackIdentityCollision(track, usedTrackSignatures, excludedTrackSignatures)) {
+          identitySkips += 1;
+          continue;
+        }
 
         usedSpotifyTrackIds.add(track.id);
+        this._registerTrackIdentity(track, usedTrackSignatures);
         orderedResolvedTracks.push(this._withReasoningForProfile(track, profile, mapping));
         augmentedCount += 1;
 
@@ -509,7 +595,7 @@ export class SpotifyMusicManager {
 
     console.info(
       `🔗 Last.fm→Spotify resolved ${orderedResolvedTracks.length}/${candidatesToResolve.length} ` +
-      `(freshLookups=${freshResolveLookups}/${maxFreshResolveLookups}) ` +
+      `(freshLookups=${freshResolveLookups}/${maxFreshResolveLookups}, identitySkips=${identitySkips}) ` +
       `track(s) for chapter ${chapterIndex} mood=${profile?.mood || mapping?.mood || 'unknown'}`
     );
 
@@ -587,6 +673,7 @@ export class SpotifyMusicManager {
       const searchedTracksByProfile = [];
       const resolveCache = new Map();
       const reservedTrackIds = new Set();
+      const reservedTrackSignatures = new Set();
 
       if (selectedProfiles.length < shiftProfiles.length) {
         console.log(
@@ -603,7 +690,8 @@ export class SpotifyMusicManager {
           mapping,
           {
             resolveCache,
-            excludedTrackIds: reservedTrackIds
+            excludedTrackIds: reservedTrackIds,
+            excludedTrackSignatures: reservedTrackSignatures
           }
         );
         searchedTracksByProfile.push({ profile, tracks });
@@ -611,15 +699,23 @@ export class SpotifyMusicManager {
           if (track?.id) {
             reservedTrackIds.add(track.id);
           }
+          this._registerTrackIdentity(track, reservedTrackSignatures);
         });
       }
 
       // Ensure each shift mood gets at least one "anchor" track at the front of the playlist.
       const orderedTracks = [];
       const usedTrackIds = new Set();
+      const usedTrackSignatures = new Set();
+      let identityFilteredCount = 0;
       const addTrack = (track, profile) => {
         if (!track?.id || usedTrackIds.has(track.id)) return;
+        if (this._hasTrackIdentityCollision(track, usedTrackSignatures)) {
+          identityFilteredCount += 1;
+          return;
+        }
         usedTrackIds.add(track.id);
+        this._registerTrackIdentity(track, usedTrackSignatures);
         orderedTracks.push(this._withReasoningForProfile(track, profile, mapping));
       };
 
@@ -638,6 +734,13 @@ export class SpotifyMusicManager {
       const tracksWithReasoning = orderedTracks.slice(0, desiredTrackCount);
       mapping.tracks = tracksWithReasoning;
       mapping.tracksFetched = tracksWithReasoning.length > 0;
+
+      if (identityFilteredCount > 0) {
+        console.info(
+          `🧬 Diversity filter skipped ${identityFilteredCount} near-duplicate chapter track candidate(s) ` +
+          `for chapter ${chapterIndex}.`
+        );
+      }
 
       if (tracksWithReasoning.length > 0) {
         this._clearTrackRetryState(chapterIndex);
