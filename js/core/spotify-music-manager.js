@@ -331,7 +331,30 @@ export class SpotifyMusicManager {
     );
   }
 
-  async _resolveProfileTracksViaLastFm(profile, perProfileLimit, chapterIndex, mapping) {
+  _extractSearchKeywordsFromProfile(keywordProfile = []) {
+    const genericTerms = new Set([
+      'instrumental',
+      'no vocals',
+      'ambient',
+      'cinematic score',
+      'orchestral',
+      'cinematic',
+      'calm',
+      'atmospheric',
+      'balanced',
+      'flowing',
+      'gentle',
+      'soft'
+    ]);
+
+    return (Array.isArray(keywordProfile) ? keywordProfile : [])
+      .filter((entry) => Number(entry?.weight) > 0)
+      .map((entry) => String(entry?.keyword || '').toLowerCase().trim())
+      .filter((keyword) => keyword.length >= 3 && !genericTerms.has(keyword))
+      .slice(0, 8);
+  }
+
+  async _resolveProfileTracksViaLastFm(profile, perProfileLimit, chapterIndex, mapping, runtimeOptions = {}) {
     if (!this.lastFmAPI.isConfigured()) {
       if (!this._hasLoggedMissingLastFmKey) {
         console.error('❌ Last.fm API key missing. Add key in Music Settings > Music API.');
@@ -378,21 +401,41 @@ export class SpotifyMusicManager {
       ? this.spotifyAPI._getPreferredSearchMarket(this.spotifyAPI._getSettings())
       : '';
 
+    const resolveCache = runtimeOptions.resolveCache instanceof Map
+      ? runtimeOptions.resolveCache
+      : new Map();
+    const excludedTrackIds = runtimeOptions.excludedTrackIds instanceof Set
+      ? runtimeOptions.excludedTrackIds
+      : new Set();
+
     const orderedResolvedTracks = [];
     const usedSpotifyTrackIds = new Set();
+    const querySearchKeywords = this._extractSearchKeywordsFromProfile(keywordProfile);
+
     for (const candidate of candidatesToResolve) {
-      const resolved = await this.spotifyAPI.searchTrackByTitleArtist(
-        candidate?.title,
-        candidate?.artist,
-        {
-          market: preferredMarket,
-          instrumentalOnly: settings.instrumentalOnly !== false,
-          preferCinematicScores: settings.preferCinematicScores === true,
-          targetMood: profile?.mood || mapping?.mood || 'peaceful'
-        }
-      );
+      const title = String(candidate?.title || '').trim();
+      const artist = String(candidate?.artist || '').trim();
+      if (!title || !artist) continue;
+
+      const resolveKey = `${title.toLowerCase()}|${artist.toLowerCase()}`;
+      let resolved = resolveCache.get(resolveKey);
+      if (resolved === undefined) {
+        resolved = await this.spotifyAPI.searchTrackByTitleArtist(
+          title,
+          artist,
+          {
+            market: preferredMarket,
+            instrumentalOnly: settings.instrumentalOnly !== false,
+            preferCinematicScores: settings.preferCinematicScores === true,
+            targetMood: profile?.mood || mapping?.mood || 'peaceful'
+          }
+        );
+        resolveCache.set(resolveKey, resolved || null);
+      }
+
       if (!resolved) continue;
       if (usedSpotifyTrackIds.has(resolved.id)) continue;
+      if (excludedTrackIds.has(resolved.id)) continue;
 
       usedSpotifyTrackIds.add(resolved.id);
       orderedResolvedTracks.push({
@@ -403,6 +446,44 @@ export class SpotifyMusicManager {
 
       if (orderedResolvedTracks.length >= perProfileLimit) {
         break;
+      }
+    }
+
+    if (orderedResolvedTracks.length < perProfileLimit) {
+      const remainingSlots = perProfileLimit - orderedResolvedTracks.length;
+      const mood = profile?.mood || mapping?.mood || 'peaceful';
+      const energy = profile?.energy || mapping?.energy || 3;
+      const moodTracks = await this.spotifyAPI.searchByMood(
+        mood,
+        energy,
+        querySearchKeywords,
+        Math.max(remainingSlots + 2, perProfileLimit),
+        {
+          maxBaseQueries: 2,
+          maxFallbackQueries: 1
+        }
+      );
+
+      let augmentedCount = 0;
+      for (const track of moodTracks) {
+        if (!track?.id) continue;
+        if (usedSpotifyTrackIds.has(track.id)) continue;
+        if (excludedTrackIds.has(track.id)) continue;
+
+        usedSpotifyTrackIds.add(track.id);
+        orderedResolvedTracks.push(this._withReasoningForProfile(track, profile, mapping));
+        augmentedCount += 1;
+
+        if (orderedResolvedTracks.length >= perProfileLimit) {
+          break;
+        }
+      }
+
+      if (augmentedCount > 0) {
+        console.info(
+          `🧩 Augmented Last.fm profile with ${augmentedCount} Spotify mood track(s) ` +
+          `for chapter ${chapterIndex} mood=${mood}`
+        );
       }
     }
 
@@ -483,6 +564,8 @@ export class SpotifyMusicManager {
         )
       );
       const searchedTracksByProfile = [];
+      const resolveCache = new Map();
+      const reservedTrackIds = new Set();
 
       if (selectedProfiles.length < shiftProfiles.length) {
         console.log(
@@ -496,9 +579,18 @@ export class SpotifyMusicManager {
           profile,
           perProfileLimit,
           chapterIndex,
-          mapping
+          mapping,
+          {
+            resolveCache,
+            excludedTrackIds: reservedTrackIds
+          }
         );
         searchedTracksByProfile.push({ profile, tracks });
+        (tracks || []).forEach((track) => {
+          if (track?.id) {
+            reservedTrackIds.add(track.id);
+          }
+        });
       }
 
       // Ensure each shift mood gets at least one "anchor" track at the front of the playlist.

@@ -1586,11 +1586,18 @@ export class MoodProcessor {
 
     // Instrumental/low-vocal preference
     if (instrumentalOnly) {
-      ['instrumental', 'no vocals', 'ambient', 'cinematic score', 'orchestral'].forEach((term) => {
-        addKeyword(term, 0.9);
+      // Keep these as supporting constraints rather than dominant mood signals.
+      [
+        ['instrumental', 0.62],
+        ['no vocals', 0.58],
+        ['ambient', 0.52],
+        ['cinematic score', 0.5],
+        ['orchestral', 0.48]
+      ].forEach(([term, weight]) => {
+        addKeyword(term, weight);
       });
       ['vocal', 'lyrics', 'singer-songwriter', 'podcast', 'spoken word', 'a cappella'].forEach((term) => {
-        addKeyword(term, -0.92);
+        addKeyword(term, -0.82);
       });
     }
 
