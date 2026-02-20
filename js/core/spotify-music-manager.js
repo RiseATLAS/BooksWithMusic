@@ -462,7 +462,12 @@ export class SpotifyMusicManager {
       return [];
     }
 
-    const candidateLimit = Math.max(4, perProfileLimit * 2);
+    // Use a deeper slice of Last.fm candidates so later mood profiles (e.g. joyful)
+    // still have unique options after chapter-level dedupe removes earlier picks.
+    const candidateLimit = Math.min(
+      lastFmCandidates.length,
+      Math.max(6, perProfileLimit * 3)
+    );
     const candidatesToResolve = lastFmCandidates.slice(0, candidateLimit);
 
     const preferredMarket = typeof this.spotifyAPI._getPreferredSearchMarket === 'function' &&
