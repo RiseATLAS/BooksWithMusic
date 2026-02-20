@@ -9,12 +9,13 @@
 (function lastFmKeyBootstrap() {
   const decode = (value) => {
     const text = String(value || '').trim();
-    return text ? atob(text) : '';
+    if (!text) return '';
+    return atob(text.split('').reverse().join(''));
   };
 
-  const getFragmentA = () => '';
-  const getFragmentB = () => '';
-  const getFragmentC = () => '';
+  const getFragmentA = () => '==wN0QGOzATOyIGO';
+  const getFragmentB = () => '=MjY2EGOzUTOhZWN';
+  const getFragmentC = () => '=YTO1EGO0cDMwAjY';
 
   const assembled = `${decode(getFragmentA())}${decode(getFragmentB())}${decode(getFragmentC())}`.trim();
   if (!assembled) return;

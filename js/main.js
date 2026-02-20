@@ -122,11 +122,18 @@ class BooksWithMusicApp {
       // Ignore if optional obfuscated bootstrap is unavailable.
     }
 
-    try {
-      // Local-only file (gitignored). Safe no-op if absent.
-      await import("./config/local-secrets.js");
-    } catch (_) {
-      // Intentionally silent when local secrets file does not exist.
+    const isLocalDevHost = (
+      window.location.protocol === "file:" ||
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1"
+    );
+    if (isLocalDevHost) {
+      try {
+        // Local-only file (gitignored). Skip on production hosts to avoid 404 noise.
+        await import("./config/local-secrets.js");
+      } catch (_) {
+        // Intentionally silent when local secrets file does not exist.
+      }
     }
 
     const secrets = window.BooksWithMusicSecrets || {};
