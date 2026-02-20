@@ -7,6 +7,6 @@
  * That file is gitignored and loaded automatically at startup.
  */
 window.BooksWithMusicSecrets = {
-  // Cyanite integration token used for Spotify discovery
-  cyaniteAccessToken: '',
+  // Last.fm API key used for Spotify discovery
+  lastfmApiKey: '',
 };

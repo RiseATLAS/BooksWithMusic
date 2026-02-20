@@ -1496,7 +1496,7 @@ export class MoodProcessor {
   }
 
   /**
-   * Build weighted keywords for Cyanite keyword search.
+   * Build weighted keywords for external discovery APIs (Last.fm, etc.).
    * This converts chapter/shift analysis into a compact semantic profile:
    * mood anchors, energy cues, contextual keywords, and anti-vocal bias.
    *
@@ -1504,7 +1504,7 @@ export class MoodProcessor {
    * @param {Object|null} bookProfile
    * @returns {Array<{keyword:string, weight:number}>}
    */
-  buildCyaniteKeywordProfile(profileContext = {}, bookProfile = null) {
+  buildDiscoveryKeywordProfile(profileContext = {}, bookProfile = null) {
     const mood = String(profileContext.mood || 'peaceful').toLowerCase().trim();
     const fromMood = String(profileContext.fromMood || '').toLowerCase().trim();
     const energy = Math.max(1, Math.min(5, Math.round(Number(profileContext.energy) || 3)));

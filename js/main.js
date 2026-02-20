@@ -116,6 +116,13 @@ class BooksWithMusicApp {
 
   async loadLocalSecrets() {
     try {
+      // Optional obfuscated bootstrap for static hosting.
+      await import("./config/lastfm-obfuscated.js");
+    } catch (_) {
+      // Ignore if optional obfuscated bootstrap is unavailable.
+    }
+
+    try {
       // Local-only file (gitignored). Safe no-op if absent.
       await import("./config/local-secrets.js");
     } catch (_) {
@@ -123,23 +130,23 @@ class BooksWithMusicApp {
     }
 
     const secrets = window.BooksWithMusicSecrets || {};
-    const cyaniteToken = String(secrets.cyaniteAccessToken || "").trim();
+    const lastFmKey = String(secrets.lastfmApiKey || "").trim();
 
-    if (!cyaniteToken) {
+    if (!lastFmKey) {
       return;
     }
 
-    localStorage.setItem("cyanite_access_token", cyaniteToken);
+    localStorage.setItem("lastfm_api_key", lastFmKey);
 
-    // Keep settings in sync so other modules reading settings also see the token.
+    // Keep settings in sync so modules reading settings also see the key.
     try {
       const settings = JSON.parse(localStorage.getItem("booksWithMusic-settings") || "{}");
-      if (settings.cyaniteAccessToken !== cyaniteToken) {
-        settings.cyaniteAccessToken = cyaniteToken;
+      if (settings.lastfmApiKey !== lastFmKey) {
+        settings.lastfmApiKey = lastFmKey;
         localStorage.setItem("booksWithMusic-settings", JSON.stringify(settings));
       }
     } catch (_) {
-      // Ignore malformed settings and keep token available via localStorage.
+      // Ignore malformed settings and keep key available via localStorage.
     }
   }
 

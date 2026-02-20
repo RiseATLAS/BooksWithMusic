@@ -832,27 +832,32 @@ export class MusicPanelUI {
       pageBasedMusicCheckbox.checked = settings.pageBasedMusicSwitch;
     }
 
-    // Cyanite API token (Spotify discovery)
-    const cyaniteKeyInput = document.getElementById('cyanite-key-panel');
-    const saveCyaniteBtn = document.getElementById('save-cyanite-key-panel');
+    // Last.fm API key (Spotify discovery)
+    const lastFmKeyInput = document.getElementById('lastfm-key-panel');
+    const saveLastFmBtn = document.getElementById('save-lastfm-key-panel');
 
-    if (cyaniteKeyInput) {
-      const savedToken = localStorage.getItem('cyanite_access_token');
-      if (savedToken) {
-        cyaniteKeyInput.value = savedToken;
+    if (lastFmKeyInput) {
+      const savedKey = localStorage.getItem('lastfm_api_key');
+      if (savedKey) {
+        lastFmKeyInput.value = savedKey;
       }
     }
 
-    saveCyaniteBtn?.addEventListener('click', async (e) => {
+    saveLastFmBtn?.addEventListener('click', async (e) => {
       e.preventDefault();
-      const token = String(cyaniteKeyInput?.value || '').trim();
+      const apiKey = String(lastFmKeyInput?.value || '').trim();
+      const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
 
-      if (token) {
-        localStorage.setItem('cyanite_access_token', token);
-        this.showToast('Cyanite token saved. Refreshing current chapter music...', 'success');
+      if (apiKey) {
+        localStorage.setItem('lastfm_api_key', apiKey);
+        settings.lastfmApiKey = apiKey;
+        localStorage.setItem('booksWithMusic-settings', JSON.stringify(settings));
+        this.showToast('Last.fm API key saved. Refreshing current chapter music...', 'success');
       } else {
-        localStorage.removeItem('cyanite_access_token');
-        this.showToast('Cyanite token cleared.', 'info');
+        localStorage.removeItem('lastfm_api_key');
+        delete settings.lastfmApiKey;
+        localStorage.setItem('booksWithMusic-settings', JSON.stringify(settings));
+        this.showToast('Last.fm API key cleared.', 'info');
       }
 
       const reader = window.app?.reader || this.reader;
@@ -863,7 +868,7 @@ export class MusicPanelUI {
         this.musicManager &&
         typeof this.musicManager.onChapterChange === 'function'
       ) {
-        // Force fresh chapter fetch with new/updated Cyanite token.
+        // Force fresh chapter fetch with new/updated Last.fm key.
         if (this.musicManager.chapterMappings) {
           Object.values(this.musicManager.chapterMappings).forEach((mapping) => {
             if (!mapping) return;

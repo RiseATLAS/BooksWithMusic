@@ -3,12 +3,12 @@
  *
  * RESPONSIBILITIES:
  * - Initialize Spotify API integration and chapter mappings
- * - Fetch chapter playlists via Cyanite keyword discovery + Spotify resolution
+ * - Fetch chapter playlists via Last.fm metadata discovery + Spotify resolution
  * - Handle chapter-to-track mapping for Spotify content
  * - Manage playback through Spotify SDK player
  *
  * DIFFERENCES FROM FREESOUND:
- * - No pre-loading track library (uses dynamic Cyanite + Spotify discovery)
+ * - No pre-loading track library (uses dynamic Last.fm + Spotify discovery)
  * - No caching (Spotify streams directly)
  * - Uses mood/keyword targeting with low-vocal ranking
  *
@@ -20,13 +20,13 @@
 
 import { MoodProcessor } from './mood-processor.js';
 import { SpotifyAPI } from './spotify-api.js';
-import { CyaniteAPI } from './cyanite-api.js';
+import { LastFmAPI } from './lastfm-api.js';
 
 export class SpotifyMusicManager {
   constructor() {
     this.moodProcessor = new MoodProcessor();
     this.spotifyAPI = new SpotifyAPI();
-    this.cyaniteAPI = new CyaniteAPI();
+    this.lastFmAPI = new LastFmAPI();
     this.bookAnalysis = null;
     this.chapterMappings = {};
     this.currentBookId = null;
@@ -47,7 +47,7 @@ export class SpotifyMusicManager {
     this._trackFetchPromises = {};
     this._chapterContextByIndex = {};
     this._latestChapterChangeRequestId = 0;
-    this._hasLoggedMissingCyaniteToken = false;
+    this._hasLoggedMissingLastFmKey = false;
   }
 
   /**
@@ -77,10 +77,10 @@ export class SpotifyMusicManager {
         return;
       }
 
-      if (!this.cyaniteAPI.isConfigured()) {
-        console.error('❌ Cyanite token missing. Add token in Music Settings > Music API.');
+      if (!this.lastFmAPI.isConfigured()) {
+        console.error('❌ Last.fm API key missing. Add key in Music Settings > Music API.');
       } else {
-        this._hasLoggedMissingCyaniteToken = false;
+        this._hasLoggedMissingLastFmKey = false;
       }
       
       console.log('🎵 Initializing Spotify music manager...');
@@ -288,16 +288,17 @@ export class SpotifyMusicManager {
 
   _isRateLimitError(error) {
     return error?.code === 'SPOTIFY_RATE_LIMIT' ||
-      error?.code === 'CYANITE_RATE_LIMIT' ||
+      error?.code === 'LASTFM_RATE_LIMIT' ||
       /rate limit/i.test(String(error?.message || ''));
   }
 
   _isAuthError(error) {
     const message = String(error?.message || '').toLowerCase();
     return error?.code === 'SPOTIFY_AUTH' ||
-      error?.code === 'CYANITE_AUTH' ||
+      error?.code === 'LASTFM_AUTH' ||
       message.includes('no spotify access token') ||
-      message.includes('no cyanite access token') ||
+      message.includes('no last.fm api key') ||
+      message.includes('no lastfm api key') ||
       message.includes('no token provided') ||
       message.includes('re-authenticate') ||
       message.includes('authorization failed');
@@ -314,12 +315,12 @@ export class SpotifyMusicManager {
     return this._trackRetryDelayMs;
   }
 
-  _buildCyaniteKeywordsForProfile(profile, mapping) {
+  _buildLastFmKeywordsForProfile(profile, mapping) {
     const profileKeywords = Array.isArray(profile?.keywords) && profile.keywords.length > 0
       ? profile.keywords
       : (mapping?.keywords || []);
 
-    return this.moodProcessor.buildCyaniteKeywordProfile(
+    return this.moodProcessor.buildDiscoveryKeywordProfile(
       {
         mood: profile?.mood || mapping?.mood || 'peaceful',
         fromMood: profile?.fromMood || null,
@@ -330,36 +331,18 @@ export class SpotifyMusicManager {
     );
   }
 
-  _normalizeSpotifyTrackId(rawId) {
-    const value = String(rawId || '').trim();
-    if (!value) return '';
-
-    const uriMatch = value.match(/^spotify:track:([A-Za-z0-9]{10,32})$/i);
-    if (uriMatch) {
-      return uriMatch[1];
-    }
-
-    const urlMatch = value.match(/open\.spotify\.com\/track\/([A-Za-z0-9]{10,32})/i);
-    if (urlMatch) {
-      return urlMatch[1];
-    }
-
-    const cleanValue = value.split('?')[0];
-    return /^[A-Za-z0-9]{10,32}$/.test(cleanValue) ? cleanValue : '';
-  }
-
-  async _resolveProfileTracksViaCyanite(profile, perProfileLimit, chapterIndex, mapping) {
-    if (!this.cyaniteAPI.isConfigured()) {
-      if (!this._hasLoggedMissingCyaniteToken) {
-        console.error('❌ Cyanite token missing. Add token in Music Settings > Music API.');
-        this._hasLoggedMissingCyaniteToken = true;
+  async _resolveProfileTracksViaLastFm(profile, perProfileLimit, chapterIndex, mapping) {
+    if (!this.lastFmAPI.isConfigured()) {
+      if (!this._hasLoggedMissingLastFmKey) {
+        console.error('❌ Last.fm API key missing. Add key in Music Settings > Music API.');
+        this._hasLoggedMissingLastFmKey = true;
       }
-      const error = new Error('No Cyanite access token available.');
-      error.code = 'CYANITE_AUTH';
+      const error = new Error('No Last.fm API key available.');
+      error.code = 'LASTFM_AUTH';
       throw error;
     }
 
-    const keywordProfile = this._buildCyaniteKeywordsForProfile(profile, mapping);
+    const keywordProfile = this._buildLastFmKeywordsForProfile(profile, mapping);
     if (keywordProfile.length === 0) {
       return [];
     }
@@ -369,40 +352,43 @@ export class SpotifyMusicManager {
       `-page-${Number(profile?.pageInChapter || 1)}` +
       `-${String(profile?.mood || mapping?.mood || 'unknown').toLowerCase()}`;
 
-    const cyaniteCandidates = await this.cyaniteAPI.searchSpotifyTracksByKeywords(
+    const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
+    const lastFmCandidates = await this.lastFmAPI.searchTracksByKeywords(
       keywordProfile,
-      perProfileLimit,
-      { contextLabel }
+      Math.max(perProfileLimit * 3, 8),
+      {
+        contextLabel,
+        mood: profile?.mood || mapping?.mood || 'peaceful',
+        instrumentalOnly: settings.instrumentalOnly !== false,
+        preferCinematicScores: settings.preferCinematicScores === true
+      }
     );
 
-    if (cyaniteCandidates.length === 0) {
+    if (lastFmCandidates.length === 0) {
       return [];
     }
-
-    const spotifyIds = cyaniteCandidates
-      .map((candidate) => this._normalizeSpotifyTrackId(candidate?.id))
-      .filter(Boolean);
 
     const preferredMarket = typeof this.spotifyAPI._getPreferredSearchMarket === 'function' &&
       typeof this.spotifyAPI._getSettings === 'function'
       ? this.spotifyAPI._getPreferredSearchMarket(this.spotifyAPI._getSettings())
       : '';
 
-    const resolvedSpotifyTracks = await this.spotifyAPI.getTracksByIds(spotifyIds, {
-      market: preferredMarket
-    });
-    const resolvedById = new Map(
-      resolvedSpotifyTracks.map((track) => [track.id, track])
-    );
-
     const orderedResolvedTracks = [];
-    for (const candidate of cyaniteCandidates) {
-      const resolved = resolvedById.get(this._normalizeSpotifyTrackId(candidate?.id));
+    const usedSpotifyTrackIds = new Set();
+    for (const candidate of lastFmCandidates) {
+      const resolved = await this.spotifyAPI.searchTrackByTitleArtist(
+        candidate?.title,
+        candidate?.artist,
+        { market: preferredMarket }
+      );
       if (!resolved) continue;
+      if (usedSpotifyTrackIds.has(resolved.id)) continue;
 
+      usedSpotifyTrackIds.add(resolved.id);
       orderedResolvedTracks.push({
         ...resolved,
-        cyaniteConfidence: candidate.confidence
+        lastFmConfidence: candidate.confidence,
+        lastFmReference: candidate.reference || ''
       });
 
       if (orderedResolvedTracks.length >= perProfileLimit) {
@@ -411,7 +397,7 @@ export class SpotifyMusicManager {
     }
 
     console.info(
-      `🔗 Cyanite→Spotify resolved ${orderedResolvedTracks.length}/${cyaniteCandidates.length} ` +
+      `🔗 Last.fm→Spotify resolved ${orderedResolvedTracks.length}/${lastFmCandidates.length} ` +
       `track(s) for chapter ${chapterIndex} mood=${profile?.mood || mapping?.mood || 'unknown'}`
     );
 
@@ -490,13 +476,13 @@ export class SpotifyMusicManager {
 
       if (selectedProfiles.length < shiftProfiles.length) {
         console.log(
-          `🎛️ Cyanite profile budget: selected ${selectedProfiles.length}/${shiftProfiles.length} mood profiles ` +
+          `🎛️ Last.fm profile budget: selected ${selectedProfiles.length}/${shiftProfiles.length} mood profiles ` +
           `(perProfileLimit=${perProfileLimit}, apiMax=${this.spotifyAPI.maxSearchResultsPerRequest || 10})`
         );
       }
 
       for (const profile of selectedProfiles) {
-        const tracks = await this._resolveProfileTracksViaCyanite(
+        const tracks = await this._resolveProfileTracksViaLastFm(
           profile,
           perProfileLimit,
           chapterIndex,
@@ -536,17 +522,17 @@ export class SpotifyMusicManager {
         return tracksWithReasoning;
       }
 
-      console.warn(`⚠️ No Cyanite-resolved Spotify tracks returned for chapter ${chapterIndex}`);
+      console.warn(`⚠️ No Last.fm-discovered Spotify tracks returned for chapter ${chapterIndex}`);
       this._scheduleTrackRetry(chapterIndex, 'no-tracks');
       return [];
     } catch (error) {
       mapping.tracks = [];
       mapping.tracksFetched = false;
       if (this._isAuthError(error)) {
-        if (error?.code === 'CYANITE_AUTH' || /cyanite/i.test(String(error?.message || ''))) {
+        if (error?.code === 'LASTFM_AUTH' || /last\.?fm/i.test(String(error?.message || ''))) {
           console.error(
-            `❌ Cyanite auth error while fetching chapter ${chapterIndex}. ` +
-            'Add a valid Cyanite token in Music Settings > Music API.',
+            `❌ Last.fm auth error while fetching chapter ${chapterIndex}. ` +
+            'Add a valid Last.fm API key in Music Settings > Music API.',
             error
           );
         } else {
@@ -562,7 +548,7 @@ export class SpotifyMusicManager {
 
       if (this._isRateLimitError(error)) {
         const retryDelayMs = this._getRetryDelayMsFromError(error);
-        const sourceLabel = error?.code === 'CYANITE_RATE_LIMIT' ? 'Cyanite' : 'Spotify';
+        const sourceLabel = error?.code === 'LASTFM_RATE_LIMIT' ? 'Last.fm' : 'Spotify';
         console.warn(
           `⏳ ${sourceLabel} rate limit hit for chapter ${chapterIndex}. ` +
           `Retrying in ${Math.round(retryDelayMs / 1000)}s.`
