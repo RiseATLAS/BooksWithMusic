@@ -1521,7 +1521,6 @@ export class MoodProcessor {
 
     const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
     const instrumentalOnly = settings.instrumentalOnly !== false;
-    const preferCinematicScores = settings.preferCinematicScores === true;
 
     const weighted = new Map();
     const addKeyword = (term, weight) => {
@@ -1601,12 +1600,10 @@ export class MoodProcessor {
       });
     }
 
-    // Reduce game-heavy bias when cinematic mode is not explicitly requested.
-    if (!preferCinematicScores) {
-      ['video game', 'game music', 'bgm', 'ost', 'chiptune', '8-bit'].forEach((term) => {
-        addKeyword(term, -0.78);
-      });
-    }
+    // Keep the discovery profile focused away from game-music-heavy results.
+    ['video game', 'game music', 'bgm', 'ost', 'chiptune', '8-bit'].forEach((term) => {
+      addKeyword(term, -0.78);
+    });
 
     return Array.from(weighted.entries())
       .map(([keyword, weight]) => ({ keyword, weight }))

@@ -316,6 +316,7 @@ export class SpotifyMusicManager {
   }
 
   _buildLastFmKeywordsForProfile(profile, mapping) {
+    const effectiveEnergy = this._getEffectiveProfileEnergy(profile?.energy || mapping?.energy || 3);
     const profileKeywords = Array.isArray(profile?.keywords) && profile.keywords.length > 0
       ? profile.keywords
       : (mapping?.keywords || []);
@@ -324,11 +325,21 @@ export class SpotifyMusicManager {
       {
         mood: profile?.mood || mapping?.mood || 'peaceful',
         fromMood: profile?.fromMood || null,
-        energy: profile?.energy || mapping?.energy || 3,
+        energy: effectiveEnergy,
         keywords: profileKeywords
       },
       this.bookAnalysis?.bookProfile || null
     );
+  }
+
+  _getEffectiveProfileEnergy(rawEnergy) {
+    const requestedEnergy = Math.max(1, Math.min(5, Math.round(Number(rawEnergy) || 3)));
+    const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
+    const configuredMaxEnergy = settings.maxEnergyLevel;
+    const maxEnergyLevel = configuredMaxEnergy !== undefined
+      ? Math.max(1, Math.min(5, Math.round(Number(configuredMaxEnergy) || 5)))
+      : 5;
+    return Math.min(requestedEnergy, maxEnergyLevel);
   }
 
   _extractSearchKeywordsFromProfile(keywordProfile = []) {
@@ -376,6 +387,7 @@ export class SpotifyMusicManager {
       `-${String(profile?.mood || mapping?.mood || 'unknown').toLowerCase()}`;
 
     const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
+    const effectiveProfileEnergy = this._getEffectiveProfileEnergy(profile?.energy || mapping?.energy || 3);
     const lastFmCandidates = await this.lastFmAPI.searchTracksByKeywords(
       keywordProfile,
       Math.max(perProfileLimit * 3, 8),
@@ -383,9 +395,8 @@ export class SpotifyMusicManager {
         contextLabel,
         mood: profile?.mood || mapping?.mood || 'peaceful',
         fromMood: profile?.fromMood || null,
-        energy: profile?.energy || mapping?.energy || 3,
-        instrumentalOnly: settings.instrumentalOnly !== false,
-        preferCinematicScores: settings.preferCinematicScores === true
+        energy: effectiveProfileEnergy,
+        instrumentalOnly: settings.instrumentalOnly !== false
       }
     );
 
@@ -432,7 +443,6 @@ export class SpotifyMusicManager {
           {
             market: preferredMarket,
             instrumentalOnly: settings.instrumentalOnly !== false,
-            preferCinematicScores: settings.preferCinematicScores === true,
             targetMood: profile?.mood || mapping?.mood || 'peaceful'
           }
         );
@@ -458,15 +468,19 @@ export class SpotifyMusicManager {
     if (orderedResolvedTracks.length < perProfileLimit) {
       const remainingSlots = perProfileLimit - orderedResolvedTracks.length;
       const mood = profile?.mood || mapping?.mood || 'peaceful';
-      const energy = profile?.energy || mapping?.energy || 3;
+      const energy = effectiveProfileEnergy;
+      const augmentationRequestLimit = Math.min(
+        this.spotifyAPI.maxSearchResultsPerRequest || 10,
+        Math.max(remainingSlots + 4, perProfileLimit + 2)
+      );
       const moodTracks = await this.spotifyAPI.searchByMood(
         mood,
         energy,
         querySearchKeywords,
-        Math.max(remainingSlots + 2, perProfileLimit),
+        augmentationRequestLimit,
         {
-          maxBaseQueries: 2,
-          maxFallbackQueries: 1
+          maxBaseQueries: 3,
+          maxFallbackQueries: 2
         }
       );
 

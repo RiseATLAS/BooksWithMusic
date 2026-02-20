@@ -492,9 +492,7 @@ export class SpotifyAPI {
     const uniqueTerms = [...new Map(termsForGenreMapping.map(term => [term.toLowerCase(), term])).values()];
     const effectiveEnergy = this._normalizeEnergyLevel(options?.energy);
     const energyProfile = this._getEnergySearchProfile(effectiveEnergy);
-    const preferCinematicScores = settings.preferCinematicScores === true;
-    const preferCinematic = preferCinematicScores &&
-      this._shouldPreferCinematicMood(effectiveMood, uniqueTerms);
+    const preferCinematic = this._shouldPreferCinematicMood(effectiveMood, uniqueTerms);
     const preferredSearchMarket = this._getPreferredSearchMarket(settings);
     const avoidGameMusic = options?.avoidGameMusic !== undefined
       ? options.avoidGameMusic !== false
@@ -1107,9 +1105,6 @@ export class SpotifyAPI {
     const instrumentalOnly = options?.instrumentalOnly !== undefined
       ? options.instrumentalOnly !== false
       : settings.instrumentalOnly !== false;
-    const preferCinematicScores = options?.preferCinematicScores !== undefined
-      ? options.preferCinematicScores === true
-      : settings.preferCinematicScores === true;
     const targetMood = String(options?.targetMood || '').toLowerCase().trim();
 
     const query = `track:"${cleanTitle}" artist:"${cleanArtist}"`;
@@ -1162,7 +1157,7 @@ export class SpotifyAPI {
 
     const ranked = this._filterAndSortTracks(candidatePool, 1, {
       instrumentalOnly,
-      avoidGameMusic: !preferCinematicScores,
+      avoidGameMusic: true,
       lowVocalPreference: true,
       preferEnglishMetadata: true,
       targetMood

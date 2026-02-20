@@ -223,7 +223,6 @@ export class LastFmAPI {
     const text = `${candidate.title} ${candidate.artist} ${matchedTags.join(' ')}`.toLowerCase();
     const mood = String(options.mood || '').toLowerCase().trim();
     const instrumentalOnly = options.instrumentalOnly !== false;
-    const preferCinematicScores = options.preferCinematicScores === true;
     const hasInstrumentalSignal = this._hasInstrumentalSignal(candidate);
     const hasStrongVocalSignal = this._hasStrongVocalSignal(candidate);
 
@@ -260,11 +259,9 @@ export class LastFmAPI {
       }
     }
 
-    if (!preferCinematicScores) {
-      const gameHint = /(video game|game music|chiptune|\bost\b|\bbgm\b)/i;
-      if (gameHint.test(text)) {
-        score -= 0.45;
-      }
+    const gameHint = /(video game|game music|chiptune|\bost\b|\bbgm\b)/i;
+    if (gameHint.test(text)) {
+      score -= 0.45;
     }
 
     if (candidate.listeners > 0) {
@@ -385,8 +382,7 @@ export class LastFmAPI {
       .map((candidate) => {
         const confidence = this._scoreCandidate(candidate, positiveKeywords, negativeKeywords, {
           mood,
-          instrumentalOnly: options.instrumentalOnly,
-          preferCinematicScores: options.preferCinematicScores
+          instrumentalOnly: options.instrumentalOnly
         });
         return {
           title: candidate.title,
