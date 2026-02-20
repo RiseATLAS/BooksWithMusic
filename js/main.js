@@ -55,6 +55,7 @@ class BooksWithMusicApp {
 
   async initialize() {
     try {
+      await this.loadLocalSecrets();
       await this.db.initialize();
 
       // Initialize Firebase Authentication
@@ -110,6 +111,35 @@ class BooksWithMusicApp {
     } catch (error) {
       console.error("Init error:", error);
       alert("Failed to initialize app. Check console for details.");
+    }
+  }
+
+  async loadLocalSecrets() {
+    try {
+      // Local-only file (gitignored). Safe no-op if absent.
+      await import("./config/local-secrets.js");
+    } catch (_) {
+      // Intentionally silent when local secrets file does not exist.
+    }
+
+    const secrets = window.BooksWithMusicSecrets || {};
+    const cyaniteToken = String(secrets.cyaniteAccessToken || "").trim();
+
+    if (!cyaniteToken) {
+      return;
+    }
+
+    localStorage.setItem("cyanite_access_token", cyaniteToken);
+
+    // Keep settings in sync so other modules reading settings also see the token.
+    try {
+      const settings = JSON.parse(localStorage.getItem("booksWithMusic-settings") || "{}");
+      if (settings.cyaniteAccessToken !== cyaniteToken) {
+        settings.cyaniteAccessToken = cyaniteToken;
+        localStorage.setItem("booksWithMusic-settings", JSON.stringify(settings));
+      }
+    } catch (_) {
+      // Ignore malformed settings and keep token available via localStorage.
     }
   }
 
