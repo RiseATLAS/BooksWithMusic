@@ -90,7 +90,7 @@ export class LastFmAPI {
     return { keyword, weight };
   }
 
-  _buildTagQueries(positiveKeywords, mood = 'peaceful') {
+  _buildTagQueries(positiveKeywords, mood = 'peaceful', options = {}) {
     const defaultTagsByMood = {
       dark: ['dark ambient', 'gothic', 'atmospheric', 'instrumental'],
       mysterious: ['mystical', 'ambient', 'cinematic', 'instrumental'],
@@ -105,6 +105,7 @@ export class LastFmAPI {
     };
 
     const result = [];
+    const instrumentalOnly = options.instrumentalOnly !== false;
     const add = (tag, weight = 0.6) => {
       const normalized = String(tag || '').toLowerCase().trim().replace(/\s+/g, ' ');
       if (!normalized || normalized.length < 2) return;
@@ -112,17 +113,25 @@ export class LastFmAPI {
       result.push({ tag: normalized, weight: Math.max(0.05, Math.min(1, Number(weight) || 0.6)) });
     };
 
-    add(mood, 1);
+    if (instrumentalOnly) {
+      add(`${mood} instrumental`, 1);
+      add('instrumental', 0.98);
+      add('ambient', 0.86);
+      add(mood, 0.5);
+    } else {
+      add(mood, 1);
+    }
+
     (defaultTagsByMood[mood] || defaultTagsByMood.peaceful).forEach((tag, index) => {
       add(tag, Math.max(0.4, 0.9 - (index * 0.12)));
     });
 
     positiveKeywords
-      .filter((item) => item.keyword.length >= 3 && !item.keyword.includes(' '))
-      .slice(0, 6)
+      .filter((item) => item.keyword.length >= 3)
+      .slice(0, 8)
       .forEach((item, index) => add(item.keyword, Math.max(0.25, 0.65 - (index * 0.08))));
 
-    return result.slice(0, 4);
+    return result.slice(0, instrumentalOnly ? 5 : 4);
   }
 
   _mergeCandidate(map, candidate) {
@@ -178,7 +187,13 @@ export class LastFmAPI {
     const title = String(candidate?.title || '').toLowerCase();
     const artist = String(candidate?.artist || '').toLowerCase();
     const combined = `${title} ${artist}`;
-    return /\b(vocal|lyrics?|feat\.?|ft\.?|featuring|singer|songwriter|acapella|a cappella|live version|radio edit)\b/i.test(combined);
+    return /\b(vocal|lyrics?|feat\.?|ft\.?|featuring|singer|songwriter|acapella|a cappella|live version|radio edit|cover)\b/i.test(combined);
+  }
+
+  _isInstrumentalFriendlyCandidate(candidate) {
+    if (!candidate) return false;
+    if (this._hasStrongVocalSignal(candidate)) return false;
+    return this._hasInstrumentalSignal(candidate);
   }
 
   _scoreCandidate(candidate, positiveKeywords, negativeKeywords, options = {}) {
@@ -261,7 +276,9 @@ export class LastFmAPI {
       .sort((a, b) => Math.abs(b.weight) - Math.abs(a.weight));
 
     const mood = String(options.mood || positiveKeywords[0]?.keyword || 'peaceful').toLowerCase();
-    const tags = this._buildTagQueries(positiveKeywords, mood);
+    const tags = this._buildTagQueries(positiveKeywords, mood, {
+      instrumentalOnly: options.instrumentalOnly
+    });
     const perTagLimit = Math.max(6, Math.min(18, Math.ceil((safeLimit * 2) / Math.max(1, tags.length)) + 1));
     const contextLabel = String(options.contextLabel || 'default');
 
@@ -321,7 +338,7 @@ export class LastFmAPI {
       }
     }
 
-    const candidates = [...candidateMap.values()]
+    let candidates = [...candidateMap.values()]
       .map((candidate) => {
         const confidence = this._scoreCandidate(candidate, positiveKeywords, negativeKeywords, {
           mood,
@@ -337,8 +354,16 @@ export class LastFmAPI {
           matchedTags: [...candidate.matchedTags]
         };
       })
-      .sort((a, b) => b.confidence - a.confidence)
-      .slice(0, safeLimit);
+      .sort((a, b) => b.confidence - a.confidence);
+
+    if (options.instrumentalOnly !== false) {
+      const strictCandidates = candidates.filter((candidate) => this._isInstrumentalFriendlyCandidate(candidate));
+      if (strictCandidates.length >= Math.min(3, safeLimit)) {
+        candidates = strictCandidates;
+      }
+    }
+
+    candidates = candidates.slice(0, safeLimit);
 
     console.info(`✅ Last.fm returned ${candidates.length} candidate(s) [${contextLabel}]`);
     return candidates;

@@ -368,6 +368,9 @@ export class SpotifyMusicManager {
       return [];
     }
 
+    const candidateLimit = Math.max(4, perProfileLimit * 3);
+    const candidatesToResolve = lastFmCandidates.slice(0, candidateLimit);
+
     const preferredMarket = typeof this.spotifyAPI._getPreferredSearchMarket === 'function' &&
       typeof this.spotifyAPI._getSettings === 'function'
       ? this.spotifyAPI._getPreferredSearchMarket(this.spotifyAPI._getSettings())
@@ -375,7 +378,7 @@ export class SpotifyMusicManager {
 
     const orderedResolvedTracks = [];
     const usedSpotifyTrackIds = new Set();
-    for (const candidate of lastFmCandidates) {
+    for (const candidate of candidatesToResolve) {
       const resolved = await this.spotifyAPI.searchTrackByTitleArtist(
         candidate?.title,
         candidate?.artist,
@@ -402,7 +405,7 @@ export class SpotifyMusicManager {
     }
 
     console.info(
-      `🔗 Last.fm→Spotify resolved ${orderedResolvedTracks.length}/${lastFmCandidates.length} ` +
+      `🔗 Last.fm→Spotify resolved ${orderedResolvedTracks.length}/${candidatesToResolve.length} ` +
       `track(s) for chapter ${chapterIndex} mood=${profile?.mood || mapping?.mood || 'unknown'}`
     );
 

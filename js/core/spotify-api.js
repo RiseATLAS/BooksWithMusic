@@ -1288,6 +1288,12 @@ export class SpotifyAPI {
     const titleLower = track.title?.toLowerCase() || '';
     const artistLower = track.artist?.toLowerCase() || '';
     const combined = `${titleLower} ${artistLower}`;
+    const hasVocalMarkers = /\b(feat\.?|ft\.?|featuring|vocals?|singer|lyrics?|songwriter|live version|radio edit|cover)\b/.test(combined);
+    const hasExplicitInstrumentalMarker = /\b(instrumental|no vocals|without vocals|karaoke)\b/.test(combined);
+
+    if (hasVocalMarkers && !hasExplicitInstrumentalMarker) {
+      return false;
+    }
     
     // Strong instrumental indicators
     const instrumentalKeywords = [
@@ -1298,8 +1304,7 @@ export class SpotifyAPI {
       'classical', 'concerto', 'sonata', 'prelude',
       'trailer', 'cinematic', 'epic music', 'dramatic music',
       'background music',
-      'meditation', 'relaxing', 'study music', 'sleep music',
-      'lofi', 'lo-fi', 'chillhop', 'beats'
+      'meditation', 'relaxing', 'study music', 'sleep music'
     ];
     
     // Check if explicitly instrumental
