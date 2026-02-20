@@ -96,7 +96,7 @@ export class SpotifyAPI {
 
   /**
    * Resolve Spotify search market.
-   * Defaults to US to avoid over-localized catalog bias from account country.
+   * Defaults to GB to avoid over-localized catalog bias from account country.
    * Set `spotifySearchMarket` to `AUTO` in settings to let Spotify decide.
    * @private
    */
@@ -104,17 +104,17 @@ export class SpotifyAPI {
     const effectiveSettings = settings || this._getSettings();
     const rawMarket = String(
       effectiveSettings.spotifySearchMarket ||
-      'US'
+      'GB'
     )
       .trim()
       .toUpperCase();
 
     if (rawMarket === 'AUTO') {
-      // Keep US as default unless user explicitly opts into locale-driven catalogs.
-      return effectiveSettings.spotifyUseAutoMarket === true ? '' : 'US';
+      // Keep GB as default unless user explicitly opts into locale-driven catalogs.
+      return effectiveSettings.spotifyUseAutoMarket === true ? '' : 'GB';
     }
 
-    return /^[A-Z]{2}$/.test(rawMarket) ? rawMarket : 'US';
+    return /^[A-Z]{2}$/.test(rawMarket) ? rawMarket : 'GB';
   }
 
   /**
