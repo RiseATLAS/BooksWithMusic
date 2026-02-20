@@ -1020,6 +1020,101 @@ export class SpotifyAPI {
       maxFallbackQueries: options.maxFallbackQueries
     });
   }
+
+  /**
+   * Resolve a single Spotify track by exact Spotify track ID.
+   * @param {string} trackId
+   * @param {Object} options
+   * @returns {Promise<Object|null>}
+   */
+  async getTrackById(trackId, options = {}) {
+    const results = await this.getTracksByIds([trackId], options);
+    return results[0] || null;
+  }
+
+  /**
+   * Resolve multiple Spotify tracks by ID while preserving requested order.
+   * @param {Array<string>} trackIds
+   * @param {Object} options
+   * @returns {Promise<Array<Object>>}
+   */
+  async getTracksByIds(trackIds, options = {}) {
+    if (!await this.isConfigured()) {
+      this._debugWarn('⚠️ Spotify not authenticated');
+      return [];
+    }
+
+    const normalizedIds = [...new Set(
+      (Array.isArray(trackIds) ? trackIds : [])
+        .map((id) => String(id || '').trim())
+        .filter((id) => /^[A-Za-z0-9]{10,32}$/.test(id))
+    )];
+
+    if (normalizedIds.length === 0) {
+      return [];
+    }
+
+    const market = typeof options.market === 'string'
+      ? options.market
+      : this._getPreferredSearchMarket(this._getSettings());
+
+    // Spotify supports up to 50 IDs per request.
+    const idsChunk = normalizedIds.slice(0, 50);
+    const params = new URLSearchParams({
+      ids: idsChunk.join(',')
+    });
+    if (market) {
+      params.set('market', market);
+    }
+
+    const endpoint = `/tracks?${params.toString()}`;
+    const data = await this._makeRequest(endpoint);
+    const rawTracks = Array.isArray(data?.tracks) ? data.tracks : [];
+    const formatted = rawTracks
+      .filter(Boolean)
+      .map((track) => this._formatTrack(track));
+
+    const byId = new Map(formatted.map((track) => [track.id, track]));
+    return idsChunk
+      .map((id) => byId.get(id))
+      .filter(Boolean);
+  }
+
+  /**
+   * Resolve track using exact title + artist query fields.
+   * Useful when external services provide metadata but not Spotify IDs.
+   * @param {string} title
+   * @param {string} artist
+   * @param {Object} options
+   * @returns {Promise<Object|null>}
+   */
+  async searchTrackByTitleArtist(title, artist, options = {}) {
+    if (!await this.isConfigured()) {
+      this._debugWarn('⚠️ Spotify not authenticated');
+      return null;
+    }
+
+    const cleanTitle = String(title || '').trim();
+    const cleanArtist = String(artist || '').trim();
+    if (!cleanTitle || !cleanArtist) {
+      return null;
+    }
+
+    const market = typeof options.market === 'string'
+      ? options.market
+      : this._getPreferredSearchMarket(this._getSettings());
+
+    const query = `track:"${cleanTitle}" artist:"${cleanArtist}"`;
+    const matches = await this._searchTracksByQueryString(
+      query,
+      1,
+      'resolve-title-artist',
+      { market }
+    );
+
+    return matches[0] || null;
+  }
+
   /**
    * Create a playlist in user's Spotify account
    */

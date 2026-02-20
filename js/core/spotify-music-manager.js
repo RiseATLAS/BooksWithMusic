@@ -3,12 +3,12 @@
  *
  * RESPONSIBILITIES:
  * - Initialize Spotify API integration and chapter mappings
- * - Fetch chapter playlists via Spotify Search API (keyword/mood based)
+ * - Fetch chapter playlists via Cyanite keyword discovery + Spotify resolution
  * - Handle chapter-to-track mapping for Spotify content
  * - Manage playback through Spotify SDK player
  *
  * DIFFERENCES FROM FREESOUND:
- * - No pre-loading track library (uses dynamic search)
+ * - No pre-loading track library (uses dynamic Cyanite + Spotify discovery)
  * - No caching (Spotify streams directly)
  * - Uses mood/keyword targeting with low-vocal ranking
  *
@@ -20,11 +20,13 @@
 
 import { MoodProcessor } from './mood-processor.js';
 import { SpotifyAPI } from './spotify-api.js';
+import { CyaniteAPI } from './cyanite-api.js';
 
 export class SpotifyMusicManager {
   constructor() {
     this.moodProcessor = new MoodProcessor();
     this.spotifyAPI = new SpotifyAPI();
+    this.cyaniteAPI = new CyaniteAPI();
     this.bookAnalysis = null;
     this.chapterMappings = {};
     this.currentBookId = null;
@@ -45,6 +47,7 @@ export class SpotifyMusicManager {
     this._trackFetchPromises = {};
     this._chapterContextByIndex = {};
     this._latestChapterChangeRequestId = 0;
+    this._hasLoggedMissingCyaniteToken = false;
   }
 
   /**
@@ -72,6 +75,12 @@ export class SpotifyMusicManager {
       if (!await this.spotifyAPI.isConfigured()) {
         console.error('❌ Spotify not configured. Please log in to Spotify.');
         return;
+      }
+
+      if (!this.cyaniteAPI.isConfigured()) {
+        console.error('❌ Cyanite token missing. Add token in Music Settings > Music API.');
+      } else {
+        this._hasLoggedMissingCyaniteToken = false;
       }
       
       console.log('🎵 Initializing Spotify music manager...');
@@ -126,7 +135,16 @@ export class SpotifyMusicManager {
         chapterIndex,
         mood: analysis.primaryMood || 'peaceful',
         energy: analysis.energy || 3,
-        keywords: analysis.keywords || [],
+        keywords: [
+          ...(analysis.keywords || []),
+          ...(analysis.musicTags || []),
+          ...(analysis.recommendedGenres || []),
+          analysis.primaryMood
+        ]
+          .map((keyword) => String(keyword || '').toLowerCase().trim())
+          .filter(Boolean)
+          .filter((keyword, idx, array) => array.indexOf(keyword) === idx)
+          .slice(0, 16),
         estimatedPages: analysis.estimatedPages || 1,
         shiftPoints: shiftPoints, // Mood shifts within chapter
         tracks: [], // Will be populated on-demand
@@ -270,13 +288,16 @@ export class SpotifyMusicManager {
 
   _isRateLimitError(error) {
     return error?.code === 'SPOTIFY_RATE_LIMIT' ||
+      error?.code === 'CYANITE_RATE_LIMIT' ||
       /rate limit/i.test(String(error?.message || ''));
   }
 
   _isAuthError(error) {
     const message = String(error?.message || '').toLowerCase();
     return error?.code === 'SPOTIFY_AUTH' ||
+      error?.code === 'CYANITE_AUTH' ||
       message.includes('no spotify access token') ||
+      message.includes('no cyanite access token') ||
       message.includes('no token provided') ||
       message.includes('re-authenticate') ||
       message.includes('authorization failed');
@@ -291,6 +312,110 @@ export class SpotifyMusicManager {
       return Math.max(this._trackRetryDelayMs, Number(match[1]) * 1000);
     }
     return this._trackRetryDelayMs;
+  }
+
+  _buildCyaniteKeywordsForProfile(profile, mapping) {
+    const profileKeywords = Array.isArray(profile?.keywords) && profile.keywords.length > 0
+      ? profile.keywords
+      : (mapping?.keywords || []);
+
+    return this.moodProcessor.buildCyaniteKeywordProfile(
+      {
+        mood: profile?.mood || mapping?.mood || 'peaceful',
+        fromMood: profile?.fromMood || null,
+        energy: profile?.energy || mapping?.energy || 3,
+        keywords: profileKeywords
+      },
+      this.bookAnalysis?.bookProfile || null
+    );
+  }
+
+  _normalizeSpotifyTrackId(rawId) {
+    const value = String(rawId || '').trim();
+    if (!value) return '';
+
+    const uriMatch = value.match(/^spotify:track:([A-Za-z0-9]{10,32})$/i);
+    if (uriMatch) {
+      return uriMatch[1];
+    }
+
+    const urlMatch = value.match(/open\.spotify\.com\/track\/([A-Za-z0-9]{10,32})/i);
+    if (urlMatch) {
+      return urlMatch[1];
+    }
+
+    const cleanValue = value.split('?')[0];
+    return /^[A-Za-z0-9]{10,32}$/.test(cleanValue) ? cleanValue : '';
+  }
+
+  async _resolveProfileTracksViaCyanite(profile, perProfileLimit, chapterIndex, mapping) {
+    if (!this.cyaniteAPI.isConfigured()) {
+      if (!this._hasLoggedMissingCyaniteToken) {
+        console.error('❌ Cyanite token missing. Add token in Music Settings > Music API.');
+        this._hasLoggedMissingCyaniteToken = true;
+      }
+      const error = new Error('No Cyanite access token available.');
+      error.code = 'CYANITE_AUTH';
+      throw error;
+    }
+
+    const keywordProfile = this._buildCyaniteKeywordsForProfile(profile, mapping);
+    if (keywordProfile.length === 0) {
+      return [];
+    }
+
+    const contextLabel =
+      `chapter-${chapterIndex}` +
+      `-page-${Number(profile?.pageInChapter || 1)}` +
+      `-${String(profile?.mood || mapping?.mood || 'unknown').toLowerCase()}`;
+
+    const cyaniteCandidates = await this.cyaniteAPI.searchSpotifyTracksByKeywords(
+      keywordProfile,
+      perProfileLimit,
+      { contextLabel }
+    );
+
+    if (cyaniteCandidates.length === 0) {
+      return [];
+    }
+
+    const spotifyIds = cyaniteCandidates
+      .map((candidate) => this._normalizeSpotifyTrackId(candidate?.id))
+      .filter(Boolean);
+
+    const preferredMarket = typeof this.spotifyAPI._getPreferredSearchMarket === 'function' &&
+      typeof this.spotifyAPI._getSettings === 'function'
+      ? this.spotifyAPI._getPreferredSearchMarket(this.spotifyAPI._getSettings())
+      : '';
+
+    const resolvedSpotifyTracks = await this.spotifyAPI.getTracksByIds(spotifyIds, {
+      market: preferredMarket
+    });
+    const resolvedById = new Map(
+      resolvedSpotifyTracks.map((track) => [track.id, track])
+    );
+
+    const orderedResolvedTracks = [];
+    for (const candidate of cyaniteCandidates) {
+      const resolved = resolvedById.get(this._normalizeSpotifyTrackId(candidate?.id));
+      if (!resolved) continue;
+
+      orderedResolvedTracks.push({
+        ...resolved,
+        cyaniteConfidence: candidate.confidence
+      });
+
+      if (orderedResolvedTracks.length >= perProfileLimit) {
+        break;
+      }
+    }
+
+    console.info(
+      `🔗 Cyanite→Spotify resolved ${orderedResolvedTracks.length}/${cyaniteCandidates.length} ` +
+      `track(s) for chapter ${chapterIndex} mood=${profile?.mood || mapping?.mood || 'unknown'}`
+    );
+
+    return orderedResolvedTracks;
   }
 
   /**
@@ -361,23 +486,21 @@ export class SpotifyMusicManager {
           Math.ceil(desiredTrackCount / Math.max(1, selectedProfiles.length)) + 1
         )
       );
-      const queryBudget = { maxBaseQueries: 2, maxFallbackQueries: 1 };
       const searchedTracksByProfile = [];
 
       if (selectedProfiles.length < shiftProfiles.length) {
         console.log(
-          `🎛️ Spotify chapter query budget: selected ${selectedProfiles.length}/${shiftProfiles.length} mood profiles ` +
+          `🎛️ Cyanite profile budget: selected ${selectedProfiles.length}/${shiftProfiles.length} mood profiles ` +
           `(perProfileLimit=${perProfileLimit}, apiMax=${this.spotifyAPI.maxSearchResultsPerRequest || 10})`
         );
       }
 
       for (const profile of selectedProfiles) {
-        const tracks = await this.spotifyAPI.searchByMood(
-          profile.mood,
-          profile.energy,
-          profile.keywords,
+        const tracks = await this._resolveProfileTracksViaCyanite(
+          profile,
           perProfileLimit,
-          queryBudget
+          chapterIndex,
+          mapping
         );
         searchedTracksByProfile.push({ profile, tracks });
       }
@@ -403,29 +526,6 @@ export class SpotifyMusicManager {
         }
       }
 
-      // Fallback to chapter-level mood if shift-based queries return nothing.
-      if (orderedTracks.length === 0) {
-        const fallbackLimit = Math.min(
-          this.spotifyAPI.maxSearchResultsPerRequest || 10,
-          Math.max(4, desiredTrackCount)
-        );
-        const fallbackTracks = await this.spotifyAPI.searchByMood(
-          mapping.mood,
-          mapping.energy,
-          mapping.keywords,
-          fallbackLimit,
-          queryBudget
-        );
-        for (const track of fallbackTracks) {
-          addTrack(track, {
-            mood: mapping.mood,
-            energy: mapping.energy,
-            keywords: mapping.keywords,
-            pageInChapter: 1
-          });
-        }
-      }
-
       const tracksWithReasoning = orderedTracks.slice(0, desiredTrackCount);
       mapping.tracks = tracksWithReasoning;
       mapping.tracksFetched = tracksWithReasoning.length > 0;
@@ -436,26 +536,35 @@ export class SpotifyMusicManager {
         return tracksWithReasoning;
       }
 
-      console.warn(`⚠️ No Spotify tracks returned for chapter ${chapterIndex}`);
+      console.warn(`⚠️ No Cyanite-resolved Spotify tracks returned for chapter ${chapterIndex}`);
       this._scheduleTrackRetry(chapterIndex, 'no-tracks');
       return [];
     } catch (error) {
       mapping.tracks = [];
       mapping.tracksFetched = false;
       if (this._isAuthError(error)) {
-        console.error(
-          `❌ Spotify auth error while fetching chapter ${chapterIndex}. ` +
-          'Reconnect Spotify to resume chapter music.',
-          error
-        );
+        if (error?.code === 'CYANITE_AUTH' || /cyanite/i.test(String(error?.message || ''))) {
+          console.error(
+            `❌ Cyanite auth error while fetching chapter ${chapterIndex}. ` +
+            'Add a valid Cyanite token in Music Settings > Music API.',
+            error
+          );
+        } else {
+          console.error(
+            `❌ Spotify auth error while fetching chapter ${chapterIndex}. ` +
+            'Reconnect Spotify to resume chapter music.',
+            error
+          );
+        }
         this._clearTrackRetryState(chapterIndex);
         return [];
       }
 
       if (this._isRateLimitError(error)) {
         const retryDelayMs = this._getRetryDelayMsFromError(error);
+        const sourceLabel = error?.code === 'CYANITE_RATE_LIMIT' ? 'Cyanite' : 'Spotify';
         console.warn(
-          `⏳ Spotify rate limit hit for chapter ${chapterIndex}. ` +
+          `⏳ ${sourceLabel} rate limit hit for chapter ${chapterIndex}. ` +
           `Retrying in ${Math.round(retryDelayMs / 1000)}s.`
         );
         this._scheduleTrackRetry(chapterIndex, 'rate-limited', retryDelayMs);

@@ -832,6 +832,54 @@ export class MusicPanelUI {
       pageBasedMusicCheckbox.checked = settings.pageBasedMusicSwitch;
     }
 
+    // Cyanite API token (Spotify discovery)
+    const cyaniteKeyInput = document.getElementById('cyanite-key-panel');
+    const saveCyaniteBtn = document.getElementById('save-cyanite-key-panel');
+
+    if (cyaniteKeyInput) {
+      const savedToken = localStorage.getItem('cyanite_access_token');
+      if (savedToken) {
+        cyaniteKeyInput.value = savedToken;
+      }
+    }
+
+    saveCyaniteBtn?.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const token = String(cyaniteKeyInput?.value || '').trim();
+
+      if (token) {
+        localStorage.setItem('cyanite_access_token', token);
+        this.showToast('Cyanite token saved. Refreshing current chapter music...', 'success');
+      } else {
+        localStorage.removeItem('cyanite_access_token');
+        this.showToast('Cyanite token cleared.', 'info');
+      }
+
+      const reader = window.app?.reader || this.reader;
+      const chapterIndex = Number(reader?.currentChapterIndex);
+      if (
+        this.currentMusicSource === 'spotify' &&
+        Number.isFinite(chapterIndex) &&
+        this.musicManager &&
+        typeof this.musicManager.onChapterChange === 'function'
+      ) {
+        // Force fresh chapter fetch with new/updated Cyanite token.
+        if (this.musicManager.chapterMappings) {
+          Object.values(this.musicManager.chapterMappings).forEach((mapping) => {
+            if (!mapping) return;
+            mapping.tracks = [];
+            mapping.tracksFetched = false;
+          });
+        }
+
+        await this.musicManager.onChapterChange(
+          chapterIndex,
+          Number(reader?.currentPageInChapter) || 1,
+          reader?.currentChapterShiftPoints || null
+        );
+      }
+    });
+
     // Freesound API key (music panel)
     const freesoundKeyInput = document.getElementById('freesound-key-panel');
     const saveFreesoundBtn = document.getElementById('save-freesound-key-panel');

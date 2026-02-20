@@ -272,6 +272,18 @@ export class MoodProcessor {
         tags.push(...contextualThemes);
       }
 
+      const normalizedKeywords = [
+        primaryMood,
+        secondaryMood,
+        ...tags,
+        ...contextualThemes,
+        ...(musicProps.genres || [])
+      ]
+        .map((keyword) => String(keyword || '').toLowerCase().trim())
+        .filter(Boolean)
+        .filter((keyword, index, array) => array.indexOf(keyword) === index)
+        .slice(0, 14);
+
       // Calculate estimated pages for this chapter
       const { estimatedPages, wordCount } = this.calculateChapterPages(chapter);
 
@@ -286,6 +298,7 @@ export class MoodProcessor {
         sceneScore: sceneScores[primaryMood] || 0,
         moodScore: moodScores[primaryMood] || 0,
         musicTags: [...new Set(tags)], // Remove duplicates
+        keywords: normalizedKeywords,
         energy: adjustedEnergy, // NOW: Dynamically adjusted
         tempo: musicProps.tempo,
         recommendedGenres: musicProps.genres || this._getGenresForMood(primaryMood),
@@ -305,6 +318,7 @@ export class MoodProcessor {
         sceneScore: 0,
         moodScore: 0,
         musicTags: ['calm', 'peaceful', 'ambient'],
+        keywords: ['peaceful', 'calm', 'ambient', 'instrumental'],
         energy: 1,
         tempo: 'slow',
         recommendedGenres: ['ambient', 'calm'],
@@ -320,17 +334,31 @@ export class MoodProcessor {
   _generateBookProfile(book, chapterAnalyses) {
     const title = book.title.toLowerCase();
     const moodCounts = {};
+    const chapterKeywordFrequency = new Map();
     let totalEnergy = 0;
 
     chapterAnalyses.forEach(analysis => {
       moodCounts[analysis.primaryMood] = (moodCounts[analysis.primaryMood] || 0) + 1;
       totalEnergy += analysis.energy;
+
+      const chapterKeywords = Array.isArray(analysis?.keywords) && analysis.keywords.length > 0
+        ? analysis.keywords
+        : (analysis?.musicTags || []);
+      chapterKeywords.forEach((keyword) => {
+        const normalized = String(keyword || '').toLowerCase().trim();
+        if (!normalized || normalized.length < 2) return;
+        chapterKeywordFrequency.set(normalized, (chapterKeywordFrequency.get(normalized) || 0) + 1);
+      });
     });
 
     const dominantMood = Object.entries(moodCounts)
       .sort((a, b) => b[1] - a[1])[0]?.[0] || 'peaceful';
 
     const avgEnergy = Math.round(totalEnergy / chapterAnalyses.length);
+    const chapterKeywordPool = [...chapterKeywordFrequency.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([keyword]) => keyword);
 
     // Enhance with title analysis
     let titleMood = null;
@@ -370,6 +398,7 @@ export class MoodProcessor {
       averageEnergy: avgEnergy,
       moodDistribution: moodCounts,
       recommendedTags: this.moodToMusicMapping[dominantMood]?.tags || ['ambient', 'calm'],
+      chapterKeywordPool,
       tempo: avgEnergy > 3 ? 'upbeat' : avgEnergy > 2 ? 'moderate' : 'slow',
       bookVibeKeywords, // User-editable keywords to influence entire book
       autoDetectedKeywords, // Auto-detected for reference
@@ -1464,6 +1493,118 @@ export class MoodProcessor {
       shiftPoints: selectedShifts,
       totalShifts: selectedShifts.length
     };
+  }
+
+  /**
+   * Build weighted keywords for Cyanite keyword search.
+   * This converts chapter/shift analysis into a compact semantic profile:
+   * mood anchors, energy cues, contextual keywords, and anti-vocal bias.
+   *
+   * @param {Object} profileContext
+   * @param {Object|null} bookProfile
+   * @returns {Array<{keyword:string, weight:number}>}
+   */
+  buildCyaniteKeywordProfile(profileContext = {}, bookProfile = null) {
+    const mood = String(profileContext.mood || 'peaceful').toLowerCase().trim();
+    const fromMood = String(profileContext.fromMood || '').toLowerCase().trim();
+    const energy = Math.max(1, Math.min(5, Math.round(Number(profileContext.energy) || 3)));
+    const baseKeywords = Array.isArray(profileContext.keywords) ? profileContext.keywords : [];
+    const bookVibeKeywords = Array.isArray(bookProfile?.bookVibeKeywords)
+      ? bookProfile.bookVibeKeywords
+      : [];
+    const chapterKeywordPool = Array.isArray(bookProfile?.chapterKeywordPool)
+      ? bookProfile.chapterKeywordPool
+      : [];
+    const recommendedTags = Array.isArray(bookProfile?.recommendedTags)
+      ? bookProfile.recommendedTags
+      : [];
+
+    const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
+    const instrumentalOnly = settings.instrumentalOnly !== false;
+    const preferCinematicScores = settings.preferCinematicScores === true;
+
+    const weighted = new Map();
+    const addKeyword = (term, weight) => {
+      const normalized = String(term || '').toLowerCase().trim().replace(/\s+/g, ' ');
+      const numericWeight = Number(weight);
+      if (!normalized || !Number.isFinite(numericWeight)) return;
+      const clamped = Math.max(-1, Math.min(1, numericWeight));
+      const existing = weighted.get(normalized);
+      // Keep strongest directional signal for each term.
+      if (existing === undefined || Math.abs(clamped) > Math.abs(existing)) {
+        weighted.set(normalized, clamped);
+      }
+    };
+
+    const moodAnchors = {
+      dark: ['dark ambient', 'brooding', 'ominous', 'shadowy'],
+      mysterious: ['mysterious', 'enigmatic', 'noir', 'suspense'],
+      romantic: ['romantic', 'warm', 'tender', 'intimate'],
+      sad: ['melancholic', 'emotional', 'somber', 'piano'],
+      epic: ['epic', 'heroic', 'cinematic', 'orchestral'],
+      peaceful: ['peaceful', 'calm', 'serene', 'gentle'],
+      tense: ['tense', 'pulse', 'thriller', 'suspense'],
+      joyful: ['joyful', 'uplifting', 'cheerful', 'bright'],
+      adventure: ['adventure', 'exploration', 'journey', 'heroic'],
+      magical: ['magical', 'ethereal', 'dreamy', 'fantasy']
+    };
+
+    const energyAnchors = {
+      1: ['calm', 'slow', 'ambient'],
+      2: ['gentle', 'soft', 'warm'],
+      3: ['atmospheric', 'balanced', 'flowing'],
+      4: ['intense', 'driving', 'dynamic'],
+      5: ['powerful', 'high energy', 'dramatic']
+    };
+
+    // Core mood emphasis
+    addKeyword(mood, 1.0);
+    (moodAnchors[mood] || []).forEach((term) => addKeyword(term, 0.82));
+    if (fromMood && fromMood !== mood) {
+      // Keep transition continuity without diluting the target mood.
+      addKeyword(fromMood, 0.34);
+    }
+
+    // Chapter/shift keywords from analysis
+    baseKeywords
+      .slice(0, 8)
+      .forEach((term, index) => addKeyword(term, Math.max(0.35, 0.7 - (index * 0.06))));
+
+    // Book-level mood context to preserve overall atmosphere
+    bookVibeKeywords
+      .slice(0, 5)
+      .forEach((term, index) => addKeyword(term, Math.max(0.28, 0.52 - (index * 0.05))));
+    chapterKeywordPool
+      .slice(0, 6)
+      .forEach((term, index) => addKeyword(term, Math.max(0.24, 0.44 - (index * 0.04))));
+    recommendedTags
+      .slice(0, 4)
+      .forEach((term, index) => addKeyword(term, Math.max(0.22, 0.38 - (index * 0.04))));
+
+    // Energy shaping
+    (energyAnchors[energy] || []).forEach((term) => addKeyword(term, 0.42));
+
+    // Instrumental/low-vocal preference
+    if (instrumentalOnly) {
+      ['instrumental', 'no vocals', 'ambient', 'cinematic score', 'orchestral'].forEach((term) => {
+        addKeyword(term, 0.9);
+      });
+      ['vocal', 'lyrics', 'singer-songwriter', 'podcast', 'spoken word', 'a cappella'].forEach((term) => {
+        addKeyword(term, -0.92);
+      });
+    }
+
+    // Reduce game-heavy bias when cinematic mode is not explicitly requested.
+    if (!preferCinematicScores) {
+      ['video game', 'game music', 'bgm', 'ost', 'chiptune', '8-bit'].forEach((term) => {
+        addKeyword(term, -0.78);
+      });
+    }
+
+    return Array.from(weighted.entries())
+      .map(([keyword, weight]) => ({ keyword, weight }))
+      .sort((a, b) => Math.abs(b.weight) - Math.abs(a.weight))
+      .slice(0, 12);
   }
 
   /**

@@ -55,7 +55,7 @@ export class SettingsUI {
       pageBasedMusicSwitch: true,  // Intelligent content-based music switching
       instrumentalOnly: true,  // Filter to background/instrumental/ambient music only
       preferCinematicScores: false,  // If enabled, allow cinematic/soundtrack search bias for Spotify
-      spotifySearchMarket: 'US',  // Spotify search market (US default reduces local-country bias)
+      spotifySearchMarket: 'GB',  // Spotify search market (GB default reduces local-country bias)
       maxEnergyLevel: 3,  // Default to moderate energy level (3 out of 5)
       showTrackInfo: false  // Show detailed track information (genre, energy, reasoning)
     };
