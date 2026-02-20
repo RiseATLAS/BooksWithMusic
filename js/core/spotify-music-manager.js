@@ -821,8 +821,14 @@ export class SpotifyMusicManager {
       .sort((a, b) => (a.pageInChapter || 1) - (b.pageInChapter || 1));
 
     const profiles = [{
-      key: `${String(mapping?.mood || 'peaceful').toLowerCase()}|${Math.round(mapping?.energy || 3)}|${(mapping?.keywords || []).slice(0, 3).join(',').toLowerCase()}`,
+      key: [
+        String(mapping?.mood || 'peaceful').toLowerCase(),
+        Math.round(mapping?.energy || 3),
+        (mapping?.keywords || []).slice(0, 3).join(',').toLowerCase(),
+        ''
+      ].join('|'),
       mood: mapping?.mood || 'peaceful',
+      fromMood: null,
       energy: mapping?.energy || 3,
       keywords: mapping?.keywords || [],
       pageInChapter: 1
@@ -830,12 +836,18 @@ export class SpotifyMusicManager {
 
     for (const shift of shiftPoints) {
       const mood = shift?.mood || shift?.toMood || mapping.mood;
+      const fromMood = shift?.fromMood || null;
       const energy = shift?.energy || mapping.energy || 3;
       const keywords = Array.isArray(shift?.keywords)
         ? shift.keywords
         : (mapping.keywords || []);
 
-      const key = `${String(mood).toLowerCase()}|${Math.round(energy)}|${keywords.slice(0, 3).join(',').toLowerCase()}`;
+      const key = [
+        String(mood).toLowerCase(),
+        Math.round(energy),
+        keywords.slice(0, 3).join(',').toLowerCase(),
+        String(fromMood || '').toLowerCase().trim()
+      ].join('|');
       if (profiles.some(profile => profile.key === key)) {
         continue;
       }
@@ -843,6 +855,7 @@ export class SpotifyMusicManager {
       profiles.push({
         key,
         mood,
+        fromMood,
         energy,
         keywords,
         pageInChapter: shift?.pageInChapter || shift?.page || 1
