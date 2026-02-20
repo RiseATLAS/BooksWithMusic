@@ -106,6 +106,8 @@ export class LastFmAPI {
 
     const result = [];
     const instrumentalOnly = options.instrumentalOnly !== false;
+    const fromMood = String(options.fromMood || '').toLowerCase().trim();
+    const energy = Math.max(1, Math.min(5, Math.round(Number(options.energy) || 3)));
     const add = (tag, weight = 0.6) => {
       const normalized = String(tag || '').toLowerCase().trim().replace(/\s+/g, ' ');
       if (!normalized || normalized.length < 2) return;
@@ -116,7 +118,18 @@ export class LastFmAPI {
     if (instrumentalOnly) {
       add(`${mood} instrumental`, 1);
       add('instrumental', 0.98);
-      add('ambient', 0.86);
+      add(energy >= 4 ? 'orchestral' : 'ambient', 0.86);
+      if (energy <= 2) {
+        add('calm ambient', 0.8);
+      } else if (energy >= 4) {
+        add('dramatic orchestral', 0.8);
+      } else {
+        add('atmospheric', 0.74);
+      }
+      if (fromMood && fromMood !== mood) {
+        add(`${fromMood} ${mood}`, 0.46);
+        add(fromMood, 0.34);
+      }
       add(mood, 0.5);
     } else {
       add(mood, 1);
@@ -129,9 +142,17 @@ export class LastFmAPI {
     positiveKeywords
       .filter((item) => item.keyword.length >= 3)
       .slice(0, 8)
-      .forEach((item, index) => add(item.keyword, Math.max(0.25, 0.65 - (index * 0.08))));
+      .forEach((item, index) => {
+        if (instrumentalOnly && /\b(vocal|lyrics?|singer|songwriter|spoken word|podcast)\b/i.test(item.keyword)) {
+          return;
+        }
+        const dynamicWeight = Math.max(0.25, Math.min(0.82, Math.abs(Number(item.weight) || 0.5)));
+        add(item.keyword, Math.max(0.24, dynamicWeight - (index * 0.04)));
+      });
 
-    return result.slice(0, instrumentalOnly ? 5 : 4);
+    return result
+      .sort((a, b) => b.weight - a.weight)
+      .slice(0, instrumentalOnly ? 5 : 4);
   }
 
   _mergeCandidate(map, candidate) {
@@ -277,13 +298,35 @@ export class LastFmAPI {
 
     const mood = String(options.mood || positiveKeywords[0]?.keyword || 'peaceful').toLowerCase();
     const tags = this._buildTagQueries(positiveKeywords, mood, {
-      instrumentalOnly: options.instrumentalOnly
+      instrumentalOnly: options.instrumentalOnly,
+      fromMood: options.fromMood,
+      energy: options.energy
     });
     const perTagLimit = Math.max(6, Math.min(18, Math.ceil((safeLimit * 2) / Math.max(1, tags.length)) + 1));
     const contextLabel = String(options.contextLabel || 'default');
+    const positivePreview = positiveKeywords
+      .slice(0, 6)
+      .map((entry) => `${entry.keyword}:${Math.abs(entry.weight).toFixed(2)}`)
+      .join(', ');
+    const negativePreview = negativeKeywords
+      .slice(0, 4)
+      .map((entry) => `${entry.keyword}:${Math.abs(entry.weight).toFixed(2)}`)
+      .join(', ');
+    const weightedTagPreview = tags
+      .map((item) => `${item.tag}:${item.weight.toFixed(2)}`)
+      .join(', ');
+
+    const profileEnergy = Math.max(1, Math.min(5, Math.round(Number(options.energy) || 3)));
 
     console.info(
-      `🔎 Last.fm query [${contextLabel}] tags=[${tags.map((item) => item.tag).join(', ')}] ` +
+      `🧭 Last.fm plan [${contextLabel}] mood=${mood} from=${String(options.fromMood || 'n/a')} ` +
+      `energy=${profileEnergy}/5 ` +
+      `instrumentalOnly=${options.instrumentalOnly !== false} ` +
+      `positive=[${positivePreview}] negative=[${negativePreview || 'none'}]`
+    );
+
+    console.info(
+      `🔎 Last.fm query [${contextLabel}] tags=[${weightedTagPreview}] ` +
       `(perTagLimit=${perTagLimit})`
     );
 

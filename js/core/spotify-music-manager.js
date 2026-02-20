@@ -359,6 +359,8 @@ export class SpotifyMusicManager {
       {
         contextLabel,
         mood: profile?.mood || mapping?.mood || 'peaceful',
+        fromMood: profile?.fromMood || null,
+        energy: profile?.energy || mapping?.energy || 3,
         instrumentalOnly: settings.instrumentalOnly !== false,
         preferCinematicScores: settings.preferCinematicScores === true
       }
