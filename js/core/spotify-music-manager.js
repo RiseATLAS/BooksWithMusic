@@ -379,7 +379,12 @@ export class SpotifyMusicManager {
       const resolved = await this.spotifyAPI.searchTrackByTitleArtist(
         candidate?.title,
         candidate?.artist,
-        { market: preferredMarket }
+        {
+          market: preferredMarket,
+          instrumentalOnly: settings.instrumentalOnly !== false,
+          preferCinematicScores: settings.preferCinematicScores === true,
+          targetMood: profile?.mood || mapping?.mood || 'peaceful'
+        }
       );
       if (!resolved) continue;
       if (usedSpotifyTrackIds.has(resolved.id)) continue;

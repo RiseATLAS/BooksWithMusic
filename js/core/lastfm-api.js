@@ -164,12 +164,32 @@ export class LastFmAPI {
     return Array.isArray(tracks) ? tracks : [tracks];
   }
 
+  _hasInstrumentalSignal(candidate) {
+    const title = String(candidate?.title || '').toLowerCase();
+    const artist = String(candidate?.artist || '').toLowerCase();
+    const matchedTags = Array.isArray(candidate?.matchedTags)
+      ? candidate.matchedTags.map((tag) => String(tag || '').toLowerCase())
+      : [];
+    const combined = `${title} ${artist} ${matchedTags.join(' ')}`;
+    return /\b(instrumental|ambient|orchestral|piano|soundtrack|score|cinematic|classical|new age|lofi|meditation|sleep)\b/i.test(combined);
+  }
+
+  _hasStrongVocalSignal(candidate) {
+    const title = String(candidate?.title || '').toLowerCase();
+    const artist = String(candidate?.artist || '').toLowerCase();
+    const combined = `${title} ${artist}`;
+    return /\b(vocal|lyrics?|feat\.?|ft\.?|featuring|singer|songwriter|acapella|a cappella|live version|radio edit)\b/i.test(combined);
+  }
+
   _scoreCandidate(candidate, positiveKeywords, negativeKeywords, options = {}) {
     let score = Number(candidate.baseScore) || 0;
-    const text = `${candidate.title} ${candidate.artist}`.toLowerCase();
+    const matchedTags = Array.isArray(candidate?.matchedTags) ? candidate.matchedTags : [];
+    const text = `${candidate.title} ${candidate.artist} ${matchedTags.join(' ')}`.toLowerCase();
     const mood = String(options.mood || '').toLowerCase().trim();
     const instrumentalOnly = options.instrumentalOnly !== false;
     const preferCinematicScores = options.preferCinematicScores === true;
+    const hasInstrumentalSignal = this._hasInstrumentalSignal(candidate);
+    const hasStrongVocalSignal = this._hasStrongVocalSignal(candidate);
 
     for (const entry of positiveKeywords) {
       if (text.includes(entry.keyword)) {
@@ -191,9 +211,15 @@ export class LastFmAPI {
       const instrumentalHint = /(instrumental|ambient|orchestral|piano|soundtrack|score|no vocals|cinematic)/i;
       const vocalHint = /(vocal|lyrics|feat\.| ft\.|karaoke|singer|songwriter|acapella|a cappella)/i;
       if (instrumentalHint.test(text)) {
-        score += 0.25;
+        score += 0.35;
       }
       if (vocalHint.test(text)) {
+        score -= 0.8;
+      }
+      if (!hasInstrumentalSignal) {
+        score -= 0.4;
+      }
+      if (hasStrongVocalSignal) {
         score -= 0.45;
       }
     }

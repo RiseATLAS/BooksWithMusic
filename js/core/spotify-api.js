@@ -1103,16 +1103,72 @@ export class SpotifyAPI {
     const market = typeof options.market === 'string'
       ? options.market
       : this._getPreferredSearchMarket(this._getSettings());
+    const settings = this._getSettings();
+    const instrumentalOnly = options?.instrumentalOnly !== undefined
+      ? options.instrumentalOnly !== false
+      : settings.instrumentalOnly !== false;
+    const preferCinematicScores = options?.preferCinematicScores !== undefined
+      ? options.preferCinematicScores === true
+      : settings.preferCinematicScores === true;
+    const targetMood = String(options?.targetMood || '').toLowerCase().trim();
 
     const query = `track:"${cleanTitle}" artist:"${cleanArtist}"`;
-    const matches = await this._searchTracksByQueryString(
+    const exactMatches = await this._searchTracksByQueryString(
       query,
-      1,
+      6,
       'resolve-title-artist',
       { market }
     );
 
-    return matches[0] || null;
+    if (exactMatches.length === 0) {
+      return null;
+    }
+
+    let candidatePool = exactMatches.slice();
+
+    if (instrumentalOnly) {
+      let lowVocalCandidates = candidatePool.filter((track) => this._isLikelyInstrumental(track));
+
+      // If exact metadata resolves only to likely vocal songs, run one extra
+      // instrumental-lean query before giving up.
+      if (lowVocalCandidates.length === 0) {
+        const instrumentalQuery = `track:"${cleanTitle}" instrumental soundtrack score`;
+        const instrumentalMatches = await this._searchTracksByQueryString(
+          instrumentalQuery,
+          6,
+          'resolve-title-instrumental',
+          { market }
+        );
+
+        const deduped = new Map();
+        [...candidatePool, ...instrumentalMatches].forEach((track) => {
+          if (track?.id) {
+            deduped.set(track.id, track);
+          }
+        });
+
+        lowVocalCandidates = [...deduped.values()].filter((track) => this._isLikelyInstrumental(track));
+      }
+
+      if (lowVocalCandidates.length === 0) {
+        this._debugLog(
+          `🚫 Spotify resolve skipped likely-vocal match for "${cleanTitle}" by "${cleanArtist}" (instrumental-only mode).`
+        );
+        return null;
+      }
+
+      candidatePool = lowVocalCandidates;
+    }
+
+    const ranked = this._filterAndSortTracks(candidatePool, 1, {
+      instrumentalOnly,
+      avoidGameMusic: !preferCinematicScores,
+      lowVocalPreference: true,
+      preferEnglishMetadata: true,
+      targetMood
+    });
+
+    return ranked[0] || null;
   }
 
   /**
