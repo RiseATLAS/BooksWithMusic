@@ -36,7 +36,7 @@
  * 
  * RATE LIMITING:
  * - API calls limited by Spotify (usually fine for personal use)
- * - 100ms minimum interval between requests
+ * - 200ms minimum interval between requests
  * - Automatic rate limit handling (429 responses)
  * 
  * REQUIREMENTS:
@@ -61,7 +61,7 @@ export class SpotifyAPI {
     
     // Rate limiting
     this.lastRequestTime = 0;
-    this.minRequestInterval = 100; // 100ms between requests
+    this.minRequestInterval = 200; // 200ms between requests
     this.rateLimitedUntil = 0;
     this._lastRateLimitLogUntil = 0;
     this._hasLoggedMoodAlignmentScoring = false;

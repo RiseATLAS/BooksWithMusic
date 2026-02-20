@@ -48,6 +48,13 @@ export class SpotifyMusicManager {
     this._chapterContextByIndex = {};
     this._latestChapterChangeRequestId = 0;
     this._hasLoggedMissingLastFmKey = false;
+
+    // Cross-fetch resolution cache to avoid repeating Spotify title+artist lookups
+    // during chapter prefetch + chapter-change refreshes and retries.
+    this._spotifyResolveCache = new Map();
+    this._spotifyResolveCacheMaxEntries = 4000;
+    this._spotifyResolveCacheHitTtlMs = 12 * 60 * 60 * 1000; // 12h
+    this._spotifyResolveCacheMissTtlMs = 30 * 60 * 1000; // 30m
   }
 
   /**
@@ -315,6 +322,56 @@ export class SpotifyMusicManager {
     return this._trackRetryDelayMs;
   }
 
+  _buildResolveCacheKey(title, artist, options = {}) {
+    const normalizedTitle = String(title || '').trim().toLowerCase();
+    const normalizedArtist = String(artist || '').trim().toLowerCase();
+    const normalizedMarket = String(options.market || 'auto').trim().toUpperCase() || 'AUTO';
+    const normalizedMood = String(options.targetMood || 'neutral').trim().toLowerCase() || 'neutral';
+    const instrumentalOnly = options.instrumentalOnly !== false ? '1' : '0';
+    return `${normalizedTitle}|${normalizedArtist}|m:${normalizedMarket}|i:${instrumentalOnly}|mood:${normalizedMood}`;
+  }
+
+  _getCachedResolveResult(cacheKey) {
+    const cached = this._spotifyResolveCache.get(cacheKey);
+    if (!cached || !cached.resolution) {
+      return null;
+    }
+
+    const hasTrack = Boolean(cached.resolution?.track);
+    const ttlMs = hasTrack ? this._spotifyResolveCacheHitTtlMs : this._spotifyResolveCacheMissTtlMs;
+    if ((Date.now() - Number(cached.cachedAt || 0)) > ttlMs) {
+      this._spotifyResolveCache.delete(cacheKey);
+      return null;
+    }
+
+    return cached.resolution;
+  }
+
+  _setCachedResolveResult(cacheKey, resolution) {
+    this._spotifyResolveCache.set(cacheKey, {
+      cachedAt: Date.now(),
+      resolution: resolution || { track: null, reason: 'unknown', details: {} }
+    });
+
+    if (this._spotifyResolveCache.size > this._spotifyResolveCacheMaxEntries) {
+      const oldestKey = this._spotifyResolveCache.keys().next().value;
+      if (oldestKey !== undefined) {
+        this._spotifyResolveCache.delete(oldestKey);
+      }
+    }
+  }
+
+  _pruneResolveCache() {
+    const now = Date.now();
+    for (const [key, entry] of this._spotifyResolveCache.entries()) {
+      const hasTrack = Boolean(entry?.resolution?.track);
+      const ttlMs = hasTrack ? this._spotifyResolveCacheHitTtlMs : this._spotifyResolveCacheMissTtlMs;
+      if ((now - Number(entry?.cachedAt || 0)) > ttlMs) {
+        this._spotifyResolveCache.delete(key);
+      }
+    }
+  }
+
   _buildLastFmKeywordsForProfile(profile, mapping) {
     const effectiveEnergy = this._getEffectiveProfileEnergy(profile?.energy || mapping?.energy || 3);
     const profileKeywords = Array.isArray(profile?.keywords) && profile.keywords.length > 0
@@ -445,6 +502,7 @@ export class SpotifyMusicManager {
       `-${String(profile?.mood || mapping?.mood || 'unknown').toLowerCase()}`;
 
     const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
+    const instrumentalOnly = settings.instrumentalOnly !== false;
     const effectiveProfileEnergy = this._getEffectiveProfileEnergy(profile?.energy || mapping?.energy || 3);
     const lastFmCandidates = await this.lastFmAPI.searchTracksByKeywords(
       keywordProfile,
@@ -494,6 +552,7 @@ export class SpotifyMusicManager {
     const diagnostics = {
       missingMetadata: 0,
       cacheHits: 0,
+      sharedCacheHits: 0,
       cacheMisses: 0,
       unresolvedAfterLookup: 0,
       duplicateTrackIdWithinProfile: 0,
@@ -515,33 +574,47 @@ export class SpotifyMusicManager {
         continue;
       }
 
-      const resolveKey = `${title.toLowerCase()}|${artist.toLowerCase()}`;
-      const hasCachedResolution = resolveCache.has(resolveKey);
+      const targetMood = profile?.mood || mapping?.mood || 'peaceful';
+      const resolveKey = this._buildResolveCacheKey(title, artist, {
+        market: preferredMarket,
+        instrumentalOnly,
+        targetMood
+      });
+      const hasLocalCachedResolution = resolveCache.has(resolveKey);
       let resolution = resolveCache.get(resolveKey);
-      if (hasCachedResolution) {
+
+      if (hasLocalCachedResolution) {
         diagnostics.cacheHits += 1;
       } else {
-        diagnostics.cacheMisses += 1;
-        if (freshResolveLookups >= maxFreshResolveLookups) {
-          diagnostics.lookupBudgetHit = true;
-          break;
-        }
-        freshResolveLookups += 1;
-        resolution = await this.spotifyAPI.searchTrackByTitleArtist(
-          title,
-          artist,
-          {
-            market: preferredMarket,
-            instrumentalOnly: settings.instrumentalOnly !== false,
-            targetMood: profile?.mood || mapping?.mood || 'peaceful',
-            returnDiagnostics: true,
-            contextLabel
+        const sharedResolution = this._getCachedResolveResult(resolveKey);
+        if (sharedResolution) {
+          diagnostics.cacheHits += 1;
+          diagnostics.sharedCacheHits += 1;
+          resolution = sharedResolution;
+          resolveCache.set(resolveKey, sharedResolution);
+        } else {
+          diagnostics.cacheMisses += 1;
+          if (freshResolveLookups >= maxFreshResolveLookups) {
+            diagnostics.lookupBudgetHit = true;
+            break;
           }
-        );
-        resolveCache.set(
-          resolveKey,
-          resolution || { track: null, reason: 'unknown', details: {} }
-        );
+          freshResolveLookups += 1;
+          resolution = await this.spotifyAPI.searchTrackByTitleArtist(
+            title,
+            artist,
+            {
+              market: preferredMarket,
+              instrumentalOnly,
+              targetMood,
+              returnDiagnostics: true,
+              contextLabel
+            }
+          );
+          const normalizedResolution = resolution || { track: null, reason: 'unknown', details: {} };
+          resolveCache.set(resolveKey, normalizedResolution);
+          this._setCachedResolveResult(resolveKey, normalizedResolution);
+          resolution = normalizedResolution;
+        }
       }
 
       const resolved = resolution?.track || null;
@@ -618,7 +691,8 @@ export class SpotifyMusicManager {
         `lastFmCandidates=${lastFmCandidates.length}, candidateLimit=${candidateLimit}, ` +
         `confidence[min/avg/max]=${minConfidence.toFixed(2)}/${avgConfidence.toFixed(2)}/${maxConfidence.toFixed(2)}, ` +
         `freshLookups=${freshResolveLookups}/${maxFreshResolveLookups}, ` +
-        `cacheHits=${diagnostics.cacheHits}, cacheMisses=${diagnostics.cacheMisses}, ` +
+        `cacheHits=${diagnostics.cacheHits} (shared=${diagnostics.sharedCacheHits}), ` +
+        `cacheMisses=${diagnostics.cacheMisses}, ` +
         `lookupBudgetHit=${diagnostics.lookupBudgetHit}, missingMetadata=${diagnostics.missingMetadata}, ` +
         `unresolved=${diagnostics.unresolvedAfterLookup}, ` +
         `dupTrackProfile=${diagnostics.duplicateTrackIdWithinProfile}, ` +
@@ -639,6 +713,7 @@ export class SpotifyMusicManager {
     console.info(
       `🔗 Last.fm→Spotify resolved ${orderedResolvedTracks.length}/${candidatesToResolve.length} ` +
       `(freshLookups=${freshResolveLookups}/${maxFreshResolveLookups}, ` +
+      `cacheHits=${diagnostics.cacheHits}, sharedCacheHits=${diagnostics.sharedCacheHits}, ` +
       `unresolved=${diagnostics.unresolvedAfterLookup}, ` +
       `dupIdentity=${diagnostics.duplicateIdentityWithinProfile + diagnostics.duplicateIdentityAcrossChapter}) ` +
       `track(s) for chapter ${chapterIndex} mood=${profile?.mood || mapping?.mood || 'unknown'}`
@@ -680,10 +755,26 @@ export class SpotifyMusicManager {
 
     if (
       !bypassRetryGate &&
+      retryState.nextRetryAt > Date.now() &&
+      mapping.tracks.length > 0
+    ) {
+      return mapping.tracks;
+    }
+
+    if (
+      !bypassRetryGate &&
       retryState.attempts >= this._maxTrackRetryAttempts &&
       mapping.tracks.length === 0
     ) {
       return [];
+    }
+
+    if (
+      !bypassRetryGate &&
+      retryState.attempts >= this._maxTrackRetryAttempts &&
+      mapping.tracks.length > 0
+    ) {
+      return mapping.tracks;
     }
 
     const fetchPromise = this._fetchTracksForChapter(chapterIndex, mapping);
@@ -699,6 +790,7 @@ export class SpotifyMusicManager {
   async _fetchTracksForChapter(chapterIndex, mapping) {
     try {
       console.log(`🎵 Fetching Spotify tracks for chapter ${chapterIndex}...`);
+      this._pruneResolveCache();
       const desiredTrackCount = this._getDesiredTrackCount(mapping);
 
       // Build one search profile per shift so early playlist tracks align with mood transitions.
@@ -797,7 +889,10 @@ export class SpotifyMusicManager {
       this._scheduleTrackRetry(chapterIndex, 'no-tracks');
       return [];
     } catch (error) {
-      mapping.tracks = [];
+      const hadExistingTracks = Array.isArray(mapping.tracks) && mapping.tracks.length > 0;
+      if (!hadExistingTracks) {
+        mapping.tracks = [];
+      }
       mapping.tracksFetched = false;
       if (this._isAuthError(error)) {
         if (error?.code === 'LASTFM_AUTH' || /last\.?fm/i.test(String(error?.message || ''))) {
@@ -1034,7 +1129,7 @@ export class SpotifyMusicManager {
 
     if (profileChanged) {
       // Reader shift profiles changed in a way that affects track targeting.
-      mapping.tracks = [];
+      // Keep any prefetched tracks as stale fallback to avoid empty playback while refetching.
       mapping.tracksFetched = false;
     }
 
