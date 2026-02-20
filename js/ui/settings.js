@@ -56,6 +56,7 @@ export class SettingsUI {
       instrumentalOnly: true,  // Filter to background/instrumental/ambient music only
       spotifySearchMarket: 'GB',  // Spotify search market (GB default reduces local-country bias)
       maxEnergyLevel: 3,  // Default to moderate energy level (3 out of 5)
+      verboseLogging: true,  // Detailed music logs in browser console
       showTrackInfo: false  // Show detailed track information (genre, energy, reasoning)
     };
 

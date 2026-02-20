@@ -708,6 +708,12 @@ export class MusicPanelUI {
       const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
       settings.verboseLogging = e.target.checked;
       localStorage.setItem('booksWithMusic-settings', JSON.stringify(settings));
+
+      // Also update SettingsUI instance and sync to Firestore if available
+      if (window.app?.settings) {
+        window.app.settings.settings.verboseLogging = e.target.checked;
+        window.app.settings.syncToFirestore();
+      }
       
       // Update MusicManager immediately
       if (this.musicManager) {
@@ -806,59 +812,6 @@ export class MusicPanelUI {
     if (pageBasedMusicCheckbox && settings.pageBasedMusicSwitch !== undefined) {
       pageBasedMusicCheckbox.checked = settings.pageBasedMusicSwitch;
     }
-
-    // Last.fm API key (Spotify discovery)
-    const lastFmKeyInput = document.getElementById('lastfm-key-panel');
-    const saveLastFmBtn = document.getElementById('save-lastfm-key-panel');
-
-    if (lastFmKeyInput) {
-      const savedKey = localStorage.getItem('lastfm_api_key');
-      if (savedKey) {
-        lastFmKeyInput.value = savedKey;
-      }
-    }
-
-    saveLastFmBtn?.addEventListener('click', async (e) => {
-      e.preventDefault();
-      const apiKey = String(lastFmKeyInput?.value || '').trim();
-      const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
-
-      if (apiKey) {
-        localStorage.setItem('lastfm_api_key', apiKey);
-        settings.lastfmApiKey = apiKey;
-        localStorage.setItem('booksWithMusic-settings', JSON.stringify(settings));
-        this.showToast('Last.fm API key saved. Refreshing current chapter music...', 'success');
-      } else {
-        localStorage.removeItem('lastfm_api_key');
-        delete settings.lastfmApiKey;
-        localStorage.setItem('booksWithMusic-settings', JSON.stringify(settings));
-        this.showToast('Last.fm API key cleared.', 'info');
-      }
-
-      const reader = window.app?.reader || this.reader;
-      const chapterIndex = Number(reader?.currentChapterIndex);
-      if (
-        this.currentMusicSource === 'spotify' &&
-        Number.isFinite(chapterIndex) &&
-        this.musicManager &&
-        typeof this.musicManager.onChapterChange === 'function'
-      ) {
-        // Force fresh chapter fetch with new/updated Last.fm key.
-        if (this.musicManager.chapterMappings) {
-          Object.values(this.musicManager.chapterMappings).forEach((mapping) => {
-            if (!mapping) return;
-            mapping.tracks = [];
-            mapping.tracksFetched = false;
-          });
-        }
-
-        await this.musicManager.onChapterChange(
-          chapterIndex,
-          Number(reader?.currentPageInChapter) || 1,
-          reader?.currentChapterShiftPoints || null
-        );
-      }
-    });
 
     // Freesound API key (music panel)
     const freesoundKeyInput = document.getElementById('freesound-key-panel');
