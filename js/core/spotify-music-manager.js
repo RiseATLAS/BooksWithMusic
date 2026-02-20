@@ -876,7 +876,33 @@ export class SpotifyMusicManager {
       ? profile.keywords
       : (mapping?.keywords || []);
     const pageText = profile?.pageInChapter > 1 ? ` from page ${profile.pageInChapter}` : '';
-    const keywordText = keywords.length > 0 ? ` with ${keywords.slice(0, 2).join(', ')} themes` : '';
+    const moodHints = {
+      dark: ['ominous', 'atmospheric'],
+      mysterious: ['enigmatic', 'ambient'],
+      romantic: ['warm', 'tender'],
+      sad: ['melancholic', 'emotional'],
+      epic: ['cinematic', 'orchestral'],
+      peaceful: ['calm', 'serene'],
+      tense: ['suspenseful', 'dramatic'],
+      joyful: ['uplifting', 'bright'],
+      adventure: ['inspiring', 'exploratory'],
+      magical: ['ethereal', 'fantasy']
+    };
+    const genericTerms = new Set([
+      'instrumental', 'no vocals', 'ambient', 'cinematic score', 'calm',
+      'atmospheric', 'balanced', 'flowing', 'gentle', 'soft'
+    ]);
+    const hintSet = new Set([mood, ...(moodHints[mood] || [])].map((item) => item.toLowerCase()));
+    const alignedProfileThemes = keywords
+      .map((keyword) => String(keyword || '').toLowerCase().trim())
+      .filter((keyword) => keyword.length >= 3)
+      .filter((keyword) => !genericTerms.has(keyword))
+      .filter((keyword) => hintSet.has(keyword))
+      .slice(0, 2);
+    const reasoningThemes = alignedProfileThemes.length > 0
+      ? alignedProfileThemes
+      : (moodHints[mood] || []).slice(0, 2);
+    const keywordText = reasoningThemes.length > 0 ? ` with ${reasoningThemes.join(', ')} themes` : '';
 
     return {
       ...track,
