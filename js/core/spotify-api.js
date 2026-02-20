@@ -1106,6 +1106,9 @@ export class SpotifyAPI {
       ? options.instrumentalOnly !== false
       : settings.instrumentalOnly !== false;
     const targetMood = String(options?.targetMood || '').toLowerCase().trim();
+    const returnDiagnostics = options?.returnDiagnostics === true;
+    const contextLabel = String(options?.contextLabel || '').trim();
+    const debugPrefix = contextLabel ? ` [${contextLabel}]` : '';
 
     const query = `track:"${cleanTitle}" artist:"${cleanArtist}"`;
     const exactMatches = await this._searchTracksByQueryString(
@@ -1116,13 +1119,26 @@ export class SpotifyAPI {
     );
 
     if (exactMatches.length === 0) {
+      if (returnDiagnostics) {
+        return {
+          track: null,
+          reason: 'no-exact-match',
+          details: {
+            exactMatchCount: 0,
+            instrumentalMatchCount: 0
+          }
+        };
+      }
       return null;
     }
 
     let candidatePool = exactMatches.slice();
+    let instrumentalMatchCount = 0;
+    let filteredByInstrumentalCount = 0;
 
     if (instrumentalOnly) {
       let lowVocalCandidates = candidatePool.filter((track) => this._isLikelyInstrumental(track));
+      filteredByInstrumentalCount = candidatePool.length - lowVocalCandidates.length;
 
       // If exact metadata resolves only to likely vocal songs, run one extra
       // instrumental-lean query before giving up.
@@ -1134,6 +1150,7 @@ export class SpotifyAPI {
           'resolve-title-instrumental',
           { market }
         );
+        instrumentalMatchCount = instrumentalMatches.length;
 
         const deduped = new Map();
         [...candidatePool, ...instrumentalMatches].forEach((track) => {
@@ -1143,12 +1160,24 @@ export class SpotifyAPI {
         });
 
         lowVocalCandidates = [...deduped.values()].filter((track) => this._isLikelyInstrumental(track));
+        filteredByInstrumentalCount = deduped.size - lowVocalCandidates.length;
       }
 
       if (lowVocalCandidates.length === 0) {
         this._debugLog(
-          `🚫 Spotify resolve skipped likely-vocal match for "${cleanTitle}" by "${cleanArtist}" (instrumental-only mode).`
+          `🚫 Spotify resolve skipped likely-vocal match${debugPrefix} for "${cleanTitle}" by "${cleanArtist}" (instrumental-only mode).`
         );
+        if (returnDiagnostics) {
+          return {
+            track: null,
+            reason: 'instrumental-filtered',
+            details: {
+              exactMatchCount: exactMatches.length,
+              instrumentalMatchCount,
+              filteredByInstrumentalCount
+            }
+          };
+        }
         return null;
       }
 
@@ -1163,7 +1192,35 @@ export class SpotifyAPI {
       targetMood
     });
 
-    return ranked[0] || null;
+    const resolvedTrack = ranked[0] || null;
+    if (!resolvedTrack) {
+      if (returnDiagnostics) {
+        return {
+          track: null,
+          reason: 'ranking-empty',
+          details: {
+            exactMatchCount: exactMatches.length,
+            instrumentalMatchCount,
+            filteredByInstrumentalCount
+          }
+        };
+      }
+      return null;
+    }
+
+    if (returnDiagnostics) {
+      return {
+        track: resolvedTrack,
+        reason: 'resolved',
+        details: {
+          exactMatchCount: exactMatches.length,
+          instrumentalMatchCount,
+          filteredByInstrumentalCount
+        }
+      };
+    }
+
+    return resolvedTrack;
   }
 
   /**

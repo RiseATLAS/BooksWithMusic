@@ -495,8 +495,12 @@ export class SpotifyMusicManager {
       duplicateTrackIdAcrossChapter: 0,
       duplicateIdentityWithinProfile: 0,
       duplicateIdentityAcrossChapter: 0,
-      lookupBudgetHit: false
+      lookupBudgetHit: false,
+      resolveReasons: {}
     };
+    const confidenceValues = candidatesToResolve
+      .map((candidate) => Number(candidate?.confidence))
+      .filter((value) => Number.isFinite(value));
 
     for (const candidate of candidatesToResolve) {
       const title = String(candidate?.title || '').trim();
@@ -508,7 +512,7 @@ export class SpotifyMusicManager {
 
       const resolveKey = `${title.toLowerCase()}|${artist.toLowerCase()}`;
       const hasCachedResolution = resolveCache.has(resolveKey);
-      let resolved = resolveCache.get(resolveKey);
+      let resolution = resolveCache.get(resolveKey);
       if (hasCachedResolution) {
         diagnostics.cacheHits += 1;
       } else {
@@ -518,25 +522,36 @@ export class SpotifyMusicManager {
           break;
         }
         freshResolveLookups += 1;
-        resolved = await this.spotifyAPI.searchTrackByTitleArtist(
+        resolution = await this.spotifyAPI.searchTrackByTitleArtist(
           title,
           artist,
           {
             market: preferredMarket,
             instrumentalOnly: settings.instrumentalOnly !== false,
-            targetMood: profile?.mood || mapping?.mood || 'peaceful'
+            targetMood: profile?.mood || mapping?.mood || 'peaceful',
+            returnDiagnostics: true,
+            contextLabel
           }
         );
-        resolveCache.set(resolveKey, resolved || null);
+        resolveCache.set(
+          resolveKey,
+          resolution || { track: null, reason: 'unknown', details: {} }
+        );
       }
+
+      const resolved = resolution?.track || null;
+      const resolveReason = String(resolution?.reason || 'unknown');
 
       if (!resolved) {
         diagnostics.unresolvedAfterLookup += 1;
+        diagnostics.resolveReasons[resolveReason] =
+          (diagnostics.resolveReasons[resolveReason] || 0) + 1;
         if (unresolvedSamples.length < 5) {
           unresolvedSamples.push({
             title,
             artist,
-            confidence: Number(candidate?.confidence) || 0
+            confidence: Number(candidate?.confidence) || 0,
+            reason: resolveReason
           });
         }
         continue;
@@ -582,11 +597,21 @@ export class SpotifyMusicManager {
         .slice(0, 6)
         .map((entry) => `${entry.keyword}:${Number(entry.weight || 0).toFixed(2)}`)
         .join(', ');
+      const avgConfidence = confidenceValues.length > 0
+        ? confidenceValues.reduce((sum, value) => sum + value, 0) / confidenceValues.length
+        : 0;
+      const minConfidence = confidenceValues.length > 0 ? Math.min(...confidenceValues) : 0;
+      const maxConfidence = confidenceValues.length > 0 ? Math.max(...confidenceValues) : 0;
+      const resolveReasonSummary = Object.entries(diagnostics.resolveReasons)
+        .sort((a, b) => b[1] - a[1])
+        .map(([reason, count]) => `${reason}:${count}`)
+        .join(', ');
       console.error(
         `❌ Last.fm→Spotify underfilled profile for chapter ${chapterIndex} ` +
         `(mood=${mood}, page=${Number(profile?.pageInChapter || 1)}): ` +
         `resolved=${orderedResolvedTracks.length}/${perProfileLimit}, ` +
         `lastFmCandidates=${lastFmCandidates.length}, candidateLimit=${candidateLimit}, ` +
+        `confidence[min/avg/max]=${minConfidence.toFixed(2)}/${avgConfidence.toFixed(2)}/${maxConfidence.toFixed(2)}, ` +
         `freshLookups=${freshResolveLookups}/${maxFreshResolveLookups}, ` +
         `cacheHits=${diagnostics.cacheHits}, cacheMisses=${diagnostics.cacheMisses}, ` +
         `lookupBudgetHit=${diagnostics.lookupBudgetHit}, missingMetadata=${diagnostics.missingMetadata}, ` +
@@ -594,12 +619,13 @@ export class SpotifyMusicManager {
         `dupTrackProfile=${diagnostics.duplicateTrackIdWithinProfile}, ` +
         `dupTrackChapter=${diagnostics.duplicateTrackIdAcrossChapter}, ` +
         `dupIdentityProfile=${diagnostics.duplicateIdentityWithinProfile}, ` +
-        `dupIdentityChapter=${diagnostics.duplicateIdentityAcrossChapter}.`
+        `dupIdentityChapter=${diagnostics.duplicateIdentityAcrossChapter}, ` +
+        `resolveReasons=[${resolveReasonSummary || 'none'}].`
       );
       console.error(`❌ Last.fm profile keywords [${contextLabel}]: [${topKeywords}]`);
       if (unresolvedSamples.length > 0) {
         const unresolvedSampleText = unresolvedSamples
-          .map((item) => `${item.title} — ${item.artist} (confidence=${Math.round(item.confidence)}%)`)
+          .map((item) => `${item.title} — ${item.artist} (confidence=${Math.round(item.confidence)}%, reason=${item.reason})`)
           .join(' | ');
         console.error(`❌ Last.fm unresolved samples [${contextLabel}]: ${unresolvedSampleText}`);
       }
