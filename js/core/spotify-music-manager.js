@@ -40,6 +40,7 @@ export class SpotifyMusicManager {
     // Track-fetch retry policy (for rate limits / temporary API failures).
     this._trackRetryDelayMs = 30000;
     this._maxTrackRetryAttempts = 5;
+    this._maxProfileQueriesPerChapter = 5;
     this._trackRetryStateByChapter = {};
     this._trackFetchPromises = {};
     this._chapterContextByIndex = {};
@@ -348,15 +349,35 @@ export class SpotifyMusicManager {
 
       // Build one search profile per shift so early playlist tracks align with mood transitions.
       const shiftProfiles = this._buildShiftSearchProfiles(mapping);
-      const perProfileLimit = Math.max(4, Math.ceil(desiredTrackCount / shiftProfiles.length));
+      const maxProfileQueries = Math.max(
+        1,
+        Math.min(this._maxProfileQueriesPerChapter, desiredTrackCount)
+      );
+      const selectedProfiles = this._selectProfilesForFetch(shiftProfiles, maxProfileQueries);
+      const perProfileLimit = Math.max(
+        2,
+        Math.min(
+          this.spotifyAPI.maxSearchResultsPerRequest || 10,
+          Math.ceil(desiredTrackCount / Math.max(1, selectedProfiles.length)) + 1
+        )
+      );
+      const queryBudget = { maxBaseQueries: 2, maxFallbackQueries: 1 };
       const searchedTracksByProfile = [];
 
-      for (const profile of shiftProfiles) {
+      if (selectedProfiles.length < shiftProfiles.length) {
+        console.log(
+          `🎛️ Spotify chapter query budget: selected ${selectedProfiles.length}/${shiftProfiles.length} mood profiles ` +
+          `(perProfileLimit=${perProfileLimit}, apiMax=${this.spotifyAPI.maxSearchResultsPerRequest || 10})`
+        );
+      }
+
+      for (const profile of selectedProfiles) {
         const tracks = await this.spotifyAPI.searchByMood(
           profile.mood,
           profile.energy,
           profile.keywords,
-          perProfileLimit
+          perProfileLimit,
+          queryBudget
         );
         searchedTracksByProfile.push({ profile, tracks });
       }
@@ -384,11 +405,16 @@ export class SpotifyMusicManager {
 
       // Fallback to chapter-level mood if shift-based queries return nothing.
       if (orderedTracks.length === 0) {
+        const fallbackLimit = Math.min(
+          this.spotifyAPI.maxSearchResultsPerRequest || 10,
+          Math.max(4, desiredTrackCount)
+        );
         const fallbackTracks = await this.spotifyAPI.searchByMood(
           mapping.mood,
           mapping.energy,
           mapping.keywords,
-          Math.max(10, desiredTrackCount)
+          fallbackLimit,
+          queryBudget
         );
         for (const track of fallbackTracks) {
           addTrack(track, {
@@ -444,7 +470,8 @@ export class SpotifyMusicManager {
 
   /**
    * Resolve desired tracks per chapter from UI settings.
-   * Mirrors Freesound logic and enforces Spotify's practical max of 20.
+   * Mirrors Freesound logic and caps chapter playlists at 20.
+   * Spotify Search is max 10 per request, but we merge multiple targeted queries.
    * @private
    */
   _getDesiredTrackCount(mapping) {
@@ -502,6 +529,51 @@ export class SpotifyMusicManager {
     }
 
     return profiles;
+  }
+
+  /**
+   * Reduce API pressure by sampling shift profiles across chapter timeline.
+   * Always keeps chapter start profile, then spreads remaining picks.
+   * @private
+   */
+  _selectProfilesForFetch(profiles, maxProfiles) {
+    const source = Array.isArray(profiles) ? profiles : [];
+    const cappedMax = Math.max(1, Math.floor(Number(maxProfiles) || 1));
+
+    if (source.length <= cappedMax) {
+      return source;
+    }
+
+    const selected = [source[0]];
+    if (cappedMax === 1) {
+      return selected;
+    }
+
+    const remaining = source.slice(1);
+    const remainingSlots = cappedMax - 1;
+
+    for (let i = 0; i < remainingSlots; i++) {
+      const idx = remainingSlots === 1
+        ? remaining.length - 1
+        : Math.round((i * (remaining.length - 1)) / (remainingSlots - 1));
+      const candidate = remaining[idx];
+      if (candidate && !selected.includes(candidate)) {
+        selected.push(candidate);
+      }
+    }
+
+    if (selected.length < cappedMax) {
+      for (const candidate of remaining) {
+        if (!selected.includes(candidate)) {
+          selected.push(candidate);
+        }
+        if (selected.length >= cappedMax) {
+          break;
+        }
+      }
+    }
+
+    return selected.slice(0, cappedMax);
   }
 
   /**

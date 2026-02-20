@@ -57,6 +57,7 @@ export class SpotifyAPI {
     this.auth = new SpotifyAuth();
     this.mapper = new SpotifyMapper();
     this.baseURL = 'https://api.spotify.com/v1';
+    this.maxSearchResultsPerRequest = 10; // Spotify Search API max (tracks)
     
     // Rate limiting
     this.lastRequestTime = 0;
@@ -381,11 +382,11 @@ export class SpotifyAPI {
    * NOTE: Recommendations API is deprecated (Nov 2024) and unavailable for new apps
    * 
    * @param {Array<string>} keywords - Keywords from MoodProcessor
-   * @param {number} limit - Number of tracks to return (1-20)
+   * @param {number} limit - Number of tracks to return (1-10)
    * @param {Object} chapterAnalysis - Full chapter analysis from MoodProcessor
    * @returns {Array} Array of track objects
    */
-  async searchTracks(keywords, limit = 20, chapterAnalysis = null, bookProfile = null) {
+  async searchTracks(keywords, limit = 10, chapterAnalysis = null, bookProfile = null) {
     if (!await this.isConfigured()) {
       this._debugWarn('⚠️ Spotify not authenticated');
       return [];
@@ -403,7 +404,7 @@ export class SpotifyAPI {
       .concat(Array.isArray(keywords) ? keywords.slice(0, 3) : [])
       .filter(Boolean);
 
-    return await this.searchByQuery([moodTerm], Math.min(20, limit), {
+    return await this.searchByQuery([moodTerm], Math.min(this.maxSearchResultsPerRequest, limit), {
       mood: moodTerm,
       keywords: keywordContext,
       instrumentalOnly
@@ -417,7 +418,7 @@ export class SpotifyAPI {
   async _textSearch(keywords, limit, instrumentalOnly) {
     const query = keywords.join(' ');
     let searchQuery = `track:${query}`;
-    const safeLimit = Math.max(1, Math.min(20, Math.floor(limit) || 10));
+    const safeLimit = Math.max(1, Math.min(this.maxSearchResultsPerRequest, Math.floor(limit) || this.maxSearchResultsPerRequest));
     const market = this._getPreferredSearchMarket(this._getSettings());
     
     if (instrumentalOnly) {
@@ -426,7 +427,8 @@ export class SpotifyAPI {
 
     const params = new URLSearchParams({
       q: searchQuery,
-      type: 'track'
+      type: 'track',
+      limit: String(safeLimit)
     });
     if (market) {
       params.set('market', market);
@@ -456,11 +458,11 @@ export class SpotifyAPI {
    * Uses Spotify-supported query fields (genre:) with layered fallback queries.
    * 
    * @param {Array<string>} queryTerms - Terms to search for (e.g., ['epic', 'orchestral'])
-   * @param {number} limit - Number of results (1-50, default 15)
+   * @param {number} limit - Number of results (1-10, default 10)
    * @param {Object} options - Additional context (mood, energy, keywords)
    * @returns {Array} Array of track objects
    */
-  async searchByQuery(queryTerms, limit = 15, options = {}) {
+  async searchByQuery(queryTerms, limit = 10, options = {}) {
     if (!await this.isConfigured()) {
       this._debugWarn('⚠️ Spotify not authenticated');
       return [];
@@ -468,7 +470,9 @@ export class SpotifyAPI {
 
     // Clamp to a conservative per-request window to keep response size predictable.
     // We fan out across multiple focused queries below for diversity.
-    limit = Math.max(1, Math.min(20, Math.floor(limit) || 15));
+    limit = Math.max(1, Math.min(this.maxSearchResultsPerRequest, Math.floor(limit) || this.maxSearchResultsPerRequest));
+    const maxBaseQueries = Math.max(1, Math.min(3, Math.floor(Number(options.maxBaseQueries) || 3)));
+    const maxFallbackQueries = Math.max(1, Math.min(3, Math.floor(Number(options.maxFallbackQueries) || 1)));
 
     const settings = this._getSettings();
     const instrumentalOnly = options?.instrumentalOnly !== undefined
@@ -555,7 +559,7 @@ export class SpotifyAPI {
         }
       ].filter((plan) => Boolean(plan.core) && plan.genres.some(Boolean));
 
-      const baseQueries = queryPlans.map((plan) => ({
+      const baseQueries = queryPlans.slice(0, maxBaseQueries).map((plan) => ({
         label: plan.label,
         query: [
           plan.core,
@@ -587,9 +591,12 @@ export class SpotifyAPI {
 
       for (let i = 0; i < baseQueries.length; i++) {
         const { query, label } = baseQueries[i];
+        const requestLimit = i === 0
+          ? this.maxSearchResultsPerRequest
+          : Math.max(4, Math.min(6, this.maxSearchResultsPerRequest, limit));
         const tracks = await this._searchTracksByQueryString(
           query,
-          i === 0 ? Math.max(limit, 10) : Math.max(6, Math.min(10, limit)),
+          requestLimit,
           label,
           { market: preferredSearchMarket }
         );
@@ -634,11 +641,12 @@ export class SpotifyAPI {
             ])
           .map((query) => [query, negativeSuffix].filter(Boolean).join(' '));
 
-        for (let i = 0; i < fallbackQueries.length; i++) {
+        const fallbackCount = Math.min(fallbackQueries.length, maxFallbackQueries);
+        for (let i = 0; i < fallbackCount; i++) {
           const query = fallbackQueries[i];
           const tracks = await this._searchTracksByQueryString(
             query,
-            i === 0 ? Math.max(limit, 10) : Math.max(6, Math.min(10, limit)),
+            i === 0 ? this.maxSearchResultsPerRequest : Math.max(4, Math.min(6, this.maxSearchResultsPerRequest, limit)),
             `fallback-${i + 1}`,
             { market: preferredSearchMarket }
           );
@@ -679,13 +687,14 @@ export class SpotifyAPI {
    * @private
    */
   async _searchTracksByQueryString(searchQuery, limit, label = 'query', options = {}) {
-    const safeLimit = Math.max(1, Math.min(20, Math.floor(limit) || 10));
+    const safeLimit = Math.max(1, Math.min(this.maxSearchResultsPerRequest, Math.floor(limit) || this.maxSearchResultsPerRequest));
     const market = typeof options.market === 'string'
       ? options.market
       : this._getPreferredSearchMarket(this._getSettings());
     const params = new URLSearchParams({
       q: searchQuery,
-      type: 'track'
+      type: 'track',
+      limit: String(safeLimit)
     });
     if (market) {
       params.set('market', market);
@@ -694,7 +703,7 @@ export class SpotifyAPI {
 
     console.info(`🔎 Spotify search query [${label}] q="${searchQuery}" (market=${market || 'AUTO'}, limit=${safeLimit})`);
     this._debugLog(
-      `🔍 Spotify search (${label}): "${searchQuery}" (market=${market || 'AUTO'}, api limit=default, client limit=${safeLimit})`
+      `🔍 Spotify search (${label}): "${searchQuery}" (market=${market || 'AUTO'}, api limit=${safeLimit})`
     );
 
     const data = await this._makeRequest(endpoint);
@@ -975,15 +984,16 @@ export class SpotifyAPI {
    * @param {number} energy - Energy level 1-5
    * @param {Array<string>} keywords - Additional mood keywords
    * @param {number} limit - Max tracks to return
+   * @param {Object} options - Query budget options
    * @returns {Promise<Array>} Array of track objects
    */
-  async searchByMood(mood, energy, keywords = [], limit = 20) {
+  async searchByMood(mood, energy, keywords = [], limit = this.maxSearchResultsPerRequest, options = {}) {
     // Default values for safety
     mood = mood || 'peaceful';
     energy = this._normalizeEnergyLevel(energy || 3);
     
-    // Search API supports max 20 results (reduced from 50 as of Feb 2026)
-    limit = Math.max(1, Math.min(20, Math.floor(limit) || 20));
+    // Search API supports max 10 results per request.
+    limit = Math.max(1, Math.min(this.maxSearchResultsPerRequest, Math.floor(limit) || this.maxSearchResultsPerRequest));
     
     // Keep text query mood-centric; use keywords as genre context only.
     const queryTerms = [mood];
@@ -1005,7 +1015,9 @@ export class SpotifyAPI {
       mood,
       energy: effectiveEnergy,
       keywords,
-      instrumentalOnly
+      instrumentalOnly,
+      maxBaseQueries: options.maxBaseQueries,
+      maxFallbackQueries: options.maxFallbackQueries
     });
   }
   /**
