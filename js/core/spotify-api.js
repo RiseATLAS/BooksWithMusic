@@ -817,7 +817,7 @@ export class SpotifyAPI {
     }
 
     if (preferEnglishMetadata) {
-      score += this._scoreLanguageAndMarketBias(track, { instrumentalness });
+      score += this._scoreLanguageAndMarketBias(track);
     }
 
     const targetMood = String(options.targetMood || '').toLowerCase().trim();
@@ -846,16 +846,18 @@ export class SpotifyAPI {
    * Helps avoid overfitting to account-country catalogs.
    * @private
    */
-  _scoreLanguageAndMarketBias(track, options = {}) {
+  _scoreLanguageAndMarketBias(track) {
     const title = String(track?.title || '');
     const artist = String(track?.artist || '');
     const combined = `${title} ${artist}`;
     const normalized = ` ${combined.toLowerCase()} `;
     let scoreDelta = 0;
+    let nordicSignalCount = 0;
 
     // Norwegian/Nordic character hints.
     if (/[æøåäö]/i.test(combined)) {
-      scoreDelta -= 14;
+      scoreDelta -= 24;
+      nordicSignalCount += 1;
     }
 
     // Common Norwegian words/phrases in track metadata.
@@ -870,13 +872,49 @@ export class SpotifyAPI {
       ' norsk ',
       ' norge ',
       ' med deg ',
-      ' for alltid '
+      ' for alltid ',
+      ' jule ',
+      ' jul ',
+      ' sangen ',
+      ' versjon ',
+      ' musikk ',
+      ' rolig '
     ];
     const norwegianHits = norwegianMarkers.reduce(
       (count, marker) => count + (normalized.includes(marker) ? 1 : 0),
       0
     );
-    scoreDelta -= Math.min(24, norwegianHits * 8);
+    if (norwegianHits > 0) {
+      nordicSignalCount += norwegianHits;
+    }
+    scoreDelta -= Math.min(42, norwegianHits * 12);
+
+    // Catch common compound forms (e.g. "Julehjerte", "Pianomusikk")
+    const norwegianFragments = [
+      'jule',
+      'hjerte',
+      'sangen',
+      'pianomusikk',
+      'bakgrunnsmusikk',
+      'avslappning',
+      'avslapning',
+      'rolig',
+      'norsk',
+      'norge'
+    ];
+    const fragmentHits = norwegianFragments.reduce(
+      (count, fragment) => count + (normalized.includes(fragment) ? 1 : 0),
+      0
+    );
+    if (fragmentHits > 0) {
+      nordicSignalCount += fragmentHits;
+      scoreDelta -= Math.min(28, fragmentHits * 8);
+    }
+
+    // Strong localized metadata should outweigh mood-match boosts.
+    if (nordicSignalCount >= 2) {
+      scoreDelta -= 22;
+    }
 
     // Market availability bias.
     const markets = Array.isArray(track?.availableMarkets) ? track.availableMarkets : [];
@@ -888,10 +926,14 @@ export class SpotifyAPI {
       }
     }
 
-    // If a track is highly instrumental, language matters less.
-    const instrumentalness = Number(options.instrumentalness ?? track?.instrumentalness);
-    if (Number.isFinite(instrumentalness) && instrumentalness >= 0.8 && scoreDelta < 0) {
-      scoreDelta = Math.round(scoreDelta * 0.5);
+    // Slightly favor broadly-known tracks when metadata quality is similar.
+    const popularity = Number(track?.popularity);
+    if (Number.isFinite(popularity)) {
+      if (popularity >= 45) {
+        scoreDelta += 4;
+      } else if (popularity <= 12) {
+        scoreDelta -= 8;
+      }
     }
 
     return scoreDelta;
