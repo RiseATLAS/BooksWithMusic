@@ -397,8 +397,26 @@ export class LastFmAPI {
 
     if (options.instrumentalOnly !== false) {
       const strictCandidates = candidates.filter((candidate) => this._isInstrumentalFriendlyCandidate(candidate));
-      if (strictCandidates.length >= Math.min(3, safeLimit)) {
-        candidates = strictCandidates;
+      if (strictCandidates.length > 0) {
+        const strictSet = new Set(strictCandidates.map((candidate) =>
+          `${String(candidate.title || '').toLowerCase()}|${String(candidate.artist || '').toLowerCase()}`
+        ));
+        const nonStrictCandidates = candidates.filter((candidate) => {
+          const key = `${String(candidate.title || '').toLowerCase()}|${String(candidate.artist || '').toLowerCase()}`;
+          return !strictSet.has(key);
+        });
+
+        candidates = [...strictCandidates, ...nonStrictCandidates];
+
+        const desiredStrictCount = Math.min(3, safeLimit);
+        if (strictCandidates.length < desiredStrictCount) {
+          console.warn(
+            `⚠️ Last.fm strict instrumental pool is limited ` +
+            `(${strictCandidates.length}/${desiredStrictCount}) [${contextLabel}]`
+          );
+        }
+      } else {
+        console.warn(`⚠️ Last.fm strict instrumental pool is empty [${contextLabel}]`);
       }
     }
 

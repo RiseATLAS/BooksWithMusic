@@ -1137,7 +1137,9 @@ export class SpotifyAPI {
     let filteredByInstrumentalCount = 0;
 
     if (instrumentalOnly) {
-      let lowVocalCandidates = candidatePool.filter((track) => this._isLikelyInstrumental(track));
+      const isLowVocalAcceptable = (track) =>
+        this._isLikelyInstrumental(track) || !this._isLikelyVocalTrack(track);
+      let lowVocalCandidates = candidatePool.filter((track) => isLowVocalAcceptable(track));
       filteredByInstrumentalCount = candidatePool.length - lowVocalCandidates.length;
 
       // If exact metadata resolves only to likely vocal songs, run one extra
@@ -1159,7 +1161,7 @@ export class SpotifyAPI {
           }
         });
 
-        lowVocalCandidates = [...deduped.values()].filter((track) => this._isLikelyInstrumental(track));
+        lowVocalCandidates = [...deduped.values()].filter((track) => isLowVocalAcceptable(track));
         filteredByInstrumentalCount = deduped.size - lowVocalCandidates.length;
       }
 
@@ -1170,7 +1172,7 @@ export class SpotifyAPI {
         if (returnDiagnostics) {
           return {
             track: null,
-            reason: 'instrumental-filtered',
+            reason: 'low-vocal-filtered',
             details: {
               exactMatchCount: exactMatches.length,
               instrumentalMatchCount,

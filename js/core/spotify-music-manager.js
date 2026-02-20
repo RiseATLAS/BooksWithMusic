@@ -483,7 +483,7 @@ export class SpotifyMusicManager {
     const orderedResolvedTracks = [];
     const usedSpotifyTrackIds = new Set();
     const usedTrackSignatures = new Set();
-    const maxFreshResolveLookups = Math.max(4, Math.min(candidateLimit, perProfileLimit + 2));
+    const maxFreshResolveLookups = candidateLimit;
     let freshResolveLookups = 0;
     const unresolvedSamples = [];
     const diagnostics = {
@@ -625,7 +625,7 @@ export class SpotifyMusicManager {
       console.error(`❌ Last.fm profile keywords [${contextLabel}]: [${topKeywords}]`);
       if (unresolvedSamples.length > 0) {
         const unresolvedSampleText = unresolvedSamples
-          .map((item) => `${item.title} — ${item.artist} (confidence=${Math.round(item.confidence)}%, reason=${item.reason})`)
+          .map((item) => `${item.title} — ${item.artist} (score=${item.confidence.toFixed(2)}, reason=${item.reason})`)
           .join(' | ');
         console.error(`❌ Last.fm unresolved samples [${contextLabel}]: ${unresolvedSampleText}`);
       }
